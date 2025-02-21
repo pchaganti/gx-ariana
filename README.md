@@ -1,4 +1,4 @@
-# Ariana [Issues repository]
+# Ariana
 
 [Ariana](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana&ssr=false#overview) is a tool to debug your JS/TS/Python code in development way faster than with a traditional debugger or `console.log` statements.
 
