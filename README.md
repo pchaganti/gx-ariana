@@ -2,7 +2,11 @@
 
 [Ariana](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana&ssr=false#overview) is a tool to debug your JS/TS/Python code in development way faster than with a traditional debugger or `console.log` statements.
 
-It automatically gathers debugging information while your JS/TS code is running and overlays it on top of your code.
+**Features:**
+
+- 📑 Overlay recent execution traces on top of your code
+- 🕵️ Inspect what values expressions from your code were evaluated to
+- ⏱️ See how long it took for any segment in your code to run
 
 *Please note this repository is just for issues on the Ariana vscode extension*
 
