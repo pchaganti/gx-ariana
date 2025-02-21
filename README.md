@@ -4,9 +4,9 @@
 
 **Features:**
 
-- 📑 Overlay recent execution traces on top of your code
-- 🕵️ Inspect what values expressions from your code were evaluated to
-- ⏱️ See how long it took for any segment in your code to run
+- 📑 Overlay **recent execution traces** on top of your code
+- 🕵️ Inspect **values taken by expressions** in your code 
+- ⏱️ See **how long** it took for any expression in your code to run
 
 *Please note this repository is just for issues on the Ariana vscode extension*
 
@@ -46,9 +46,3 @@
 | | Vue/Svelte/Angular | ❌ Not supported (yet) |
 | **Other Languages** | | |
 | Python | All platforms | 🚧 In development |
-
-## Release Notes
-
-### 0.0.1
-
-Initial beta release
