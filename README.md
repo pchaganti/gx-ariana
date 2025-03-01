@@ -1,6 +1,6 @@
 # [Ariana](https://ariana.dev)
 
-Ariana is a tool to debug your JS/TS code in development way faster than with a traditional debugger or `console.log` statements.
+Ariana is an IDE extension and CLI tool to debug your JS/TS code in development way faster than with a traditional debugger or `console.log` statements.
 
 **Features:**
 
@@ -8,49 +8,71 @@ Ariana is a tool to debug your JS/TS code in development way faster than with a 
 - 🕵️ Inspect **values taken by expressions** in your code 
 - ⏱️ See **how long** it took for any expression in your code to run
 
-*Please note this repository is just for issues on the Ariana vscode extension*
-
 ## How to use
 
-*Optional: Clone this simple node.js repository if you just want to try out Ariana first:*
+#### 1) 💾 Install the `ariana` CLI
 
+With npm:
+
+```bash
+npm install -g ariana
 ```
-git clone https://github.com/dedale-dev/node-hello.git
-cd node-hello
-npm i
+
+With pip:
+
+```bash
+pip install ariana
 ```
 
-#### 1) ✨ Run your codebase's `package.json` commands with the Ariana left-side panel, no setup required.
+#### 2) ✨ Run supported code as you would from the command line but with the `ariana` command along side it
 
-![Demo part 1](https://github.com/dedale-dev/.github/blob/main/demo_part1_v2.gif?raw=true)
+```bash
+ariana <run command>
+```
 
-#### 2) 👾 Get instant debugging information "traces" from your code files after they got ran by pressing `ctrl + shift + p` and searching for the `Ariana: Toggle Traced Expressions Highlighting` command.
-   
+For example, on a Node.js codebase it could be:
+
+```bash
+ariana npm run dev
+```
+
+#### 3) 👾 In your IDE, get instant debugging information in your code files.
+
+You can install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.
+
+- Open a code file, press `ctrl + shift + p` and search for the `Ariana: Toggle Traced Expressions Highlighting` command.
 - 🗺️ Know which code segments got ran and which didn't
 - 🕵️ Inspect the values that were taken by any expression in your code
 
 ![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
 
-#### 3) And voilà! 🥳 No debugger or `console.log` needed anymore in development
+*Optional: If you just want to try out Ariana on example piece of code before using it on your own code, you can do this:*
 
-![Demo part 3](https://github.com/dedale-dev/.github/blob/main/demo_part2_1.gif?raw=true)
+```
+git clone https://github.com/dedale-dev/node-hello.git
+cd node-hello
+npm i
+ariana npm run start
+```
 
-**😵‍💫 Ran into an issue? Need help?** Shoot us [an issue on GitHub](https://github.com/dedale-dev/ariana/issues) or join [our Discord community](https://discord.gg/kX7r6b5dpN) to get help!
+## Troubleshooting / Help
+
+😵‍💫 Ran into an issue? Need help? Shoot us [an issue on GitHub](https://github.com/dedale-dev/ariana/issues) or join [our Discord community](https://discord.gg/Y3TFTmE89g) to get help!
 
 ## Requirements
 
 ### For JavaScript/TypeScript codebases
 
 - A JS/TS node.js/browser codebase with a `package.json`
-- Node.js with the `node` command available
+- The `ariana` command installed with `npm install -g ariana` (or any other installation method)
 
 ## Supported languages/tech
 
 | Language | Platform/Framework | Status |
 |----------|-------------------|---------|
 | JavaScript/TypeScript | Node.js | ✅ Supported |
+| | Bun | ✅ Supported |
 | | Deno | ⚗️ Experimental |
-| | Bun | ❌ Not supported (yet) |
 | **Browser Frameworks** | | |
 | JavaScript/TypeScript | React | ⚗️ Experimental |
 | | JQuery/Vanilla JS | ✅ Supported |
@@ -60,28 +82,4 @@ npm i
 
 ## Code processing disclaimer
 
-We need to process (but never store!) your JS/TS code files on our server based in EU in order to have Ariana work with it. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/kX7r6b5dpN).
-
-## Release Notes
-
-### 0.5.2
-
-Added new tutorial gif that noticeably showcases the Ariana side panel button.
-
-Improved the README overall, added example codebase and data disclaimer.
-
-### 0.5.1
-
-Removed python from the description because it is kinda missleading.
-
-### 0.5
-
-Made the extension compatible with VSCode ^1.94.0 (therefore more VSCode forks such as Windsurf)
-
-### 0.1.0 to 0.4.0
-
-Minor documentation tweaks.
-
-### 0.0.1
-
-Initial beta release
+We need to process (but never store!) your JS/TS code files on our server based in EU in order to have Ariana work with it. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
