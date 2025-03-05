@@ -1,14 +1,27 @@
-# [Ariana](https://ariana.dev)
+<div align="center">
+  <div align="center">
+  <h1>Ariana: Spy on your code</h1>
+    <img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800">
+  <a href="https://discord.gg/Y3TFTmE89g"><img src="https://img.shields.io/discord/1312017605955162133?style=for-the-badge&color=7289da&label=Discord&logo=discord&logoColor=ffffff" alt="Join our Discord"></a>
+  <a href="https://twitter.com/anic_dev"><img src="https://img.shields.io/badge/Follow-@anic_dev-black?style=for-the-badge&logo=x&logoColor=white" alt="Follow us on X"></a>
+  <br/>
+  <a href="https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana"><img src="https://img.shields.io/visual-studio-marketplace/v/dedale-dev.ariana?style=for-the-badge&label=VS%20Code&logo=visualstudiocode&logoColor=white&color=0066b8" alt="VS Code Extension"></a>
+  <a href="https://ariana.dev"><img src="https://img.shields.io/badge/Website-ariana.dev-blue?style=for-the-badge&color=FF6B6B" alt="Website"></a>
+  <a href="https://github.com/dedale-dev/ariana/issues"><img src="https://img.shields.io/github/issues/dedale-dev/ariana?style=for-the-badge&logo=github&color=4CAF50" alt="GitHub Issues"></a>
+  <hr>
+  </div>
+</div>
 
-Ariana is an IDE extension and CLI tool to debug your JS/TS code in development way faster than with a traditional debugger or `console.log` statements.
+Ariana is an IDE extension and CLI tool to understand what your JS, TS and Python code does when it runs in development way faster than with a traditional debugger or with `print()` or `console.log()`.
 
-**Features:**
+## ✨ Key Features
 
-- 📑 Overlay **recent execution traces** on top of your code
-- 🕵️ Inspect **values taken by expressions** in your code 
-- ⏱️ See **how long** it took for any expression in your code to run
+Just by running your code with the `ariana` CLI and by using the Ariana VSCode extension, you can:
+- 🕵️ Inspect the **last values taken by any expression** in your code just by hovering it.
+- ⏱️ See **how long** it took for any expression in your code to run.
+- 🧵 *Feed traces* ***to Copilot/Cursor*** *via MCP so they can know everything that happened when your code ran.* (soon) 
 
-## How to use
+## 📖 How to use
 
 #### 1) 💾 Install the `ariana` CLI
 
@@ -30,10 +43,16 @@ pip install ariana
 ariana <run command>
 ```
 
-For example, on a Node.js codebase it could be:
+For example, on a JS/TS codebase it could be:
 
 ```bash
 ariana npm run dev
+```
+
+... and on a Python codebase it could be:
+
+```bash
+ariana python myscript.py --some-options-maybe
 ```
 
 #### 3) 👾 In your IDE, get instant debugging information in your code files.
@@ -61,24 +80,29 @@ ariana npm run start
 
 ## Requirements
 
-### For JavaScript/TypeScript codebases
+### For JavaScript/TypeScript
 
 - A JS/TS node.js/browser codebase with a `package.json`
 - The `ariana` command installed with `npm install -g ariana` (or any other installation method)
 
-## Supported languages/tech
+### For Python
 
+- Some Python `>= 3.9` code files (Notebooks not supported yet)
+- The `ariana` command installed with `pip install ariana` **outside of a virtual environment** (or any other installation method)
+
+## Supported languages/tech
 | Language | Platform/Framework | Status |
 |----------|-------------------|---------|
 | JavaScript/TypeScript | Node.js | ✅ Supported |
 | | Bun | ✅ Supported |
-| | Deno | ⚗️ Experimental |
+| | Deno | ⚗️ Might work |
 | **Browser Frameworks** | | |
-| JavaScript/TypeScript | React | ⚗️ Experimental |
+| JavaScript/TypeScript | React & `.jsx` / `.tsx` | ✅ Supported |
 | | JQuery/Vanilla JS | ✅ Supported |
-| | Vue/Svelte/Angular | ❌ Not supported (yet) |
+| | Vue/Svelte/Angular | ❌ Only `.js` / `.ts` |
 | **Other Languages** | | |
-| Python | All platforms | 🚧 In development |
+| Python | Scripts / Codebases | ✅ Supported |
+| | Jupyter Notebooks | ❌ Not supported (yet) |
 
 ## Code processing disclaimer
 
