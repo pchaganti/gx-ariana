@@ -1,13 +1,17 @@
 <div align="center">
   <div align="center">
   <h1>Ariana: Spy on your code</h1>
-  <div align="center"><img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800"></div>
+  <div align="center">
+    <img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800">
+  </div>
   <a href="https://discord.gg/Y3TFTmE89g"><img src="https://img.shields.io/discord/1312017605955162133?style=for-the-badge&color=7289da&label=Discord&logo=discord&logoColor=ffffff" alt="Join our Discord"></a>
   <a href="https://twitter.com/anic_dev"><img src="https://img.shields.io/badge/Follow-@anic_dev-black?style=for-the-badge&logo=x&logoColor=white" alt="Follow us on X"></a>
   <br/>
   <a href="https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana"><img src="https://img.shields.io/visual-studio-marketplace/v/dedale-dev.ariana?style=for-the-badge&label=VS%20Code&logo=visualstudiocode&logoColor=white&color=0066b8" alt="VS Code Extension"></a>
   <a href="https://ariana.dev"><img src="https://img.shields.io/badge/Website-ariana.dev-blue?style=for-the-badge&color=FF6B6B" alt="Website"></a>
   <a href="https://github.com/dedale-dev/ariana/issues"><img src="https://img.shields.io/github/issues/dedale-dev/ariana?style=for-the-badge&logo=github&color=4CAF50" alt="GitHub Issues"></a>
+  <a href="https://www.npmjs.com/package/ariana"><img alt="NPM Downloads" src="https://img.shields.io/npm/dt/ariana?style=for-the-badge&logo=npm&color=CB3837"></a>
+  <a href="https://pypi.org/project/ariana"><img alt="PyPI Downloads" src="https://img.shields.io/pypi/dm/ariana?style=for-the-badge&logo=pypi&color=0086b8"></a>
   <hr>
   </div>
 </div>
