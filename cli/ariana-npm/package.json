@@ -1,0 +1,21 @@
+{
+  "name": "ariana",
+  "version": "0.2.1",
+  "description": "Ariana CLI - A tool for code instrumentalization and execution with observability",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dedale-dev/ariana.git"
+  },
+  "homepage": "https://ariana.dev",
+  "bin": {
+    "ariana": "./ariana.js"
+  },
+  "scripts": {
+    "postinstall": "node ./ariana.js install"
+  },
+  "files": [
+    "bin/",
+    "ariana.js"
+  ]
+}

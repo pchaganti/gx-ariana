@@ -1,0 +1,6 @@
+out/
+node_modules/
+pnpm-lock.yaml
+*.vsix
+.ariana/
+.ariana.json

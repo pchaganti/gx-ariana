@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+
+const { execFileSync, spawnSync, spawn } = require('child_process');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
+
+const platform = os.platform();
+const arch = os.arch();
+
+let binaryName;
+if (platform === 'linux' && arch === 'x64') {
+  binaryName = 'ariana-linux-x64';
+} else if (platform === 'darwin') {
+  if (arch === 'arm64') {
+    binaryName = 'ariana-macos-arm64';
+  } else if (arch === 'x64') {
+    binaryName = 'ariana-macos-x64';
+  } else {
+    console.error('Unsupported macOS architecture');
+    process.exit(1);
+  }
+} else if (platform === 'win32' && arch === 'x64') {
+  binaryName = 'ariana-windows-x64.exe';
+} else {
+  console.error('Unsupported platform or architecture');
+  process.exit(1);
+}
+
+const binaryPath = path.join(__dirname, 'bin', binaryName);
+
+// Print some diagnostic info
+function printBinaryInfo() {
+  console.log('Ariana binary information:');
+  console.log(`Binary path: ${binaryPath}`);
+  console.log(`Platform: ${platform}, Architecture: ${arch}`);
+  try {
+    const stats = fs.statSync(binaryPath);
+    console.log(`Binary exists: Yes, Size: ${stats.size} bytes, Mode: ${stats.mode.toString(8)}`);
+  } catch (err) {
+    console.log(`Binary exists: No (${err.message})`);
+  }
+}
+
+if (process.argv[2] === 'install') {
+  // Set executable permissions on Unix-like systems
+  if (platform === 'linux' || platform === 'darwin') {
+    try {
+      fs.chmodSync(binaryPath, 0o755);  // rwxr-xr-x
+      console.log(`Set executable permissions on ${binaryPath}`);
+    } catch (err) {
+      console.warn(`Warning: Could not set execute permissions on ${binaryPath}: ${err.message}`);
+      console.warn('The binary might already be executable or permissions might be restricted.');
+      // Continue anyway, as the binary might still be executable
+    }
+  }
+  
+  // Print diagnostic info during install
+  printBinaryInfo();
+  
+  console.log('ariana binary installed successfully');
+  process.exit(0);
+}
+
+try {
+  const args = process.argv.slice(2);
+  
+  // Use different execution strategies depending on platform
+  if (platform === 'win32') {
+    // On Windows, execFileSync works well
+    try {
+      execFileSync(binaryPath, args, { stdio: 'inherit' });
+    } catch (err) {
+      console.error('Error running ariana:', err.message);
+      console.log('Detailed error:', err);
+      process.exit(1);
+    }
+  } else if (platform === 'darwin') {
+    // On macOS, try various methods starting with the most reliable
+    console.log(`Executing on macOS: ${binaryPath} with args: ${args.join(' ')}`);
+    
+    // Method 1: Try /usr/bin/env approach (works well with macOS security)
+    try {
+      const allArgs = [binaryPath].concat(args);
+      const childProcess = spawn('/usr/bin/env', allArgs, {
+        stdio: 'inherit'
+      });
+      
+      childProcess.on('error', (err) => {
+        console.warn(`Warning: /usr/bin/env method failed: ${err.message}`);
+        console.warn('Trying alternate method...');
+        
+        // Method 2: Try with shell: true as fallback
+        const shellProcess = spawn(binaryPath, args, {
+          stdio: 'inherit',
+          shell: true
+        });
+        
+        shellProcess.on('error', (shellErr) => {
+          console.error(`Error starting process with shell: ${shellErr.message}`);
+          printBinaryInfo();
+          process.exit(1);
+        });
+        
+        shellProcess.on('exit', (code) => {
+          process.exit(code || 0);
+        });
+      });
+      
+      childProcess.on('exit', (code) => {
+        process.exit(code || 0);
+      });
+    } catch (err) {
+      console.error(`All execution methods failed for macOS: ${err.message}`);
+      printBinaryInfo();
+      process.exit(1);
+    }
+  } else {
+    // On Linux, use spawn with shell: true
+    console.log(`Executing on Linux: ${binaryPath} with args: ${args.join(' ')}`);
+    
+    const childProcess = spawn(binaryPath, args, {
+      stdio: 'inherit',
+      shell: true
+    });
+    
+    childProcess.on('error', (err) => {
+      console.error(`Error starting process: ${err.message}`);
+      printBinaryInfo();
+      process.exit(1);
+    });
+    
+    childProcess.on('exit', (code) => {
+      process.exit(code || 0);
+    });
+  }
+} catch (err) {
+  console.error('Error running ariana:', err.message);
+  printBinaryInfo();
+  process.exit(1);
+}

@@ -1,0 +1,6 @@
+#!/bin/sh
+cp README.md extensions/vscode/README.md
+cp README.md cli/ariana-py/README.md
+cp README.md cli/ariana-npm/README.md
+cp README.md ../dedale-ariana/README.md
+git add extensions/vscode/README.md cli/ariana-py/README.md cli/ariana-npm/README.md
