@@ -59,8 +59,6 @@ ariana npm run dev
 ariana python myscript.py --some-options-maybe
 ```
 
-This will instrumentize your code files using our specialized parsers & specialized small language models, which requires processing your files on our server (but never store them!). We know it might be a big no no for some of you, so we will release a docker self-hosted version of our server very soon. See [Code Processing Disclaimer](#code-processing-disclaimer).
-
 #### 3) 👾 In your IDE, get instant debugging information in your code files.
 
 You can install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.
@@ -112,4 +110,10 @@ ariana npm run start
 
 ## Code processing disclaimer
 
-We need to process (but never store!) your JS/TS code files on our server based in EU in order to have Ariana work with it. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance as well as a docker self-hosted version of our server. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
+We need to process (but never store!) your JS/TS code files on our server based in EU in order to have Ariana work with it. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
+
+## Licence
+
+Ariana is released under AGPLv3. See [LICENCE.txt](LICENCE.txt) for more details.
+
+tl;dr: If you use Ariana as intended, which means in development, this is nothing to worry about as you don't technically bundle Ariana with your released code. If you use it in your production code, whether deployed on a server or on the end-user's machine in a code or binary format, your code needs to be available to the public under the same licence. We can lift that requirement upon request, even for free if your project is small. Please [let us know](mailto:an.nougaret@gmail.com).
