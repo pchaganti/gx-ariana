@@ -142,7 +142,7 @@ def create_npm_package():
   "name": "ariana",
   "version": "{VERSION}",
   "description": "Ariana CLI - A tool for code instrumentalization and execution with observability",
-  "license": "BSD-3-Clause",
+  "license": "AGPL-3.0-only",
   "repository": {{
     "type": "git",
     "url": "https://github.com/dedale-dev/ariana.git"
@@ -398,7 +398,7 @@ setup(
             'ariana = ariana:main',
         ],
     }},
-    license='BSD-3-Clause',
+    license='AGPL-3.0-only',
     url='https://github.com/dedale-dev/ariana',
 )
 ''')
