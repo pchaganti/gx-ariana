@@ -3,6 +3,4 @@ target/
 result*.txt
 .dedale*
 Cargo.lock
-ariana-npm/bin/
-ariana-py/ariana/bin/
 ariana-py/*.egg-info/
