@@ -121,16 +121,13 @@ async fn run_main(cli: Cli) -> Result<()> {
         let _ = watch_traces(&trace_dir, &api_url, &vault_key, &mut stop_rx).await;
     });
 
-    // create a simple channel
-    let (tx, mut rx) = mpsc::channel::<()>(1);
-
     // Prepare the command to run
     let mut command_args = cli.command.clone();
     let command = command_args.remove(0);
     
     println!("[Ariana] Running command in {}/ : {} {}", working_dir.file_name().unwrap().to_str().unwrap(), command, command_args.join(" "));
     if !cli.inplace {
-        println!("[Ariana] To run the command in the original directory, use the --inplace flag (in that case it will temporarily edit the original files and then restore them).");
+        println!("[Ariana] tip: To run the command in the original directory, use the --inplace flag (in that case original files will be temporarily edited and then restored).");
     }
 
     let running = Arc::new(AtomicBool::new(true));
@@ -138,62 +135,53 @@ async fn run_main(cli: Cli) -> Result<()> {
 
     // Execute the command in the working directory
     let status = if cfg!(windows) {
-        Command::new("cmd")
+        tokio::process::Command::new("cmd")
             .args(&["/C", &command])
             .args(&command_args)
             .current_dir(&working_dir)
             .env("TRACE_DIR", TRACE_DIR)
-            .status()?
+            .status()
     } else {
-        Command::new(&command)
+        tokio::process::Command::new(&command)
             .args(&command_args)
             .current_dir(&working_dir)
             .env("TRACE_DIR", TRACE_DIR)
-            .status()?
+            .status()
     };
     
-    ctrlc::set_handler(move || {
+    let _ = ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
-
-        let stop_tx = stop_tx.clone();
-        let active_flag = active_flag.clone();
-        let working_dir = working_dir.clone();
-        let ariana_dir = ariana_dir.clone();
-        let trace_watcher = trace_watcher.clone();
-        async move {
-            println!("[Ariana] Command status: {:?}", status);
-        
-            // Stop the trace watcher
-            let _ = stop_tx.send(()).await;
-        
-            // wait for 3 seconds
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            
-            // Clean up
-            let _ = tokio::fs::remove_file(active_flag).await;
-            
-            // Wait for the trace watcher to complete
-            let _ = trace_watcher.await;
-        
-            // If running in-place, restore original files
-            if cli.inplace {
-                restore_from_backup(&working_dir, &ariana_dir)?;
-                // Don't delete the backup directory, just in case
-                println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}", ariana_dir.display());
-            }
-            
-            cleanup_traces_active(&current_dir)?;
-        
-            // Exit with the same status code as the command
-            if !status.success() {
-                exit(status.code().unwrap_or(1));
-            }
-
-            Result::<()>::Ok(())
-        };
     });
 
-    while running.load(Ordering::SeqCst) {}
+    let status = status.await?;
+
+    println!("[Ariana] Command status: {:?}", status);
+        
+    // Stop the trace watcher
+    let _ = stop_tx.send(()).await;
+
+    // wait for 3 seconds
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    
+    // Clean up
+    let _ = tokio::fs::remove_file(active_flag).await;
+    
+    // Wait for the trace watcher to complete
+    let _ = trace_watcher.await;
+
+    // If running in-place, restore original files
+    if cli.inplace {
+        restore_from_backup(&working_dir, &ariana_dir)?;
+        // Don't delete the backup directory, just in case
+        println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}", ariana_dir.display());
+    }
+    
+    cleanup_traces_active(&current_dir)?;
+
+    // Exit with the same status code as the command
+    if !status.success() {
+        exit(status.code().unwrap_or(1));
+    }
 
     Ok(())
 }
@@ -243,7 +231,7 @@ async fn watch_traces(
                 }
 
                 if stop_requested {
-                    println!("[Ariana] Stop requested, waiting for a few seconds to send remaining traces...");
+                    println!("[Ariana] Stop requested, waiting for a few seconds to process remaining traces...");
                 }
                 
                 // Process all trace files concurrently
@@ -304,7 +292,7 @@ async fn process_trace(
         .await?;
     
     if !response.status().is_success() {
-        return Err(anyhow!("Failed to send trace: HTTP {}", response.status()));
+        return Err(anyhow!("Failed to process trace: {}", response.status()));
     }
     
     Ok(())
@@ -489,6 +477,8 @@ async fn process_directory(
                     // Just copy non-JS/TS files when not in-place
                     fs::copy(&entry_path, &dest_path)?;
                 }
+            } else {
+                fs::copy(&entry_path, &dest_path)?;
             }
         }
     }
@@ -594,7 +584,7 @@ async fn instrument_file(
 }
 
 async fn add_to_gitignore(project_root: &Path) -> Result<()> {
-    println!("[Ariana] Adding .ariana/ to .gitignore...");
+    println!("[Ariana] Adding ariana temporary files & secrets to .gitignore...");
     
     // Find the nearest .gitignore file
     let gitignore_path = find_nearest_gitignore(project_root)?;
