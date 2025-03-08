@@ -4,3 +4,4 @@ result*.txt
 .dedale*
 Cargo.lock
 ariana-py/*.egg-info/
+.ariana-saved-traces/

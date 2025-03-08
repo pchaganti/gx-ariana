@@ -26,7 +26,7 @@ use ctrlc;
 #[derive(Parser)]
 #[command(
     version, 
-    about = "Ariana CLI - A tool for code instrumentalization and execution with observability"
+    about = "Ariana CLI - Instrumentalize your code to collect Ariana traces while it runs."
 )]
 
 struct Cli {
@@ -34,9 +34,17 @@ struct Cli {
     #[arg(long, default_value_t = if cfg!(debug_assertions) { "http://localhost:8080/".to_string() } else { "https://api.ariana.dev/".to_string() })]
     api_url: String,
 
-    /// Run instrumentation in the original code files instead of within a copy of them under .ariana. PS: this will still backup and try to restore the original files, whether the command fails abruptly or gracefully
+    /// Instrumentalize the original code files instead of a copy of them under .ariana. PS: this will still backup and try to restore the original files, whether the command fails abruptly or gracefully
     #[arg(long)]
     inplace: bool,
+
+    /// Also save traces locally under .ariana_saved_traces instead of deleting them after sending & saving them to the Ariana server
+    #[arg(long)]
+    save_local: bool,
+
+    /// Only save traces locally under .ariana_saved_traces, do not send & save them to the Ariana server. (This will still send your code to the server for instrumentation)
+    #[arg(long)]
+    only_local: bool,
 
     /// The command to execute in the instrumented code directory
     #[arg(required = true, trailing_var_arg = true)]
@@ -45,6 +53,7 @@ struct Cli {
 
 const TRACE_DIR: &str = ".traces";
 const ARIANA_DIR: &str = ".ariana";
+const SAVED_TRACES_DIR: &str = ".ariana_saved_traces";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -117,8 +126,10 @@ async fn run_main(cli: Cli) -> Result<()> {
     // Start trace watcher in a separate task
     let (stop_tx, mut stop_rx) = mpsc::channel::<()>(1);
     let api_url = cli.api_url.clone();
+    let save_local = cli.save_local || cli.only_local;
+    let only_local = cli.only_local;
     let trace_watcher = spawn(async move {
-        let _ = watch_traces(&trace_dir, &api_url, &vault_key, &mut stop_rx).await;
+        let _ = watch_traces(&trace_dir, &api_url, &vault_key, &mut stop_rx, save_local, only_local).await;
     });
 
     // Prepare the command to run
@@ -190,12 +201,23 @@ async fn watch_traces(
     trace_dir: &Path,
     api_url: &str,
     vault_key: &str,
-    stop_rx: &mut mpsc::Receiver<()>
+    stop_rx: &mut mpsc::Receiver<()>,
+    save_local: bool,
+    only_local: bool,
 ) -> Result<()> {
     let mut interval = interval(Duration::from_millis(500));
     
     let mut stop_requested = false;
     let mut stop_time = None;
+
+    // Create saved traces directory if needed
+    let saved_traces_dir = if save_local {
+        let dir = Path::new(".").join(SAVED_TRACES_DIR).join(vault_key);
+        create_dir_all(&dir).await?;
+        Some(dir)
+    } else {
+        None
+    };
 
     loop {
         tokio::select! {
@@ -239,15 +261,24 @@ async fn watch_traces(
                     let file_path = file.path();
                     let api_url = api_url.to_string();
                     let vault_key = vault_key.to_string();
+                    let saved_traces_dir = saved_traces_dir.clone();
                     async move {
-                        match process_trace(&file_path, &api_url, &vault_key).await {
-                            Ok(_) => {
-                                if let Err(e) = fs::remove_file(&file_path) {
-                                    eprintln!("[Ariana] Error deleting processed trace {}: {}", file_path.display(), e);
+                        if !only_local {
+                            match process_trace(&file_path, &api_url, &vault_key).await {
+                                Ok(_) => {},
+                                Err(e) => {
+                                    eprintln!("[Ariana] Error processing trace {}: {}", file_path.display(), e);
                                 }
-                            },
-                            Err(e) => {
-                                eprintln!("[Ariana] Error processing trace {}: {}", file_path.display(), e);
+                            };
+                        }
+
+                        if let Some(saved_traces_dir) = saved_traces_dir {
+                            if let Err(e) = save_trace_locally(&file_path, &saved_traces_dir) {
+                                eprintln!("[Ariana] Error saving trace to {}: {}", saved_traces_dir.display(), e);
+                            }
+                        } else {
+                            if let Err(e) = fs::remove_file(&file_path) {
+                                eprintln!("[Ariana] Error deleting processed trace {}: {}", file_path.display(), e);
                             }
                         }
                     }
@@ -261,6 +292,25 @@ async fn watch_traces(
             }
         }
     }
+
+    Ok(())
+}
+
+fn save_trace_locally(
+    trace_path: &Path,
+    saved_traces_dir: &Path
+) -> Result<()> {
+    let new_path = saved_traces_dir.join(trace_path.file_name().unwrap());
+
+    let content = fs::read_to_string(trace_path)?;
+    let trace_data: serde_json::Value = serde_json::from_str(&content)?;
+
+    // Extract trace from the trace file
+    let trace = serde_json::from_value::<Trace>(trace_data["trace"].clone())
+        .map_err(|e| anyhow!("Failed to parse trace data: {}", e))?;
+
+    // Just save the trace to the new path
+    fs::write(&new_path, serde_json::to_string_pretty(&trace).unwrap())?;
 
     Ok(())
 }
@@ -588,7 +638,7 @@ async fn add_to_gitignore(project_root: &Path) -> Result<()> {
     
     // Find the nearest .gitignore file
     let gitignore_path = find_nearest_gitignore(project_root)?;
-    let entries_to_add = vec![".ariana/", ".ariana.json", ".vault_secret_key", ".traces/"];
+    let entries_to_add = vec![".ariana/", ".ariana.json", ".vault_secret_key", ".traces/", ".ariana_saved_traces/"];
     
     // Create a new .gitignore if none exists
     if gitignore_path.is_none() {
