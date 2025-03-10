@@ -169,10 +169,11 @@ async fn run_main(cli: Cli) -> Result<()> {
     println!("[Ariana] Command status: {:?}", status);
         
     // Stop the trace watcher
+    println!("[Ariana] Stopping trace watcher...");
     let _ = stop_tx.send(()).await;
 
-    // wait for 3 seconds
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    println!("[Ariana] Waiting for 10 seconds to process remaining traces...");
+    tokio::time::sleep(Duration::from_secs(10)).await;
     
     // Clean up
     let _ = tokio::fs::remove_file(active_flag).await;
@@ -247,6 +248,7 @@ async fn watch_traces(
                 if trace_files.len() == 0 && stop_requested {
                     if let Some(stop_time) = stop_time {
                         if tokio::time::Instant::now() >= stop_time {
+                            println!("[Ariana] All traces processed, exiting...");
                             break;
                         }
                     }
@@ -264,6 +266,7 @@ async fn watch_traces(
                     let saved_traces_dir = saved_traces_dir.clone();
                     async move {
                         if !only_local {
+                            println!("[Ariana] Processing trace in {}", file_path.display());
                             match process_trace(&file_path, &api_url, &vault_key).await {
                                 Ok(_) => {},
                                 Err(e) => {
@@ -273,11 +276,11 @@ async fn watch_traces(
                         }
 
                         if let Some(saved_traces_dir) = saved_traces_dir {
-                            if let Err(e) = save_trace_locally(&file_path, &saved_traces_dir) {
+                            if let Err(e) = save_trace_locally(&file_path, &saved_traces_dir).await {
                                 eprintln!("[Ariana] Error saving trace to {}: {}", saved_traces_dir.display(), e);
                             }
                         } else {
-                            if let Err(e) = fs::remove_file(&file_path) {
+                            if let Err(e) = tokio::fs::remove_file(&file_path).await {
                                 eprintln!("[Ariana] Error deleting processed trace {}: {}", file_path.display(), e);
                             }
                         }
@@ -288,7 +291,8 @@ async fn watch_traces(
             }
             _ = stop_rx.recv() => {
                 stop_requested = true;
-                stop_time = Some(tokio::time::Instant::now() + Duration::from_secs(3));
+                println!("[Ariana] Stop requested, starting timer");
+                stop_time = Some(tokio::time::Instant::now() + Duration::from_secs(10));
             }
         }
     }
@@ -296,13 +300,13 @@ async fn watch_traces(
     Ok(())
 }
 
-fn save_trace_locally(
+async fn save_trace_locally(
     trace_path: &Path,
     saved_traces_dir: &Path
 ) -> Result<()> {
     let new_path = saved_traces_dir.join(trace_path.file_name().unwrap());
 
-    let content = fs::read_to_string(trace_path)?;
+    let content = tokio::fs::read_to_string(trace_path).await?;
     let trace_data: serde_json::Value = serde_json::from_str(&content)?;
 
     // Extract trace from the trace file
@@ -310,7 +314,7 @@ fn save_trace_locally(
         .map_err(|e| anyhow!("Failed to parse trace data: {}", e))?;
 
     // Just save the trace to the new path
-    fs::write(&new_path, serde_json::to_string_pretty(&trace).unwrap())?;
+    tokio::fs::write(&new_path, serde_json::to_string_pretty(&trace).unwrap()).await?;
 
     Ok(())
 }
@@ -320,7 +324,7 @@ async fn process_trace(
     api_url: &str,
     vault_key: &str
 ) -> Result<()> {
-    let content = fs::read_to_string(trace_path)?;
+    let content = tokio::fs::read_to_string(trace_path).await?;
     let trace_data: serde_json::Value = serde_json::from_str(&content)?;
 
     // Extract trace from the trace file
@@ -557,7 +561,7 @@ async fn process_directory(
 }
 
 fn should_skip_directory(dir_name: &str) -> bool {
-    let skip_list = ["node_modules", ".git", ".ariana", "dist", "build", "target"];
+    let skip_list = ["node_modules", ".git", ".ariana", "dist", "build", "target", ".ariana_saved_traces", ".traces"];
     skip_list.contains(&dir_name)
 }
 

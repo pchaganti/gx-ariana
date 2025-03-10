@@ -245,8 +245,6 @@ try {
     try {
       execFileSync(binaryPath, args, { stdio: 'inherit' });
     } catch (err) {
-      console.error('Error running ariana:', err.message);
-      console.log('Detailed error:', err);
       process.exit(1);
     }
   } else if (platform === 'darwin') {
@@ -381,7 +379,6 @@ def main():
     try:
         subprocess.run([binary] + sys.argv[1:], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error running ariana: {{e}}")
         sys.exit(1)
 
 if __name__ == '__main__':
