@@ -266,7 +266,6 @@ async fn watch_traces(
                     let saved_traces_dir = saved_traces_dir.clone();
                     async move {
                         if !only_local {
-                            println!("[Ariana] Processing trace in {}", file_path.display());
                             match process_trace(&file_path, &api_url, &vault_key).await {
                                 Ok(_) => {},
                                 Err(e) => {
