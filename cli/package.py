@@ -164,7 +164,11 @@ def create_npm_package():
     "postinstall": "node ./ariana.js install"
   }},
   "files": [
-    "bin/",
+    "bin",
+    "bin/ariana-linux-x64",
+    "bin/ariana-macos-x64",
+    "bin/ariana-macos-arm64",
+    "bin/ariana-windows-x64.exe",
     "ariana.js"
   ]
 }}
@@ -245,6 +249,7 @@ try {
     try {
       execFileSync(binaryPath, args, { stdio: 'inherit' });
     } catch (err) {
+      console.error(err.message);
       process.exit(1);
     }
   } else if (platform === 'darwin') {

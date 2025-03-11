@@ -41,7 +41,6 @@ def main():
     try:
         subprocess.run([binary] + sys.argv[1:], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error running ariana: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':

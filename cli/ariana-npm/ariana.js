@@ -71,8 +71,7 @@ try {
     try {
       execFileSync(binaryPath, args, { stdio: 'inherit' });
     } catch (err) {
-      console.error('Error running ariana:', err.message);
-      console.log('Detailed error:', err);
+      console.error(err.message);
       process.exit(1);
     }
   } else if (platform === 'darwin') {

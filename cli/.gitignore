@@ -5,3 +5,9 @@ result*.txt
 Cargo.lock
 ariana-py/*.egg-info/
 .ariana-saved-traces/
+ariana-npm/*.tgz
+# Ignore symlinked server directory (absolute and relative paths)
+server
+/server
+/cli/server
+server/
