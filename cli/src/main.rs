@@ -128,7 +128,7 @@ async fn run_main(cli: Cli) -> Result<()> {
     let api_url = cli.api_url.clone();
     let save_local = cli.save_local || cli.only_local;
     let only_local = cli.only_local;
-    let trace_watcher = spawn(async move {
+    let trace_watcher= spawn(async move {
         let _ = watch_traces(&trace_dir, &api_url, &vault_key, &mut stop_rx, save_local, only_local).await;
     });
 
@@ -139,7 +139,10 @@ async fn run_main(cli: Cli) -> Result<()> {
     println!("[Ariana] Running command in {}/ : {} {}", working_dir.file_name().unwrap().to_str().unwrap(), command, command_args.join(" "));
     if !cli.inplace {
         println!("[Ariana] tip: To run the command in the original directory, use the --inplace flag (in that case original files will be temporarily edited and then restored).");
+        println!("➡️    For more tips and features previews, join us on: https://discord.gg/Y3TFTmE89g")
     }
+
+    println!("\n\n\n");
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -166,13 +169,11 @@ async fn run_main(cli: Cli) -> Result<()> {
 
     let status = status.await?;
 
-    println!("[Ariana] Command status: {:?}", status);
-        
+    println!("\n\n\n");
+
     // Stop the trace watcher
-    println!("[Ariana] Stopping trace watcher...");
     let _ = stop_tx.send(()).await;
 
-    println!("[Ariana] Waiting for 10 seconds to process remaining traces...");
     tokio::time::sleep(Duration::from_secs(10)).await;
     
     // Clean up
@@ -210,6 +211,8 @@ async fn watch_traces(
     
     let mut stop_requested = false;
     let mut stop_time = None;
+    let mut stop_message_sent = false;
+    let mut sending = false;
 
     // Create saved traces directory if needed
     let saved_traces_dir = if save_local {
@@ -227,7 +230,13 @@ async fn watch_traces(
                 if !trace_dir.join(".active").exists() {
                     break;
                 }
+
+                if sending {
+                    println!("[Ariana] Already sending..");
+                    continue;
+                }
                 
+                sending = true;
                 // Find all trace files
                 let trace_files = match fs::read_dir(trace_dir) {
                     Ok(entries) => entries
@@ -254,8 +263,13 @@ async fn watch_traces(
                     }
                 }
 
-                if stop_requested {
-                    println!("[Ariana] Stop requested, waiting for a few seconds to process remaining traces...");
+                if stop_requested && !stop_message_sent {
+                    println!("[Ariana] Stop requested, waiting for a few seconds to process remaining traces. Please do not shutdown the process.");
+                    println!("[Ariana] ==================================");
+                    println!("❓    You can now open your IDE, use the Ariana extension and view the traces.\nSee how to do it: https://github.com/dedale-dev/ariana?tab=readme-ov-file#3--in-your-ide-get-instant-debugging-information-in-your-code-files");
+                    println!("🙏    Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
+                    println!("➡️    Join the Discord: https://discord.gg/Y3TFTmE89g");
+                    stop_message_sent = true;
                 }
                 
                 // Process all trace files concurrently
@@ -278,19 +292,19 @@ async fn watch_traces(
                             if let Err(e) = save_trace_locally(&file_path, &saved_traces_dir).await {
                                 eprintln!("[Ariana] Error saving trace to {}: {}", saved_traces_dir.display(), e);
                             }
-                        } else {
-                            if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                eprintln!("[Ariana] Error deleting processed trace {}: {}", file_path.display(), e);
-                            }
+                        }
+
+                        if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                            eprintln!("[Ariana] Error deleting processed trace {}: {}", file_path.display(), e);
                         }
                     }
                 }).collect();
 
                 futures::future::join_all(futures).await;
+                sending = false;
             }
             _ = stop_rx.recv() => {
                 stop_requested = true;
-                println!("[Ariana] Stop requested, starting timer");
                 stop_time = Some(tokio::time::Instant::now() + Duration::from_secs(10));
             }
         }
@@ -332,7 +346,7 @@ async fn process_trace(
     
     // Create a properly typed request
     let request = PushTracesRequest {
-        traces: vec![trace],
+        traces: vec![trace.clone()],
     };
     
     // Send the trace to the server
