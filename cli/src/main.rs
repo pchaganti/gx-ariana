@@ -375,10 +375,6 @@ async fn instrumentalize_project(
     let ariana_dir = project_root.join(ARIANA_DIR);
     create_dir_all(&ariana_dir).await?;
 
-    let vault_secret_key_path = ariana_dir.join(".vault_secret_key");
-    let vault_secret_key_content = format!("{}\nDO NOT SHARE THE ABOVE KEY WITH ANYONE, DO NOT COMMIT IT TO VERSION CONTROL", vault_key);
-    tokio::fs::write(&vault_secret_key_path, vault_secret_key_content).await?;
-
     // Detect project import style
     let import_style = detect_project_import_style(project_root).await?;
     
@@ -394,6 +390,10 @@ async fn instrumentalize_project(
     ).await?;
     
     println!("[Ariana] Instrumentation complete!");
+
+    let vault_secret_key_path = ariana_dir.join(".vault_secret_key");
+    let vault_secret_key_content = format!("{}\nDO NOT SHARE THE ABOVE KEY WITH ANYONE, DO NOT COMMIT IT TO VERSION CONTROL", vault_key);
+    tokio::fs::write(&vault_secret_key_path, vault_secret_key_content).await?;
     
     Ok(())
 }
@@ -639,7 +639,7 @@ async fn instrument_file(
         .json(&request)
         .send()
         .await?;
-    
+
     if !response.status().is_success() {
         return Err(anyhow!("Failed to instrumentalize code: HTTP {}", response.status()));
     }
