@@ -1,6 +1,6 @@
 {
   "name": "ariana",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Debug your JS/TS/Python code in development way faster than with a traditional debugger",
   "license": "AGPL-3.0-only",
   "repository": {

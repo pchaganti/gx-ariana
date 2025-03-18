@@ -12,6 +12,7 @@ use ariana_server::web::traces::{CodeInstrumentationRequest, CodeInstrumentation
 use ariana_server::web::vaults::VaultPublicData;
 use clap::Parser;
 use tokio::fs::create_dir_all;
+use tokio::io::AsyncBufReadExt;
 use tokio::spawn;
 use tokio::sync::mpsc;
 use tokio::time::Duration;
@@ -28,26 +29,37 @@ use ctrlc;
     version, 
     about = "Ariana CLI - Instrumentalize your code to collect Ariana traces while it runs."
 )]
-
 struct Cli {
     /// API URL for Ariana server
     #[arg(long, default_value_t = if cfg!(debug_assertions) { "http://localhost:8080/".to_string() } else { "https://api.ariana.dev/".to_string() })]
     api_url: String,
 
-    /// Instrumentalize the original code files instead of a copy of them under .ariana. PS: this will still backup and try to restore the original files, whether the command fails abruptly or gracefully
+    /// Get an AI recap of last run instead of running instrumentation
+    #[arg(long)]
+    recap: bool,
+
+    /// Instrumentize the original code files instead of a copy of them under .ariana
     #[arg(long)]
     inplace: bool,
 
-    /// Also save traces locally under .ariana_saved_traces instead of deleting them after sending & saving them to the Ariana server
+    /// Also save traces locally under .ariana_saved_traces
     #[arg(long)]
     save_local: bool,
 
-    /// Only save traces locally under .ariana_saved_traces, do not send & save them to the Ariana server. (This will still send your code to the server for instrumentation)
+    /// Only save traces locally, do not send to the Ariana server
     #[arg(long)]
     only_local: bool,
 
-    /// The command to execute in the instrumented code directory
-    #[arg(required = true, trailing_var_arg = true)]
+    /// The command to execute in the instrumented code directory (not required if --recap is used)
+    #[arg(trailing_var_arg = true)]
+    command: Vec<String>,
+}
+
+struct RunCli {
+    api_url: String,
+    inplace: bool,
+    save_local: bool,
+    only_local: bool,
     command: Vec<String>,
 }
 
@@ -61,20 +73,49 @@ async fn main() -> Result<()> {
     env::set_var("RUST_BACKTRACE", "1");
     
     let cli = Cli::parse();
-    match run_main(cli).await {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            eprintln!("Error occurred: {:#}", e);
-            
-            let backtrace = e.backtrace();
-            eprintln!("\nBacktrace:\n{}", backtrace);
+    
+    if cli.recap {
+        // Run recap command
+        match run_recap(&cli.api_url).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                eprintln!("Error reading trace recap: {:#}", e);
+                Err(e)
+            }
+        }
+    } else {
+        // Validate that a command was provided when not in recap mode
+        if cli.command.is_empty() {
+            eprintln!("Error: A command is required when not using --recap");
+            eprintln!("Usage: ariana <command> [args...]");
+            eprintln!("       ariana --recap");
+            exit(1);
+        }
+        
+        // Run main command (default)
+        let run_cli = RunCli {
+            api_url: cli.api_url,
+            inplace: cli.inplace,
+            save_local: cli.save_local,
+            only_local: cli.only_local,
+            command: cli.command,
+        };
+        
+        match run_main(run_cli).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                eprintln!("Error occurred: {:#}", e);
+                
+                let backtrace = e.backtrace();
+                eprintln!("\nBacktrace:\n{}", backtrace);
 
-            Err(e)
+                Err(e)
+            }
         }
     }
 }
 
-async fn run_main(cli: Cli) -> Result<()> {
+async fn run_main(cli: RunCli) -> Result<()> {
     // Get the current directory to process
     let current_dir = env::current_dir()?;
 
@@ -98,10 +139,6 @@ async fn run_main(cli: Cli) -> Result<()> {
     };
     create_dir_all(&trace_dir).await?;
 
-    // Create active flag file
-    let active_flag = trace_dir.join(".active");
-    tokio::fs::write(&active_flag, "1").await?;
-
     // Add .ariana to .gitignore
     add_to_gitignore(&current_dir).await?;
 
@@ -124,12 +161,13 @@ async fn run_main(cli: Cli) -> Result<()> {
     }
 
     // Start trace watcher in a separate task
+    let (trace_tx, mut trace_rx) = mpsc::channel::<Trace>(1);
     let (stop_tx, mut stop_rx) = mpsc::channel::<()>(1);
     let api_url = cli.api_url.clone();
     let save_local = cli.save_local || cli.only_local;
     let only_local = cli.only_local;
     let trace_watcher= spawn(async move {
-        let _ = watch_traces(&trace_dir, &api_url, &vault_key, &mut stop_rx, save_local, only_local).await;
+        let _ = watch_traces(&trace_dir, &mut trace_rx, &api_url, &vault_key, &mut stop_rx, save_local, only_local).await;
     });
 
     // Prepare the command to run
@@ -139,46 +177,107 @@ async fn run_main(cli: Cli) -> Result<()> {
     println!("[Ariana] Running command in {}/ : {} {}", working_dir.file_name().unwrap().to_str().unwrap(), command, command_args.join(" "));
     if !cli.inplace {
         println!("[Ariana] tip: To run the command in the original directory, use the --inplace flag (in that case original files will be temporarily edited and then restored).");
-        println!("➡️    For more tips and features previews, join us on: https://discord.gg/Y3TFTmE89g")
+        println!("➡️    For more info: Run 'ariana --help' or for a trace recap use 'ariana --recap'");
+        println!("➡️    Join us on Discord for tips and features previews: https://discord.gg/Y3TFTmE89g");
     }
 
     println!("\n\n\n");
 
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
-
-    // Execute the command in the working directory
-    let status = if cfg!(windows) {
+    // Execute the command in the working directory with streaming output
+    let mut child = if cfg!(windows) {
         tokio::process::Command::new("cmd")
             .args(&["/C", &command])
             .args(&command_args)
             .current_dir(&working_dir)
             .env("TRACE_DIR", TRACE_DIR)
-            .status()
+            .stdout(std::process::Stdio::piped())
+            .spawn()?
     } else {
         tokio::process::Command::new(&command)
             .args(&command_args)
             .current_dir(&working_dir)
             .env("TRACE_DIR", TRACE_DIR)
-            .status()
+            .stdout(std::process::Stdio::piped())
+            .spawn()?
     };
-    
+
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    // Set up a Ctrl+C handler
     let _ = ctrlc::set_handler(move || {
+        println!("[Ariana] Received Ctrl+C, stopping your command...");
         r.store(false, Ordering::SeqCst);
     });
 
-    let status = status.await?;
+    // Process stdout as it's produced
+    let stdout = child.stdout.take().expect("Failed to capture stdout");
+    let mut reader = tokio::io::BufReader::new(stdout).lines();
 
-    println!("\n\n\n");
+    let perf_now = std::time::Instant::now();
+    
+    // let mut sent_traces_futures = Vec::new();
+    while let Some(line) = reader.next_line().await.unwrap_or_else(|_| Some(String::new())) {
+        let mut processed_line = String::new();
+        let mut current_pos = 0;
+        
+        // Find all trace tags in the line
+        while let Some(start_idx) = line[current_pos..].find("<trace id=") {
+            let absolute_start = current_pos + start_idx;
+            
+            // Add text before the trace tag to the processed line
+            processed_line.push_str(&line[current_pos..absolute_start]);
+            
+            // Find the end of this trace tag
+            if let Some(end_idx) = line[absolute_start..].find("</trace>") {
+                let absolute_end = absolute_start + end_idx + 8; // 8 is the length of "</trace>"
+                
+                // Extract trace id and content for logging
+                if let Some(id_start) = line[absolute_start..absolute_start+20].find('\"') {
+                    if let Some(_) = line[absolute_start+id_start+1..absolute_start+50].find('\"') {
+                        // Extract just the content between the tags
+                        let id_end = line[absolute_start+id_start+1..absolute_start+50].find('\"').unwrap();
+                        let content_start = absolute_start + id_start + id_end + 3; // +3 for the closing " and the >
+                        let content_end = absolute_start + end_idx;
+                        let trace_content = &line[content_start..content_end];
+                        let trace: Trace = serde_json::from_str(trace_content).unwrap();
+
+                        trace_tx.send(trace).await?;
+                    }
+                }
+                
+                // Update position to after this trace tag
+                current_pos = absolute_end;
+            } else {
+                // If no closing tag found, add the rest and break
+                processed_line.push_str(&line[absolute_start..]);
+                current_pos = line.len();
+                break;
+            }
+        }
+        
+        // Add any remaining text after the last trace tag
+        if current_pos < line.len() {
+            processed_line.push_str(&line[current_pos..]);
+        }
+        
+        // Only print if the line contains non-whitespace characters
+        if !processed_line.trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08').is_empty() {
+            println!("{}", processed_line);
+        }
+    }
+
+    let perf_end = std::time::Instant::now();
+
+    println!("[Ariana] All traces observed. Took {} ms. Now waiting to finish sending them.", perf_end.duration_since(perf_now).as_millis());
+
+    // let _ = futures::future::join_all(sent_traces_futures).await;
+
+    // Wait for the process to finish
+    let status = child.wait().await?;
 
     // Stop the trace watcher
     let _ = stop_tx.send(()).await;
 
-    tokio::time::sleep(Duration::from_secs(10)).await;
-    
-    // Clean up
-    let _ = tokio::fs::remove_file(active_flag).await;
-    
     // Wait for the trace watcher to complete
     let _ = trace_watcher.await;
 
@@ -188,8 +287,6 @@ async fn run_main(cli: Cli) -> Result<()> {
         // Don't delete the backup directory, just in case
         println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}", ariana_dir.display());
     }
-    
-    cleanup_traces_active(&current_dir)?;
 
     // Exit with the same status code as the command
     if !status.success() {
@@ -201,111 +298,67 @@ async fn run_main(cli: Cli) -> Result<()> {
 
 async fn watch_traces(
     trace_dir: &Path,
+    trace_rx: &mut mpsc::Receiver<Trace>,
     api_url: &str,
     vault_key: &str,
     stop_rx: &mut mpsc::Receiver<()>,
     save_local: bool,
     only_local: bool,
 ) -> Result<()> {
-    let mut interval = interval(Duration::from_millis(500));
-    
-    let mut stop_requested = false;
-    let mut stop_time = None;
-    let mut stop_message_sent = false;
-    let mut sending = false;
-
-    // Create saved traces directory if needed
-    let saved_traces_dir = if save_local {
-        let dir = Path::new(".").join(SAVED_TRACES_DIR).join(vault_key);
-        create_dir_all(&dir).await?;
-        Some(dir)
-    } else {
-        None
-    };
+    let mut traces = Vec::new();
+    let batch_size = 50_000;
+    let saved_traces_dir = Path::new(".").join(SAVED_TRACES_DIR).join(vault_key);
+    create_dir_all(&saved_traces_dir).await?;
+    let mut clear_start = std::time::Instant::now();
+    let mut interval = interval(Duration::from_secs(3));
 
     loop {
         tokio::select! {
             _ = interval.tick() => {
-                // Check if the flag file exists, if not, break
-                if !trace_dir.join(".active").exists() {
-                    break;
+                if !traces.is_empty() {
+                    process_traces(&traces, api_url, vault_key).await?;
+                    traces.clear();
+                    clear_start = std::time::Instant::now();
                 }
-
-                if sending {
-                    println!("[Ariana] Already sending..");
-                    continue;
-                }
-                
-                sending = true;
-                // Find all trace files
-                let trace_files = match fs::read_dir(trace_dir) {
-                    Ok(entries) => entries
-                        .filter_map(|e| e.ok())
-                        .take(100)
-                        .filter(|e| {
-                            let file_name = e.file_name();
-                            let file_name = file_name.to_string_lossy();
-                            file_name.starts_with("trace-") && file_name.ends_with(".json")
-                        })
-                        .collect::<Vec<_>>(),
-                    Err(e) => {
-                        eprintln!("[Ariana] Error reading trace directory: {}", e);
-                        continue;
+            }
+            trace = trace_rx.recv() => {
+                if let Some(trace) = trace {
+                    if save_local {
+                        save_trace_locally(&trace_dir.join(format!("{}-{}.json", trace.trace_id, trace.timestamp)), &saved_traces_dir).await?;
                     }
-                };
+                    
+                    if !only_local {
+                        traces.push(trace);
+                    }
 
-                if trace_files.len() == 0 && stop_requested {
-                    if let Some(stop_time) = stop_time {
-                        if tokio::time::Instant::now() >= stop_time {
-                            println!("[Ariana] All traces processed, exiting...");
-                            break;
-                        }
+                    if traces.len() >= batch_size || clear_start.elapsed() > Duration::from_secs(3) {
+                        process_traces(&traces, api_url, vault_key).await?;
+                        traces.clear();
+                        clear_start = std::time::Instant::now();
                     }
                 }
-
-                if stop_requested && !stop_message_sent {
-                    println!("[Ariana] Stop requested, waiting for a few seconds to process remaining traces. Please do not shutdown the process.");
-                    println!("[Ariana] ==================================");
-                    println!("❓    You can now open your IDE, use the Ariana extension and view the traces.\nSee how to do it: https://github.com/dedale-dev/ariana?tab=readme-ov-file#3--in-your-ide-get-instant-debugging-information-in-your-code-files");
-                    println!("🙏    Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
-                    println!("➡️    Join the Discord: https://discord.gg/Y3TFTmE89g");
-                    stop_message_sent = true;
-                }
-                
-                // Process all trace files concurrently
-                let futures: Vec<_> = trace_files.iter().map(|file| {
-                    let file_path = file.path();
-                    let api_url = api_url.to_string();
-                    let vault_key = vault_key.to_string();
-                    let saved_traces_dir = saved_traces_dir.clone();
-                    async move {
-                        if !only_local {
-                            match process_trace(&file_path, &api_url, &vault_key).await {
-                                Ok(_) => {},
-                                Err(e) => {
-                                    eprintln!("[Ariana] Error processing trace {}: {}", file_path.display(), e);
-                                }
-                            };
-                        }
-
-                        if let Some(saved_traces_dir) = saved_traces_dir {
-                            if let Err(e) = save_trace_locally(&file_path, &saved_traces_dir).await {
-                                eprintln!("[Ariana] Error saving trace to {}: {}", saved_traces_dir.display(), e);
-                            }
-                        }
-
-                        if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                            eprintln!("[Ariana] Error deleting processed trace {}: {}", file_path.display(), e);
-                        }
-                    }
-                }).collect();
-
-                futures::future::join_all(futures).await;
-                sending = false;
             }
             _ = stop_rx.recv() => {
-                stop_requested = true;
-                stop_time = Some(tokio::time::Instant::now() + Duration::from_secs(10));
+                if !traces.is_empty() {
+                    // split in chunks of batch_size
+                    println!("[Ariana] Sending remaining {} traces", traces.len());
+                    let mut chunks = Vec::new();
+                    for i in 0..(traces.len() / batch_size) + 1 {
+                        let start = i * batch_size;
+                        let end = ((i + 1) * batch_size).min(traces.len());
+                        chunks.push(&traces[start..end]);
+                    }
+                    for chunk in chunks {
+                        process_traces(chunk, api_url, vault_key).await?;
+                    }
+                }
+
+                println!("[Ariana] Trace channel closed");
+                println!("[Ariana] ==================================");
+                println!("❓    You can now open your IDE, use the Ariana extension and view the traces.\nSee how to do it: https://github.com/dedale-dev/ariana?tab=readme-ov-file#3--in-your-ide-get-instant-debugging-information-in-your-code-files");
+                println!("🙏    Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
+                println!("➡️    Join the Discord: https://discord.gg/Y3TFTmE89g");
+                break;
             }
         }
     }
@@ -332,21 +385,14 @@ async fn save_trace_locally(
     Ok(())
 }
 
-async fn process_trace(
-    trace_path: &Path,
+async fn process_traces(
+    traces: &[Trace],
     api_url: &str,
     vault_key: &str
 ) -> Result<()> {
-    let content = tokio::fs::read_to_string(trace_path).await?;
-    let trace_data: serde_json::Value = serde_json::from_str(&content)?;
-
-    // Extract trace from the trace file
-    let trace = serde_json::from_value::<Trace>(trace_data["trace"].clone())
-        .map_err(|e| anyhow!("Failed to parse trace data: {}", e))?;
-    
     // Create a properly typed request
     let request = PushTracesRequest {
-        traces: vec![trace.clone()],
+        traces: traces.to_vec(),
     };
     
     // Send the trace to the server
@@ -357,7 +403,7 @@ async fn process_trace(
         .json(&request)
         .send()
         .await?;
-    
+
     if !response.status().is_success() {
         return Err(anyhow!("Failed to process trace: {}", response.status()));
     }
@@ -721,7 +767,7 @@ async fn create_vault(api_url: &str) -> Result<String> {
         .header("X-Machine-Hash", machine_hash)
         .send()
         .await?;
-    
+
     if !response.status().is_success() {
         return Err(anyhow!("Failed to create vault: HTTP {}", response.status()));
     }
@@ -886,19 +932,48 @@ fn collect_files_to_restore(
     Ok(())
 }
 
-/// Ensure cleanup of .traces/.active even if process is interrupted
-fn cleanup_traces_active(project_root: &Path) -> Result<()> {
-    let active_file = project_root.join(TRACE_DIR).join(".active");
-    if active_file.exists() {
-        match fs::remove_file(&active_file) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                // If we can't delete it, just warn but don't fail
-                eprintln!("[Ariana] Warning: Could not delete .traces/.active file: {}", e);
-                Ok(())
-            }
-        }
-    } else {
-        Ok(())
+/// Read the first line of the .ariana/.vault_secret_key file to get the vault secret key
+async fn read_vault_secret_key() -> Result<String> {
+    let current_dir = env::current_dir()?;
+    let vault_key_path = current_dir.join(ARIANA_DIR).join(".vault_secret_key");
+    
+    if !vault_key_path.exists() {
+        return Err(anyhow!("Vault secret key file not found at {}. Have you run 'ariana run' first?", vault_key_path.display()));
     }
+    
+    let content = tokio::fs::read_to_string(&vault_key_path).await?;
+    let vault_key = content.lines().next().ok_or_else(|| anyhow!("Vault secret key file is empty"))?;
+    
+    Ok(vault_key.to_string())
+}
+
+/// Run the recap command to get a summary of traces from the server
+async fn run_recap(api_url: &str) -> Result<()> {
+    println!("[Ariana] Reading vault secret key...");
+    let vault_key = read_vault_secret_key().await?;
+    
+    println!("[Ariana] Fetching recap from server...");
+    
+    // Generate a machine hash for the request
+    let machine_hash = generate_machine_id()?;
+    
+    // Call the server API to get the trace tree
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&format!("{}/vaults/{}/get-trace-tree", api_url, vault_key))
+        .header("X-Machine-Hash", machine_hash)
+        .send()
+        .await?;
+    
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to get trace tree: HTTP {}", response.status()));
+    }
+    
+    // Parse and print the response
+    let trace_tree_response: ariana_server::web::vaults::GetTraceTreeLLMResponse = response.json().await?;
+    
+    println!("\n[Ariana] Trace Recap:\n");
+    println!("{}", trace_tree_response.answer);
+    
+    Ok(())
 }
