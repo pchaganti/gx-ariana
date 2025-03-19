@@ -193,7 +193,7 @@ export async function activate(context: vscode.ExtensionContext) {
             }
 
             const data: Trace[] = await response.json();
-            console.log('Traces data:', data);
+            console.log('Traces data:', data.length);
             if (vscode.window.activeTextEditor?.document.uri.toString() === document.uri.toString()) {
                 tracesData = data;
             }
@@ -202,74 +202,75 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    // Fetch traces for initial active editor
-    if (vscode.window.activeTextEditor) {
-        fetchTracesForEditor(vscode.window.activeTextEditor);
-    }
+    // // Fetch traces for initial active editor
+    // if (vscode.window.activeTextEditor) {
+    //     fetchTracesForEditor(vscode.window.activeTextEditor);
+    // }
 
-    // Listen for editor changes
-    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-        if (editor) {
-            await fetchTracesForEditor(editor);
-        }
-    });
+    // // Listen for editor changes
+    // vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+    //     if (editor) {
+    //         await fetchTracesForEditor(editor);
+    //     }
+    // });
 
     async function highlightTraces() {
         const editor = vscode.window.activeTextEditor;
-        if (editor && !tracesHoverDisposable) {
-            await fetchTracesForEditor(editor);
+        if (!editor) return;
 
-            // group traces by region (not trivial because you have to check if one is within the other)
-            const regions: Array<HighlightedRegion> = [];
-
-            // First, collect all unique regions
-            const uniqueRegions = new Set<string>();
-            for (const trace of tracesData) {
-                const key = `${trace.start_pos.line},${trace.start_pos.column},${trace.end_pos.line},${trace.end_pos.column}`;
-                uniqueRegions.add(key);
-            }
-
-            // Create regions and assign traces
-            for (const regionKey of uniqueRegions) {
-                let [startLine, startCol, endLine, endCol] = regionKey.split(',').map(Number);
-
-                // Get all traces that belong to this region
-                const tracesInRegion = tracesData.filter(trace => {
-                    return trace.start_pos.line >= startLine &&
-                        trace.start_pos.column >= startCol &&
-                        trace.end_pos.line <= endLine &&
-                        trace.end_pos.column <= endCol;
-                });
-
-                startLine--;
-                startCol--;
-                endLine--;
-
-                if (tracesInRegion.length > 0) {
-                    regions.push({
-                        traces: tracesInRegion,
-                        startLine,
-                        startCol,
-                        endLine,
-                        endCol
-                    });
+        if (!tracesHoverDisposable) {
+            vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "Loading traces...",
+                cancellable: false
+            }, async (progress) => {
+                try {
+                    await fetchTracesForEditor(editor);
+                    const regions = processTraces(tracesData);
+                    tracesHoverDisposable = highlightRegions(editor, regions);
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Failed to load traces: ${error}`);
                 }
-            }
-
-            console.log('Regions:', regions);
-            tracesHoverDisposable = highlightRegions(editor, regions);
-        } else if (editor && tracesHoverDisposable) {
-            editor.setDecorations(highlightDecorationType, []);
-            editor.setDecorations(highlightInBetweenDecorationType, []);
-            editor.setDecorations(highlightLeftDecorationType, []);
-            editor.setDecorations(highlightRightDecorationType, []);
-            editor.setDecorations(hoverDecorationType, []);
-            editor.setDecorations(hoverInBetweenDecorationType, []);
-            editor.setDecorations(hoverLeftDecorationType, []);
-            editor.setDecorations(hoverRightDecorationType, []);
+            });
+        } else {
+            clearDecorations(editor);
             tracesHoverDisposable.dispose();
             tracesHoverDisposable = undefined;
         }
+    }
+
+    function processTraces(tracesData: Trace[]): Array<HighlightedRegion> {
+        const uniqueRegions = new Set(tracesData.map(trace => 
+            `${trace.start_pos.line},${trace.start_pos.column},${trace.end_pos.line},${trace.end_pos.column}`
+        ));
+
+        return Array.from(uniqueRegions).map(regionKey => {
+            const [startLine, startCol, endLine, endCol] = regionKey.split(',').map(Number);
+            const tracesInRegion = tracesData.filter(trace =>
+                trace.start_pos.line >= startLine &&
+                trace.start_pos.column >= startCol &&
+                trace.end_pos.line <= endLine &&
+                trace.end_pos.column <= endCol
+            );
+
+            return {
+                traces: tracesInRegion,
+                startLine,
+                startCol,
+                endLine,
+                endCol: endCol + 1
+            };
+        }).filter(region => region.traces.length > 0);
+    }
+
+    function clearDecorations(editor: vscode.TextEditor) {
+        const decorationTypes = [
+            highlightDecorationType, highlightInBetweenDecorationType,
+            highlightLeftDecorationType, highlightRightDecorationType,
+            hoverDecorationType, hoverInBetweenDecorationType,
+            hoverLeftDecorationType, hoverRightDecorationType
+        ];
+        decorationTypes.forEach(type => editor.setDecorations(type, []));
     }
 
     context.subscriptions.push(disposable);
@@ -530,10 +531,10 @@ function highlightRegions(editor: vscode.TextEditor, regions: Array<HighlightedR
 
                 let tracesById: { [id: string]: Trace[] } = {};
                 for (const trace of smallestRegion.traces) {
-                    if (trace.start_pos.line === smallestRegion.startLine + 1 &&
-                        trace.start_pos.column === smallestRegion.startCol + 1 &&
-                        trace.end_pos.line === smallestRegion.endLine + 1 &&
-                        trace.end_pos.column === smallestRegion.endCol) {
+                    if (trace.start_pos.line === smallestRegion.startLine &&
+                        trace.start_pos.column === smallestRegion.startCol &&
+                        trace.end_pos.line === smallestRegion.endLine &&
+                        trace.end_pos.column === smallestRegion.endCol - 1) {
                         if (!(trace.trace_id in tracesById)) {
                             tracesById[trace.trace_id] = [];
                         }
@@ -553,7 +554,6 @@ function highlightRegions(editor: vscode.TextEditor, regions: Array<HighlightedR
                     } else {
                         return text + '\n\`\`\`';
                     }
-                    return text;
                 }
 
                 const formatTimestamp = (timestamp: number) => {

@@ -10,6 +10,11 @@ vsc-extension-quickstart.md
 **/*.ts
 **/.vscode-test.*
 node_modules/**
-webview-ui/**
+webview-ui/src/**
+webview-ui/node_modules/**
+webview-ui/package-lock.json
+webview-ui/tsconfig.json
+webview-ui/vite.config.ts
+webview-ui/.gitignore
 esbuild.js
 webpack.config.js

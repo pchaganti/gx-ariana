@@ -20,7 +20,7 @@ export class TracesPanel {
         this._panel.webview.onDidReceiveMessage((message) => {
             if (message.command === 'highlight') {
                 const { file, startLine, startCol, endLine, endCol } = message;
-                onHighlightRequest(file, startLine - 1, startCol - 1, endLine - 1, endCol);
+                onHighlightRequest(file, startLine, startCol, endLine, endCol);
             }
         });
 

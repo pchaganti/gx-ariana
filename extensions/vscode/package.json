@@ -1,8 +1,8 @@
 {
   "name": "ariana",
-  "displayName": "Ariana",
-  "description": "Omniscient debugger for JS/TS/Python with AI. Spy on your code with 0 setup.",
-  "version": "0.7.0",
+  "displayName": "Ariana - Debugging with AI",
+  "description": "Debug your JS/TS/Python code effortlessly just by hovering it, or by asking AI.",
+  "version": "0.8.0",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.94.0"

@@ -1,6 +1,6 @@
 <div align="center">
   <div align="center">
-  <h1>Ariana: Spy on your code</h1>
+  <h1>Ariana: Debug your code effortlessly with AI</h1>
   <div align="center">
     <img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800">
   </div>
