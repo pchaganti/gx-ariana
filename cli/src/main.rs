@@ -341,25 +341,6 @@ async fn watch_traces(
     Ok(())
 }
 
-async fn save_trace_locally(
-    trace_path: &Path,
-    saved_traces_dir: &Path
-) -> Result<()> {
-    let new_path = saved_traces_dir.join(trace_path.file_name().unwrap());
-
-    let content = tokio::fs::read_to_string(trace_path).await?;
-    let trace_data: serde_json::Value = serde_json::from_str(&content)?;
-
-    // Extract trace from the trace file
-    let trace = serde_json::from_value::<Trace>(trace_data["trace"].clone())
-        .map_err(|e| anyhow!("Failed to parse trace data: {}", e))?;
-
-    // Just save the trace to the new path
-    tokio::fs::write(&new_path, serde_json::to_string_pretty(&trace).unwrap()).await?;
-
-    Ok(())
-}
-
 async fn process_traces(
     traces: &[Trace],
     api_url: &str,
