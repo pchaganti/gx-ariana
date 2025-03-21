@@ -7,15 +7,22 @@ export type HighlightRequest = (file: string, startLine: number, startCol: numbe
 export type TracesPanelMode = "trace" | "chronology";
 
 export class TracesPanel {
-    private static panelStates: Map<WebviewPanel, TracesPanel> = new Map();
-    
+    private static readonly panelToTracesMap = new Map<WebviewPanel, TracesPanel>();
     private readonly _panel: WebviewPanel;
     private _disposables: Disposable[] = [];
     private _mode: TracesPanelMode;
+    private _lastSentTraces: Trace[] = [];
 
     private constructor(panel: WebviewPanel, extensionUri: Uri, traces: Trace[], mode: TracesPanelMode, onHighlightRequest: HighlightRequest) {
         this._panel = panel;
         this._mode = mode;
+        this._lastSentTraces = traces;
+
+        this._panel.onDidChangeViewState(e => {
+            if (e.webviewPanel.visible) {
+                this.sendDataToWebView(this._lastSentTraces);
+            }
+        });
 
         this._panel.webview.onDidReceiveMessage((message) => {
             if (message.command === 'highlight') {
@@ -33,20 +40,17 @@ export class TracesPanel {
         this.sendDataToWebView(traces);
 
         this._updateTitle();
+
+        TracesPanel.panelToTracesMap.set(this._panel, this);
     }
 
     private _updateTitle() {
-        if (this._mode === "trace") {
-            this._panel.title = "Ariana Traces";
-        } else if (this._mode === "chronology") {
-            this._panel.title = "Ariana Chronology";
-        }
+        this._panel.title = this._mode === "trace" ? "Ariana Traces" : "Ariana Chronology";
     }
 
     public sendDataToWebView(traces: Trace[]) {
-        this._panel.webview.postMessage({
-            traces: traces,
-        });
+        this._lastSentTraces = traces;
+        this._panel.webview.postMessage({ traces });
     }
 
     public static render(extensionUri: Uri, traces: Trace[], mode: TracesPanelMode, onHighlightRequest: HighlightRequest): TracesPanel {
@@ -56,6 +60,7 @@ export class TracesPanel {
             ViewColumn.Beside,
             {
                 enableScripts: true,
+                retainContextWhenHidden: true,
                 localResourceRoots: [
                     Uri.joinPath(extensionUri, "out"),
                     Uri.joinPath(extensionUri, "webview-ui/dist")
@@ -67,9 +72,8 @@ export class TracesPanel {
     }
 
     public dispose() {
+        TracesPanel.panelToTracesMap.delete(this._panel);
         this._panel.dispose();
-
-        // Dispose of all disposables (i.e. commands) for the current webview panel
         while (this._disposables.length) {
             const disposable = this._disposables.pop();
             if (disposable) {
@@ -79,26 +83,17 @@ export class TracesPanel {
     }
 
     private _getWebviewContent(webview: Webview, extensionUri: Uri) {
-        // The CSS file from the React build output
         const stylesUri = getUri(webview, extensionUri, ["webview-ui", "dist", "assets", "index.css"]);
-        // The JS file from the React build output
         const scriptUri = getUri(webview, extensionUri, ["webview-ui", "dist", "index.js"]);
-
         const nonce = getNonce();
 
-        // Tip: Install the es6-string-html VS Code extension to enable code highlighting below
         return /*html*/ `
       <!DOCTYPE html>
       <html lang="en">
         <head>
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <meta http-equiv="Content-Security-Policy" content="
-            default-src 'none';
-            style-src ${webview.cspSource};
-            script-src 'nonce-${nonce}' 'wasm-unsafe-eval';
-            img-src ${webview.cspSource} https:;
-          " />
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}' 'wasm-unsafe-eval'; img-src ${webview.cspSource} https:;" />
           <link rel="stylesheet" type="text/css" href="${stylesUri}">
           <title>Ariana Traces</title>
         </head>

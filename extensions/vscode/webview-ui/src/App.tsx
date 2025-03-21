@@ -80,6 +80,8 @@ const TraceGroup = ({ key, traces, requestHighlight }: { key: number, traces: Tr
         } catch {
             // do nothing
         }
+
+        console.log(parsedValue);
         
         return (
             <div className="w-full flex flex-col gap-1 p-3 border-b border-gray-600/50">
@@ -89,18 +91,46 @@ const TraceGroup = ({ key, traces, requestHighlight }: { key: number, traces: Tr
                         <div>
                             =
                         </div>
-                        {typeof parsedValue === 'object' ? (
-                            <JsonView
-                                src={parsedValue}
-                                theme={"monokai"}
-                            />
-                        ) : (
-                            <div className="font-mono">
-                                {String(parsedValue).split('\n').map((line, index) => (
-                                    <div key={index}>{line}</div>
-                                ))}
-                            </div>
-                        )}
+                        {(() => {
+                            switch (typeof parsedValue) {
+                                case 'string':
+                                    return (
+                                        <div className="font-mono">
+                                            {parsedValue.split('\n').map((line, index) => (
+                                                <div key={index}>{line}</div>
+                                            ))}
+                                        </div>
+                                    );
+                                case 'number':
+                                case 'boolean':
+                                    return <span className="font-mono">{String(parsedValue)}</span>;
+                                case 'undefined':
+                                    return <span className="font-mono text-gray-500">undefined</span>;
+                                case 'function':
+                                    return <span className="font-mono text-blue-400">[Function]</span>;
+                                case 'symbol':
+                                    return <span className="font-mono text-green-400">{parsedValue.toString()}</span>;
+                                case 'object':
+                                    if (parsedValue === null) {
+                                        return (
+                                            <span className="font-mono text-red-500">
+                                                null
+                                            </span>
+                                        );
+                                    }
+                                    if (JSON.stringify(parsedValue) === '{}') {
+                                        return <span className="font-mono text-gray-500">{String(parsedValue)}</span>;
+                                    }
+                                    return (
+                                        <JsonView
+                                            src={parsedValue}
+                                            theme="twilight"
+                                        />
+                                    );
+                                default:
+                                    return <span className="font-mono text-red-400">[Unknown Type]</span>;
+                            }
+                        })()}
                     </div>
                  </div>
             </div>

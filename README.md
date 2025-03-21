@@ -59,6 +59,16 @@ ariana npm run dev
 ariana python myscript.py --some-options-maybe
 ```
 
+### 3) 🤖 (Experimental) Ask for AI to recap what the code did and tell you if root causes of errors were identified
+
+Whether you just want to know what your code did or want AI to figure out the root cause of some error that might have just crashed your program, run the following:
+
+```
+ariana --recap
+```
+
+*Soon: prompt AI to look for specific information/answer specific questions*
+
 #### 3) 👾 In your IDE, get instant debugging information in your code files.
 
 You can install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.

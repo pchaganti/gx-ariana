@@ -42,14 +42,6 @@ struct Cli {
     #[arg(long)]
     inplace: bool,
 
-    /// Also save traces locally under .ariana_saved_traces
-    #[arg(long)]
-    save_local: bool,
-
-    /// Only save traces locally, do not send to the Ariana server
-    #[arg(long)]
-    only_local: bool,
-
     /// The command to execute in the instrumented code directory (not required if --recap is used)
     #[arg(trailing_var_arg = true)]
     command: Vec<String>,
@@ -58,8 +50,6 @@ struct Cli {
 struct RunCli {
     api_url: String,
     inplace: bool,
-    save_local: bool,
-    only_local: bool,
     command: Vec<String>,
 }
 
@@ -96,8 +86,6 @@ async fn main() -> Result<()> {
         let run_cli = RunCli {
             api_url: cli.api_url,
             inplace: cli.inplace,
-            save_local: cli.save_local,
-            only_local: cli.only_local,
             command: cli.command,
         };
         
@@ -164,10 +152,8 @@ async fn run_main(cli: RunCli) -> Result<()> {
     let (trace_tx, mut trace_rx) = mpsc::channel::<Trace>(1);
     let (stop_tx, mut stop_rx) = mpsc::channel::<()>(1);
     let api_url = cli.api_url.clone();
-    let save_local = cli.save_local || cli.only_local;
-    let only_local = cli.only_local;
     let trace_watcher= spawn(async move {
-        let _ = watch_traces(&trace_dir, &mut trace_rx, &api_url, &vault_key, &mut stop_rx, save_local, only_local).await;
+        let _ = watch_traces(&mut trace_rx, &api_url, &vault_key, &mut stop_rx).await;
     });
 
     // Prepare the command to run
@@ -297,13 +283,10 @@ async fn run_main(cli: RunCli) -> Result<()> {
 }
 
 async fn watch_traces(
-    trace_dir: &Path,
     trace_rx: &mut mpsc::Receiver<Trace>,
     api_url: &str,
     vault_key: &str,
-    stop_rx: &mut mpsc::Receiver<()>,
-    save_local: bool,
-    only_local: bool,
+    stop_rx: &mut mpsc::Receiver<()>
 ) -> Result<()> {
     let mut traces = Vec::new();
     let batch_size = 50_000;
@@ -322,15 +305,7 @@ async fn watch_traces(
                 }
             }
             trace = trace_rx.recv() => {
-                if let Some(trace) = trace {
-                    if save_local {
-                        save_trace_locally(&trace_dir.join(format!("{}-{}.json", trace.trace_id, trace.timestamp)), &saved_traces_dir).await?;
-                    }
-                    
-                    if !only_local {
-                        traces.push(trace);
-                    }
-
+                if let Some(_) = trace {
                     if traces.len() >= batch_size || clear_start.elapsed() > Duration::from_secs(3) {
                         process_traces(&traces, api_url, vault_key).await?;
                         traces.clear();

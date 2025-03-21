@@ -134,7 +134,8 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!folders || folders.length === 0) {
         return;
     }
-    const workspaceRoot = folders[0].uri.fsPath;
+    
+    let showTraces = false;
 
     // Create a command to show the traceback panel
     context.subscriptions.push(
@@ -158,8 +159,6 @@ export async function activate(context: vscode.ExtensionContext) {
             });
         })
     );
-
-    let disposable = vscode.commands.registerCommand('ariana.highlightTraces', highlightTraces);
 
     let tracesHoverDisposable: vscode.Disposable | undefined;
 
@@ -202,37 +201,62 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    // // Fetch traces for initial active editor
-    // if (vscode.window.activeTextEditor) {
-    //     fetchTracesForEditor(vscode.window.activeTextEditor);
-    // }
-
-    // // Listen for editor changes
-    // vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-    //     if (editor) {
-    //         await fetchTracesForEditor(editor);
-    //     }
-    // });
-
-    async function highlightTraces() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
-
-        if (!tracesHoverDisposable) {
-            vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: "Loading traces...",
-                cancellable: false
-            }, async (progress) => {
-                try {
-                    await fetchTracesForEditor(editor);
-                    const regions = processTraces(tracesData);
-                    tracesHoverDisposable = highlightRegions(editor, regions);
-                } catch (error) {
-                    vscode.window.showErrorMessage(`Failed to load traces: ${error}`);
-                }
-            });
+    let disposable = vscode.commands.registerCommand('ariana.highlightTraces', () => {
+        if (!showTraces) {
+            showTraces = true;
+            highlightTraces();
         } else {
+            showTraces = false;
+            unhighlightTraces();
+        }
+    });
+
+    // Fetch traces for initial active editor
+    if (vscode.window.activeTextEditor) {
+        if (showTraces) {
+            highlightTraces();
+        }
+    }
+
+    // Listen for editor changes
+    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+        if (editor) {
+            if (showTraces) {
+                highlightTraces(editor);
+            }
+        }
+    });
+
+    async function highlightTraces(editor: vscode.TextEditor | undefined = undefined) {
+        editor = editor ?? vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Loading traces...",
+            cancellable: false
+        }, async (progress) => {
+            try {
+                await fetchTracesForEditor(editor);
+                const regions = processTraces(tracesData);
+                if (tracesHoverDisposable) {
+                    unhighlightTraces(editor);
+                }
+                tracesHoverDisposable = highlightRegions(editor, regions);
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to load traces: ${error}`);
+            }
+        });
+    }
+
+    function unhighlightTraces(editor: vscode.TextEditor | undefined = undefined) {
+        editor = editor ?? vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+        if (tracesHoverDisposable) {
             clearDecorations(editor);
             tracesHoverDisposable.dispose();
             tracesHoverDisposable = undefined;
@@ -274,10 +298,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     context.subscriptions.push(disposable);
-
-    // const showDropdownCommandUri = vscode.Uri.parse(`command:ariana.openWebview?${encodeURIComponent(JSON.stringify([line]))}`);
-    // const hoverMessage = new vscode.MarkdownString(`[Show traces](${showDropdownCommandUri})`);
-
 }
 
 type HighlightedRegion = {
@@ -640,5 +660,9 @@ export function deactivate() {
         vscode.window.activeTextEditor.setDecorations(hoverInBetweenDecorationType, []);
         vscode.window.activeTextEditor.setDecorations(hoverLeftDecorationType, []);
         vscode.window.activeTextEditor.setDecorations(hoverRightDecorationType, []);
+        vscode.window.activeTextEditor.setDecorations(errorDecorationType, []);
+        vscode.window.activeTextEditor.setDecorations(errorInBetweenDecorationType, []);
+        vscode.window.activeTextEditor.setDecorations(errorLeftDecorationType, []);
+        vscode.window.activeTextEditor.setDecorations(errorRightDecorationType, []);
     }
 }
