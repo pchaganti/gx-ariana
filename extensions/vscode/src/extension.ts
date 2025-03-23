@@ -202,7 +202,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     let disposable = vscode.commands.registerCommand('ariana.highlightTraces', () => {
-        if (!showTraces) {
+        if (!showTraces || !tracesData || tracesData.length === 0) {
             showTraces = true;
             highlightTraces();
         } else {
