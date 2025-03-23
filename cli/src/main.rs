@@ -305,7 +305,9 @@ async fn watch_traces(
                 }
             }
             trace = trace_rx.recv() => {
-                if let Some(_) = trace {
+                if let Some(trace) = trace {
+                    traces.push(trace);
+
                     if traces.len() >= batch_size || clear_start.elapsed() > Duration::from_secs(3) {
                         process_traces(&traces, api_url, vault_key).await?;
                         traces.clear();
@@ -544,10 +546,10 @@ async fn process_directory(
                     }
                 } else if !inplace {
                     // Just copy non-JS/TS files when not in-place
-                    fs::copy(&entry_path, &dest_path)?;
+                    create_link_or_copy(&entry_path, &dest_path).await?;
                 }
             } else {
-                fs::copy(&entry_path, &dest_path)?;
+                create_link_or_copy(&entry_path, &dest_path).await?;
             }
         }
     }
@@ -576,45 +578,75 @@ async fn process_directory(
 }
 
 fn should_skip_directory(dir_name: &str) -> bool {
-    let skip_list = ["node_modules", ".git", ".ariana", "dist", "build", "target", ".ariana_saved_traces", ".traces"];
+    let skip_list = ["node_modules", ".git", ".ariana", "dist", "build", "target", ".ariana_saved_traces", ".traces", "venv", "site-packages", "__pycache__", ".ariana-saved-traces"];
     skip_list.contains(&dir_name)
 }
 
 async fn create_link_or_copy(src: &Path, dest: &Path) -> Result<()> {
-    // Try to create a symlink first
-    #[cfg(unix)]
-    {
-        match std::os::unix::fs::symlink(src, dest) {
-            Ok(_) => return Ok(()),
-            Err(_) => {
-                // If symlink fails, use fs_extra to copy
-                let options = fs_extra::dir::CopyOptions::new();
-                fs_extra::dir::copy(src, dest.parent().unwrap(), &options)?;
-                return Ok(());
+    if src.is_dir() {
+        #[cfg(unix)]
+        {
+            match std::os::unix::fs::symlink(src, dest) {
+                Ok(_) => return Ok(()),
+                Err(_) => {
+                    // If symlink fails, use fs_extra to copy
+                    let options = fs_extra::dir::CopyOptions::new();
+                    fs_extra::dir::copy(src, dest.parent().unwrap(), &options)?;
+                    return Ok(());
+                }
             }
         }
-    }
-    
-    #[cfg(windows)]
-    {
-        match std::os::windows::fs::symlink_dir(src, dest) {
-            Ok(_) => return Ok(()),
-            Err(_) => {
-                // If symlink fails, use fs_extra to copy
-                let options = fs_extra::dir::CopyOptions::new();
-                fs_extra::dir::copy(src, dest.parent().unwrap(), &options)?;
-                return Ok(());
+
+        #[cfg(windows)]
+        {
+            match std::os::windows::fs::symlink_dir(src, dest) {
+                Ok(_) => return Ok(()),
+                Err(_) => {
+                    // If symlink fails, use fs_extra to copy
+                    let options = fs_extra::dir::CopyOptions::new();
+                    fs_extra::dir::copy(src, dest.parent().unwrap(), &options)?;
+                    return Ok(());
+                }
             }
         }
-    }
-    
+    } else if src.is_file() {
+        #[cfg(unix)]
+        {
+            match std::os::unix::fs::symlink(src, dest) {
+                Ok(_) => return Ok(()),
+                Err(_) => {
+                    // If symlink fails, copy the file
+                    fs::copy(src, dest)?;
+                    return Ok(());
+                }
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            match std::os::windows::fs::symlink_file(src, dest) {
+                Ok(_) => return Ok(()),
+                Err(_) => {
+                    // If symlink fails, copy the file
+                    fs::copy(src, dest)?;
+                    return Ok(());
+                }
+            }
+        }
+    };
+
     #[cfg(not(any(unix, windows)))]
     {
         // For other platforms, just copy
-        let options = fs_extra::dir::CopyOptions::new();
-        fs_extra::dir::copy(src, dest.parent().unwrap(), &options)?;
-        Ok(())
+        if src.is_dir() {
+            let options = fs_extra::dir::CopyOptions::new();
+            fs_extra::dir::copy(src, dest.parent().unwrap(), &options)?;
+        } else if src.is_file() {
+            fs::copy(src, dest)?;
+        }
     }
+
+    Ok(())
 }
 
 async fn instrument_file(

@@ -1,11 +1,11 @@
 [package]
 name = "ariana"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
-reqwest = { version = "0.12.9", features = ["json"] }
+reqwest = { version = "0.12.9", features = ["json"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.117"
 tokio = { version = "1.38.0", features = ["full"] }
@@ -29,8 +29,8 @@ ctrlc = "3.4.5"
 [dev-dependencies]
 tempfile = "3.16.0"
 
-[target.x86_64-unknown-linux-gnu.dependencies]
-openssl = { version = "0.10.59", features = ["vendored"] }
+# [target.x86_64-unknown-linux-gnu.dependencies]
+# openssl = { version = "0.10.59", features = ["vendored"] }
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

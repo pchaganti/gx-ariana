@@ -1,6 +1,6 @@
 <div align="center">
   <div align="center">
-  <h1>Ariana: Spy on your code</h1>
+  <h1>Ariana: Debug your code effortlessly with AI</h1>
   <div align="center">
     <img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800">
   </div>
@@ -59,7 +59,17 @@ ariana npm run dev
 ariana python myscript.py --some-options-maybe
 ```
 
-#### 3) 👾 In your IDE, get instant debugging information in your code files.
+#### 3) 🤖 (Experimental) Ask for AI to recap what the code did and tell you if root causes of errors were identified
+
+Whether you just want to know what your code did or want AI to figure out the root cause of some error that might have just crashed your program, run the following:
+
+```
+ariana --recap
+```
+
+*Soon: prompt AI to look for specific information/answer specific questions*
+
+#### 4) 👾 In your IDE, get instant debugging information in your code files.
 
 You can install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.
 
@@ -111,3 +121,9 @@ ariana npm run start
 ## Code processing disclaimer
 
 We need to process (but never store!) your JS/TS code files on our server based in EU in order to have Ariana work with it. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
+
+## Licence
+
+Ariana is released under AGPLv3. See [LICENCE.txt](LICENCE.txt) for more details.
+
+tl;dr: If you use Ariana as intended, which means in development, this is nothing to worry about as you don't technically bundle Ariana with your released code. If you use it in your production code, whether deployed on a server or on the end-user's machine in a code or binary format, your code needs to be available to the public under the same licence. We can lift that requirement upon request, even for free if your project is small. Please [let us know](mailto:an.nougaret@gmail.com).
