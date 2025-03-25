@@ -109,7 +109,7 @@ pub fn process_items(
                 let dest = dest.clone();
                 s.spawn(move |_| {
                     // println!("Copying or linking {:?}", src);
-                    if let Err(e) = create_link_or_copy(&src, &dest) {
+                    if let Err(_) = create_link_or_copy(&src, &dest) {
                         // eprintln!("Could not copy or link {:?}: {}", src, e);
                     }
                     pb.inc(1);

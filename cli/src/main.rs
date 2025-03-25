@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
 
     if cli.recap {
         // Recap mode (to be implemented as per original logic if needed)
-        println!("[Ariana] Recap mode not implemented in this rewrite yet.");
+        println!("[Ariana] Recap mode has been temporarily disabled for maintenance.");
         Ok(())
     } else {
         if cli.command.is_empty() {

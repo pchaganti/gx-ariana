@@ -16,11 +16,11 @@
   </div>
 </div>
 
-Ariana is an IDE extension and CLI tool to understand what your JS, TS and Python code does when it runs in development way faster than with a traditional debugger or with `print()` or `console.log()`.
+Ariana is an IDE extension to understand what happens during runtime. You don't have to put `print()`, `console.log()` or breakpoints everywhere. Currently supports JS/TS & Python.
 
 ## ✨ Key Features
 
-Just by running your code with the `ariana` CLI and by using the Ariana VSCode extension, you can:
+Use Ariana VSCode extension to :
 - 🕵️ Inspect the **last values taken by any expression** in your code just by hovering it.
 - ⏱️ See **how long** it took for any expression in your code to run.
 - 🧵 *Feed traces* ***to Copilot/Cursor*** *via MCP so they can know everything that happened when your code ran.* (soon) 
