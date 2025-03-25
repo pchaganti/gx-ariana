@@ -1,7 +1,7 @@
 use crate::collector::CollectedItems;
 use crate::instrumentation::instrument_file;
 use crate::utils::create_link_or_copy;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use ariana_server::traces::instrumentalization::ecma::EcmaImportStyle;
 use indicatif::{ProgressBar, ProgressStyle};
 use zip::write::FileOptions;
@@ -49,7 +49,7 @@ pub fn process_items(
    
     let zip_file = if is_inplace {
         std::fs::create_dir_all(".ariana")?;
-        Some(File::create(".ariana/backups.zip")?)
+        Some(File::create(".ariana/__ariana_backups.zip")?)
     } else {
         None
     };
@@ -62,8 +62,10 @@ pub fn process_items(
                 let src = src.clone();
                 let dest = dest.clone();
                 s.spawn(move |_| {
-                    println!("Copying or linking {:?}", src);
-                    create_link_or_copy(&src, &dest).unwrap();
+                    // println!("Copying or linking {:?}", src);
+                    if let Err(_) = create_link_or_copy(&src, &dest) {
+                        // eprintln!("Could not copy or link {:?}: {}", src, e);
+                    }
                     pb.inc(1);
                 });
             }
@@ -78,7 +80,7 @@ pub fn process_items(
             let zip_writer = zip_writer.clone();
             s.spawn(move |_| {
                 let content = std::fs::read_to_string(&src).unwrap();
-                println!("Instrumenting {:?}", src);
+                // println!("Instrumenting {:?}", src);
                 let instrumented =
                     instrument_file(src.clone(), content.clone(), api_url, vault_key, &import_style)
                         .unwrap();
@@ -106,8 +108,10 @@ pub fn process_items(
                 let src = src.clone();
                 let dest = dest.clone();
                 s.spawn(move |_| {
-                    println!("Copying or linking {:?}", src);
-                    create_link_or_copy(&src, &dest).unwrap();
+                    // println!("Copying or linking {:?}", src);
+                    if let Err(e) = create_link_or_copy(&src, &dest) {
+                        // eprintln!("Could not copy or link {:?}: {}", src, e);
+                    }
                     pb.inc(1);
                 });
             }
@@ -120,10 +124,11 @@ pub fn process_items(
 
     Ok(())
 }
+
 pub fn restore_backup(items: &CollectedItems) -> Result<()> {
-    let zip_path = Path::new(".ariana/backups.zip");
+    let zip_path = Path::new(".ariana/__ariana_backups.zip");
     if !zip_path.exists() {
-        return Ok(());
+        return Err(anyhow!("Backup not found, could not restore."));
     }
 
     let zip_file = File::open(zip_path)?;

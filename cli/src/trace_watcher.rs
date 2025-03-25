@@ -37,8 +37,6 @@ pub async fn watch_traces(
             }
             _ = stop_rx.recv() => {
                 if !traces.is_empty() {
-                    // split in chunks of batch_size
-                    println!("[Ariana] Sending remaining {} traces", traces.len());
                     let mut chunks = Vec::new();
                     for i in 0..(traces.len() / batch_size) + 1 {
                         let start = i * batch_size;
@@ -49,12 +47,9 @@ pub async fn watch_traces(
                         process_traces(chunk, api_url, vault_key).await?;
                     }
                 }
-
-                println!("[Ariana] Trace channel closed");
-                println!("[Ariana] ==================================");
-                println!("❓    You can now open your IDE, use the Ariana extension and view the traces.\nSee how to do it: https://github.com/dedale-dev/ariana?tab=readme-ov-file#3--in-your-ide-get-instant-debugging-information-in-your-code-files");
-                println!("🙏    Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
-                println!("➡️    Join the Discord: https://discord.gg/Y3TFTmE89g");
+                println!("[Ariana] ❓ Use the Ariana IDE extension to view the traces. See: https://github.com/dedale-dev/ariana?tab=readme-ov-file");
+                println!("[Ariana] 🙏 Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
+                println!("[Ariana] ➡️  Join the Discord: https://discord.gg/Y3TFTmE89g");
                 break;
             }
         }

@@ -105,46 +105,6 @@ def copy_binary(src, dst):
         # On Windows, try to use Git Bash's chmod
         set_executable_with_git_bash(dst)
 
-# Helper function to create placeholder binaries
-def create_placeholder_binary(platform_key, output_path):
-    if not platform_key == "windows":
-        # For non-Windows platforms, create a shell script
-        with open(output_path, 'w') as f:
-            f.write(f'''#!/bin/bash
-echo "Error: This is a placeholder binary for {platform_key}."
-echo "Cross-compilation failed when building this package."
-echo "Please check build logs for more information."
-exit 1
-''')
-        try:
-            os.chmod(output_path, 0o755)
-        except Exception as chmod_err:
-            print(f"Warning: Could not set executable permissions on placeholder: {chmod_err}")
-    else:
-        # For Windows, create a batch file
-        with open(output_path, 'w') as f:
-            f.write(f'''@echo off
-echo Error: This is a placeholder binary for {platform_key}.
-echo Cross-compilation failed when building this package.
-echo Please check build logs for more information.
-exit /b 1
-''')
-    print(f"Created placeholder for {platform_key}")
-
-# Get the current platform
-def get_platform():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-    if system == "linux":
-        return "linux"
-    elif system == "darwin":
-        if "arm64" in machine:
-            return "macos-arm64"
-        else:
-            return "macos-x64"
-    else:
-        return "windows"
-
 # Create npm package
 def create_npm_package():
     ensure_dir(NPM_DIR)

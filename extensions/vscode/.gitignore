@@ -5,3 +5,6 @@ pnpm-lock.yaml
 .ariana/
 .ariana.json
 dist/
+.vault_secret_key
+.traces/
+.ariana_saved_traces/

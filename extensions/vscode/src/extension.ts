@@ -9,6 +9,9 @@ import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
 import * as fs from 'fs/promises';
 
 let tracesData: Trace[] = [];
+let wsConnection: WebSocket | null = null;
+let vaultKeyPollingInterval: NodeJS.Timeout | null = null;
+let currentVaultSecretKey: string | null = null;
 
 function traceIsError(trace: Trace): boolean {
     return trace.trace_type !== 'Enter' && trace.trace_type !== 'Awaited' && trace.trace_type !== 'Normal' && 'Error' in trace.trace_type;
@@ -162,7 +165,124 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let tracesHoverDisposable: vscode.Disposable | undefined;
 
-    // Function to fetch traces for an editor
+    // Function to manage WebSocket connection
+    async function connectToTraceWebSocket(vaultSecretKey: string) {
+        // Close existing connection if any
+        closeWebSocketConnection();
+
+        const wsUrl = apiUrl.replace(/^http/, 'ws');
+        const fullWsUrl = `${wsUrl}/vaults/traces/${vaultSecretKey}/stream`;
+        console.log(`Connecting to WebSocket at ${fullWsUrl}`);
+
+        wsConnection = new WebSocket(fullWsUrl);
+
+        wsConnection.onopen = () => {
+            console.log('WebSocket connection established');
+        };
+
+        wsConnection.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (Array.isArray(data)) {
+                    // Initial batch of traces
+                    console.log(`Received ${data.length} traces from WebSocket`);
+                    tracesData = data;
+                    if (showTraces && vscode.window.activeTextEditor) {
+                        highlightTraces(vscode.window.activeTextEditor);
+                    }
+                } else {
+                    // Single new trace
+                    console.log('Received new trace from WebSocket');
+                    tracesData.push(data);
+                    
+                    // If the file this trace belongs to is currently focused, update highlights
+                    if (showTraces && vscode.window.activeTextEditor) {
+                        const filepath = formatUriForDB(vscode.window.activeTextEditor.document.uri);
+                        if (data.start_pos.filepath === filepath) {
+                            highlightTraces(vscode.window.activeTextEditor);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
+            }
+        };
+
+        wsConnection.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        wsConnection.onclose = (event) => {
+            console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+            wsConnection = null;
+            
+            // Try to reconnect after a delay if we should still be connected
+            if (showTraces && currentVaultSecretKey) {
+                setTimeout(() => {
+                    if (showTraces && currentVaultSecretKey) {
+                        connectToTraceWebSocket(currentVaultSecretKey);
+                    }
+                }, 5000);
+            }
+        };
+    }
+
+    function closeWebSocketConnection() {
+        if (wsConnection) {
+            wsConnection.close();
+            wsConnection = null;
+        }
+    }
+
+    // Function to start monitoring vault key changes
+    function startVaultKeyMonitoring() {
+        // Stop existing monitoring if any
+        stopVaultKeyMonitoring();
+
+        // Check immediately and then at regular intervals
+        checkVaultKeyAndUpdateConnection();
+        
+        vaultKeyPollingInterval = setInterval(checkVaultKeyAndUpdateConnection, 5000); // Check every 5 seconds
+    }
+
+    // Function to stop monitoring vault key changes
+    function stopVaultKeyMonitoring() {
+        if (vaultKeyPollingInterval) {
+            clearInterval(vaultKeyPollingInterval);
+            vaultKeyPollingInterval = null;
+        }
+    }
+
+    // Function to check vault key and update connection if necessary
+    async function checkVaultKeyAndUpdateConnection() {
+        if (!vscode.window.activeTextEditor) {
+            return;
+        }
+
+        try {
+            const vaultManager = VaultManager.getInstance();
+            const vaultSecretKey = await vaultManager.getVaultKey(vscode.window.activeTextEditor.document.uri.fsPath);
+
+            if (!vaultSecretKey) {
+                closeWebSocketConnection();
+                currentVaultSecretKey = null;
+                return;
+            }
+
+            // If vault key changed or we need to connect and don't have a connection
+            if (currentVaultSecretKey !== vaultSecretKey || (showTraces && !wsConnection)) {
+                currentVaultSecretKey = vaultSecretKey;
+                
+                if (showTraces) {
+                    connectToTraceWebSocket(vaultSecretKey);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking vault key:', error);
+        }
+    }
+
+    // Function to fetch traces for an editor (fallback to REST if WebSocket fails)
     async function fetchTracesForEditor(editor: vscode.TextEditor) {
         const document = editor.document;
         console.log('Active document:', document.uri.fsPath);
@@ -172,6 +292,12 @@ export async function activate(context: vscode.ExtensionContext) {
             const vaultSecretKey = await vaultManager.getVaultKey(document.uri.fsPath);
 
             if (!vaultSecretKey) {
+                return;
+            }
+
+            // If we have an active WebSocket connection, we don't need to fetch via HTTP
+            if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                // WebSocket is already providing traces
                 return;
             }
 
@@ -202,18 +328,24 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     let disposable = vscode.commands.registerCommand('ariana.highlightTraces', () => {
-        if (!showTraces || !tracesData || tracesData.length === 0) {
-            showTraces = true;
+        showTraces = !showTraces;
+        
+        if (showTraces) {
+            startVaultKeyMonitoring();
             highlightTraces();
         } else {
-            showTraces = false;
+            stopVaultKeyMonitoring();
+            closeWebSocketConnection();
             unhighlightTraces();
         }
+
+        vscode.window.showInformationMessage(`Ariana traces: ${showTraces ? 'Enabled' : 'Disabled'}`);
     });
 
     // Fetch traces for initial active editor
     if (vscode.window.activeTextEditor) {
         if (showTraces) {
+            startVaultKeyMonitoring();
             highlightTraces();
         }
     }
@@ -240,10 +372,13 @@ export async function activate(context: vscode.ExtensionContext) {
         }, async (progress) => {
             try {
                 await fetchTracesForEditor(editor);
-                const regions = processTraces(tracesData);
+                const regions = processTraces(tracesData.filter(trace => 
+                    formatUriForDB(editor.document.uri) === trace.start_pos.filepath
+                ));
                 if (tracesHoverDisposable) {
-                    unhighlightTraces(editor);
+                    tracesHoverDisposable.dispose();
                 }
+                clearDecorations(editor);
                 tracesHoverDisposable = highlightRegions(editor, regions);
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to load traces: ${error}`);
@@ -298,6 +433,14 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     context.subscriptions.push(disposable);
+
+    // Make sure to clean up resources when deactivated
+    context.subscriptions.push({
+        dispose: () => {
+            stopVaultKeyMonitoring();
+            closeWebSocketConnection();
+        }
+    });
 }
 
 type HighlightedRegion = {

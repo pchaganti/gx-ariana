@@ -33,7 +33,8 @@ pub fn should_explore_directory(dir_name: &str) -> bool {
         "__pycache__",
         ".ariana-saved-traces",
     ];
-    !skip_list.contains(&dir_name) && !dir_name.contains(".")
+
+    !skip_list.contains(&dir_name) && !dir_name.contains(".") && !dir_name.starts_with("_")
 }
 
 pub fn should_copy_not_link(path: &Path) -> bool {
@@ -135,19 +136,26 @@ pub fn create_link_or_copy(src: &Path, dest: &Path) -> Result<()> {
 }
 
 pub fn can_create_symlinks() -> bool {
-    let temp_dir = std::env::temp_dir();
-    let src = temp_dir.join("ariana_test_src");
-    let dest = temp_dir.join("ariana_test_dest");
-    if fs::write(&src, "test").is_err() {
-        return false;
+    #[cfg(windows)]
+    {
+        let temp_dir = std::env::temp_dir();
+        let src = temp_dir.join("ariana_test_src");
+        let dest = temp_dir.join("ariana_test_dest");
+        if fs::write(&src, "test").is_err() {
+            return false;
+        }
+        let result = std::os::windows::fs::symlink_file(&src, &dest);
+        let _ = fs::remove_file(&src);
+        if result.is_ok() {
+            let _ = fs::remove_file(&dest);
+            true
+        } else {
+            false
+        }
     }
-    let result = std::os::windows::fs::symlink_file(&src, &dest);
-    let _ = fs::remove_file(&src);
-    if result.is_ok() {
-        let _ = fs::remove_file(&dest);
+    #[cfg(not(windows))]
+    {
         true
-    } else {
-        false
     }
 }
 
@@ -180,7 +188,8 @@ pub fn add_to_gitignore(project_root: &Path) -> Result<()> {
 
 pub fn compute_dest_path(src_path: &Path, project_root: &Path, ariana_dir: &Path) -> PathBuf {
     let relative_path = src_path.strip_prefix(project_root).unwrap();
-    ariana_dir.join(relative_path)
+    let result = ariana_dir.join(relative_path);
+    result
 }
 
 pub fn generate_machine_id() -> Result<String> {

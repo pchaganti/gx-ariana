@@ -27,7 +27,7 @@ use utils::{add_to_gitignore, can_create_symlinks};
 #[derive(Parser)]
 #[command(
     version,
-    about = "Ariana CLI - Instrumentalize your code to collect Ariana traces while it runs."
+    about = "Ariana CLI"
 )]
 struct Cli {
     /// API URL for Ariana server
@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
     } else {
         if cli.command.is_empty() {
             eprintln!("Error: A command is required when not using --recap");
-            eprintln!("Usage: ariana <command> [args...]");
+            eprintln!("Usage: ariana [args...] <command>");
             eprintln!("       ariana --recap");
             exit(1);
         }
@@ -81,6 +81,7 @@ async fn main() -> Result<()> {
         // Create or clean .ariana directory
         if !cli.inplace {
             if ariana_dir.exists() {
+                println!("[Ariana] Removing previous .ariana directory");
                 fs_extra::dir::remove(&ariana_dir)?;
             }
             fs::create_dir_all(&ariana_dir)?;
@@ -90,6 +91,7 @@ async fn main() -> Result<()> {
         add_to_gitignore(&current_dir)?;
 
         // Create vault
+        println!("[Ariana] Creating a new vault for your traces");
         let vault_key = create_vault(&cli.api_url)?;
         let import_style = detect_project_import_style(&current_dir)?;
 
@@ -100,7 +102,9 @@ async fn main() -> Result<()> {
             ariana_dir.clone()
         };
 
+        println!("[Ariana] Listing code files to instrument");
         let collected_items = collect_items(&current_dir, &ariana_dir)?;
+        println!("[Ariana] Instrumenting code files");
         process_items(&collected_items, &cli.api_url, &vault_key, &import_style, cli.inplace)?;
 
         // Write vault secret key
@@ -120,12 +124,7 @@ async fn main() -> Result<()> {
         let mut command_args = cli.command.clone();
         let command = command_args.remove(0);
         
-        println!("[Ariana] Running command in {}/ : {} {}", working_dir.file_name().unwrap().to_str().unwrap(), command, command_args.join(" "));
-        if !cli.inplace {
-            println!("[Ariana] tip: To run the command in the original directory, use the --inplace flag (in that case original files will be temporarily edited and then restored).");
-            println!("➡️    For more info: Run 'ariana --help' or for a trace recap use 'ariana --recap'");
-            println!("➡️    Join us on Discord for tips and features previews: https://discord.gg/Y3TFTmE89g");
-        }
+        println!("[Ariana] Running `{} {}` in {}/", command, command_args.join(" "), working_dir.file_name().unwrap().to_str().unwrap());
 
         println!("\n\n\n");
 
@@ -212,7 +211,7 @@ async fn main() -> Result<()> {
 
         let perf_end = std::time::Instant::now();
 
-        println!("[Ariana] All traces observed. Took {} ms. Now waiting to finish sending them.", perf_end.duration_since(perf_now).as_millis());
+        println!("[Ariana] Command finished, took {} ms. Waiting to finish sending collected traces...", perf_end.duration_since(perf_now).as_millis());
 
         // let _ = futures::future::join_all(sent_traces_futures).await;
 
@@ -227,8 +226,14 @@ async fn main() -> Result<()> {
 
         // If running in-place, restore original files
         if cli.inplace {
-            restore_backup(&collected_items)?;
-            println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}", ariana_dir.display());
+            if let Err(e) = restore_backup(&collected_items) {
+                eprintln!("[Ariana] Could not restore backup from {}/__ariana_backup.zip: {}", ariana_dir.display(), e);
+            } else {
+                println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}/__ariana_backup.zip", ariana_dir.display());
+            }
+        } else {
+            println!("[Ariana] Removing .ariana/ ...");
+            fs_extra::dir::remove(ariana_dir)?;
         }
 
         // Exit with the same status code as the command

@@ -31,6 +31,9 @@ pub fn collect_items(project_root: &Path, ariana_dir: &Path) -> Result<Collected
     for entry in builder.build() {
         let entry = entry?;
         let path = entry.path();
+        if path == project_root {
+            continue;
+        }
         let file_type = entry.file_type().unwrap();
 
         if file_type.is_dir() {
