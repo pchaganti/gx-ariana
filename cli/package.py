@@ -4,6 +4,9 @@ import sys
 import platform
 import subprocess
 import re
+import json
+import urllib.request
+from urllib.error import URLError
 
 # Configuration
 BINARY_DIR = "binaries"  # Directory containing your prebuilt Rust binaries
@@ -16,6 +19,24 @@ BINARIES = {
     "windows": "ariana-windows-x64.exe",
 }
 VSCODE_README_PATH = "../extensions/vscode/README.md"  # Path to the VS Code extension README
+
+# Function to check for the latest version
+def get_latest_version(package_type):
+    try:
+        if package_type == "npm":
+            url = "https://registry.npmjs.org/ariana"
+            with urllib.request.urlopen(url, timeout=3) as response:
+                data = json.loads(response.read().decode())
+                return data.get("dist-tags", {}).get("latest")
+        elif package_type == "pip":
+            url = "https://pypi.org/pypi/ariana/json"
+            with urllib.request.urlopen(url, timeout=3) as response:
+                data = json.loads(response.read().decode())
+                return data.get("info", {}).get("version")
+        return None
+    except (URLError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Failed to check for latest version: {e}")
+        return None
 
 # Helper function to set executable permissions using Git Bash on Windows
 def set_executable_with_git_bash(file_path):
@@ -176,147 +197,207 @@ def create_npm_package():
 
     # Write ariana.js in the root directory, not in bin
     with open(os.path.join(NPM_DIR, "ariana.js"), "w") as f:
-        f.write('''#!/usr/bin/env node
+        f.write(f'''#!/usr/bin/env node
 
-const { execFileSync, spawnSync, spawn } = require('child_process');
+const {{ execFileSync, spawnSync, spawn }} = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const https = require('https');
 
 const platform = os.platform();
 const arch = os.arch();
+const currentVersion = '{VERSION}';
+
+// Function to check for the latest version
+function checkLatestVersion() {{
+  return new Promise((resolve) => {{
+    const options = {{
+      hostname: 'registry.npmjs.org',
+      path: '/ariana',
+      method: 'GET',
+      timeout: 3000
+    }};
+
+    const req = https.request(options, (res) => {{
+      let data = '';
+      res.on('data', (chunk) => {{
+        data += chunk;
+      }});
+      res.on('end', () => {{
+        try {{
+          const packageInfo = JSON.parse(data);
+          resolve(packageInfo['dist-tags']?.latest);
+        }} catch (e) {{
+          resolve(null);
+        }}
+      }});
+    }});
+
+    req.on('error', () => {{
+      resolve(null);
+    }});
+
+    req.on('timeout', () => {{
+      req.destroy();
+      resolve(null);
+    }});
+
+    req.end();
+  }});
+}}
+
+// Function to display version warning
+async function checkVersionAndWarn() {{
+  try {{
+    const latestVersion = await checkLatestVersion();
+    if (latestVersion && latestVersion !== '{VERSION}') {{
+      console.log('\\x1b[33m%s\\x1b[0m', '⚠️  WARNING: You are using an outdated version of Ariana CLI');
+      console.log('\\x1b[33m%s\\x1b[0m', `Your version: {VERSION}`);
+      console.log('\\x1b[33m%s\\x1b[0m', `Latest version: ${{latestVersion}}`);
+      console.log('\\x1b[33m%s\\x1b[0m', 'Please update to the latest version using: npm install -g ariana@latest');
+    }}
+  }} catch (e) {{
+    // Silently fail if version check fails
+  }}
+}}
 
 let binaryName;
-if (platform === 'linux' && arch === 'x64') {
+if (platform === 'linux' && arch === 'x64') {{
   binaryName = 'ariana-linux-x64';
-} else if (platform === 'darwin') {
-  if (arch === 'arm64') {
+}} else if (platform === 'darwin') {{
+  if (arch === 'arm64') {{
     binaryName = 'ariana-macos-arm64';
-  } else if (arch === 'x64') {
+  }} else if (arch === 'x64') {{
     binaryName = 'ariana-macos-x64';
-  } else {
+  }} else {{
     console.error('Unsupported macOS architecture');
     process.exit(1);
-  }
-} else if (platform === 'win32' && arch === 'x64') {
+  }}
+}} else if (platform === 'win32' && arch === 'x64') {{
   binaryName = 'ariana-windows-x64.exe';
-} else {
+}} else {{
   console.error('Unsupported platform or architecture');
   process.exit(1);
-}
+}}
 
 const binaryPath = path.join(__dirname, 'bin', binaryName);
 
 // Print some diagnostic info
-function printBinaryInfo() {
+function printBinaryInfo() {{
   console.log('Ariana binary information:');
-  console.log(`Binary path: ${binaryPath}`);
-  console.log(`Platform: ${platform}, Architecture: ${arch}`);
-  try {
+  console.log(`Binary path: ${{binaryPath}}`);
+  console.log(`Platform: ${{platform}}, Architecture: ${{arch}}`);
+  try {{
     const stats = fs.statSync(binaryPath);
-    console.log(`Binary exists: Yes, Size: ${stats.size} bytes, Mode: ${stats.mode.toString(8)}`);
-  } catch (err) {
-    console.log(`Binary exists: No (${err.message})`);
-  }
-}
+    console.log(`Binary exists: Yes, Size: ${{stats.size}} bytes, Mode: ${{stats.mode.toString(8)}}`);
+  }} catch (err) {{
+    console.log(`Binary exists: No (${{err.message}})`);
+  }}
+}}
 
-if (process.argv[2] === 'install') {
+if (process.argv[2] === 'install') {{
   // Set executable permissions on Unix-like systems
-  if (platform === 'linux' || platform === 'darwin') {
-    try {
+  if (platform === 'linux' || platform === 'darwin') {{
+    try {{
       fs.chmodSync(binaryPath, 0o755);  // rwxr-xr-x
-      console.log(`Set executable permissions on ${binaryPath}`);
-    } catch (err) {
-      console.warn(`Warning: Could not set execute permissions on ${binaryPath}: ${err.message}`);
+      console.log(`Set executable permissions on ${{binaryPath}}`);
+    }} catch (err) {{
+      console.warn(`Warning: Could not set execute permissions on ${{binaryPath}}: ${{err.message}}`);
       console.warn('The binary might already be executable or permissions might be restricted.');
       // Continue anyway, as the binary might still be executable
-    }
-  }
+    }}
+  }}
   
   // Print diagnostic info during install
   printBinaryInfo();
   
   console.log('ariana binary installed successfully');
   process.exit(0);
-}
+}}
 
-try {
+// Check for version updates (don't await to avoid blocking)
+if (process.argv[2] !== 'version' && process.argv[2] !== '--version' && process.argv[2] !== '-v') {{
+  checkVersionAndWarn();
+}}
+
+try {{
   const args = process.argv.slice(2);
   
   // Use different execution strategies depending on platform
-  if (platform === 'win32') {
+  if (platform === 'win32') {{
     // On Windows, execFileSync works well
-    try {
-      execFileSync(binaryPath, args, { stdio: 'inherit' });
-    } catch (err) {
+    try {{
+      execFileSync(binaryPath, args, {{ stdio: 'inherit' }});
+    }} catch (err) {{
       console.error(err.message);
       process.exit(1);
-    }
-  } else if (platform === 'darwin') {
+    }}
+  }} else if (platform === 'darwin') {{
     // On macOS, try various methods starting with the most reliable
-    console.log(`Executing on macOS: ${binaryPath} with args: ${args.join(' ')}`);
+    console.log(`Executing on macOS: ${{binaryPath}} with args: ${{args.join(' ')}}`);
     
     // Method 1: Try /usr/bin/env approach (works well with macOS security)
-    try {
+    try {{
       const allArgs = [binaryPath].concat(args);
-      const childProcess = spawn('/usr/bin/env', allArgs, {
+      const childProcess = spawn('/usr/bin/env', allArgs, {{
         stdio: 'inherit'
-      });
+      }});
       
-      childProcess.on('error', (err) => {
-        console.warn(`Warning: /usr/bin/env method failed: ${err.message}`);
+      childProcess.on('error', (err) => {{
+        console.warn(`Warning: /usr/bin/env method failed: ${{err.message}}`);
         console.warn('Trying alternate method...');
         
         // Method 2: Try with shell: true as fallback
-        const shellProcess = spawn(binaryPath, args, {
+        const shellProcess = spawn(binaryPath, args, {{
           stdio: 'inherit',
           shell: true
-        });
+        }});
         
-        shellProcess.on('error', (shellErr) => {
-          console.error(`Error starting process with shell: ${shellErr.message}`);
+        shellProcess.on('error', (shellErr) => {{
+          console.error(`Error starting process with shell: ${{shellErr.message}}`);
           printBinaryInfo();
           process.exit(1);
-        });
+        }});
         
-        shellProcess.on('exit', (code) => {
+        shellProcess.on('exit', (code) => {{
           process.exit(code || 0);
-        });
-      });
+        }});
+      }});
       
-      childProcess.on('exit', (code) => {
+      childProcess.on('exit', (code) => {{
         process.exit(code || 0);
-      });
-    } catch (err) {
-      console.error(`All execution methods failed for macOS: ${err.message}`);
+      }});
+    }} catch (err) {{
+      console.error(`All execution methods failed for macOS: ${{err.message}}`);
       printBinaryInfo();
       process.exit(1);
-    }
-  } else {
+    }}
+  }} else {{
     // On Linux, use spawn with shell: true
-    console.log(`Executing on Linux: ${binaryPath} with args: ${args.join(' ')}`);
+    console.log(`Executing on Linux: ${{binaryPath}} with args: ${{args.join(' ')}}`);
     
-    const childProcess = spawn(binaryPath, args, {
+    const childProcess = spawn(binaryPath, args, {{
       stdio: 'inherit',
       shell: true
-    });
+    }});
     
-    childProcess.on('error', (err) => {
-      console.error(`Error starting process: ${err.message}`);
+    childProcess.on('error', (err) => {{
+      console.error(`Error starting process: ${{err.message}}`);
       printBinaryInfo();
       process.exit(1);
-    });
+    }});
     
-    childProcess.on('exit', (code) => {
+    childProcess.on('exit', (code) => {{
       process.exit(code || 0);
-    });
-  }
-} catch (err) {
+    }});
+  }}
+}} catch (err) {{
   console.error('Error running ariana:', err.message);
   printBinaryInfo();
   process.exit(1);
-}
-''')
+}}
+'''.replace('{VERSION}', VERSION))
 
     if platform.system().lower() != "windows":
         os.chmod(os.path.join(NPM_DIR, "ariana.js"), 0o755)
@@ -345,6 +426,19 @@ def create_pip_package():
 import subprocess
 import sys
 import platform
+import json
+import urllib.request
+from urllib.error import URLError
+
+def check_latest_version():
+    try:
+        url = "https://pypi.org/pypi/ariana/json"
+        with urllib.request.urlopen(url, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            return data.get("info", {{}}).get("version")
+    except (URLError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Failed to check for latest version: {{e}}")
+        return None
 
 def main():
     module_dir = os.path.dirname(__file__)
@@ -353,17 +447,17 @@ def main():
     machine = platform.machine().lower()
 
     if system == 'linux' and 'x86_64' in machine:
-        binary = os.path.join(binary_dir, '{BINARIES["linux"]}')
+        binary = os.path.join(binary_dir, 'ariana-linux-x64')
     elif system == 'darwin':
         if 'x86_64' in machine:
-            binary = os.path.join(binary_dir, '{BINARIES["macos-x64"]}')
+            binary = os.path.join(binary_dir, 'ariana-macos-x64')
         elif 'arm64' in machine:
-            binary = os.path.join(binary_dir, '{BINARIES["macos-arm64"]}')
+            binary = os.path.join(binary_dir, 'ariana-macos-arm64')
         else:
             print("Unsupported macOS architecture")
             sys.exit(1)
     elif system == 'windows' and ('x86_64' in machine or 'amd64' in machine):
-        binary = os.path.join(binary_dir, '{BINARIES["windows"]}')
+        binary = os.path.join(binary_dir, 'ariana-windows-x64.exe')
     else:
         print("Unsupported platform or architecture")
         sys.exit(1)
@@ -382,13 +476,24 @@ def main():
             # Continue anyway, the binary might already be executable
 
     try:
+        latest_version = check_latest_version()
+        if latest_version and latest_version != '{VERSION}':
+            print('\\033[33m\\u26A0  WARNING: You are using an outdated version of Ariana CLI\\033[0m')
+            print(f'\\033[33mYour version: {{VERSION}}\\033[0m')
+            print(f'\\033[33mLatest version: {{latest_version}}\\033[0m')
+            print('\\033[33mPlease update to the latest version using: pip install --upgrade ariana\\033[0m')
+    except Exception:
+        # Silently fail if version check fails
+        pass
+
+    try:
         subprocess.run([binary] + sys.argv[1:], check=True)
     except subprocess.CalledProcessError as e:
         sys.exit(1)
 
 if __name__ == '__main__':
     main()
-''')
+'''.replace('{VERSION}', VERSION))
 
     # Write setup.py
     with open(os.path.join(PIP_DIR, "setup.py"), "w") as f:
@@ -412,7 +517,7 @@ setup(
     license='AGPL-3.0-only',
     url='https://github.com/dedale-dev/ariana',
 )
-''')
+'''.replace('{VERSION}', VERSION))
 
     print(f"pip package created in {PIP_DIR}. Run 'python -m build' and 'twine upload dist/*' to upload.")
 
