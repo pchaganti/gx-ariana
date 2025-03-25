@@ -16,7 +16,7 @@
   </div>
 </div>
 
-Ariana is an IDE extension to understand what happens during run time. You don't have to put `print()`, `console.log()` or breakpoints everywhere. Currently running on JS/TS & Python.
+Ariana is an IDE extension to understand what happens during runtime. You don't have to put `print()`, `console.log()` or breakpoints everywhere. Currently supports JS/TS & Python.
 
 ## ✨ Key Features
 
