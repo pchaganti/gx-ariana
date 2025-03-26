@@ -6,7 +6,7 @@
 		{
 			"label": "Ariana - Watch",
 			"type": "shell",
-			"command": "ariana npm run watch:esbuild",
+			"command": "npm run watch:esbuild",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {

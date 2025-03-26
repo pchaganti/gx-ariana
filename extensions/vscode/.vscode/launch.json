@@ -10,10 +10,10 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/.ariana/"
+				"--extensionDevelopmentPath=${workspaceFolder}/"
 			],
 			"outFiles": [
-				"${workspaceFolder}/.ariana/out/**/*.js"
+				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "Ariana - Watch",
 			"env": { "NODE_ENV": "development" }
