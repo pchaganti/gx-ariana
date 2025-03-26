@@ -158,7 +158,6 @@ def create_npm_package():
     # Write ariana.js in the root directory, not in bin
     with open(os.path.join(NPM_DIR, "ariana.js"), "w") as f:
         f.write(f'''#!/usr/bin/env node
-
 const {{ execFileSync, spawnSync, spawn }} = require('child_process');
 const path = require('path');
 const os = require('os');
@@ -212,7 +211,7 @@ async function checkVersionAndWarn() {{
   try {{
     const latestVersion = await checkLatestVersion();
     if (latestVersion && latestVersion !== '{VERSION}') {{
-      console.log('\\x1b[33m%s\\x1b[0m', '⚠️  WARNING: You are using an outdated version of Ariana CLI');
+      console.log('\\x1b[33m%s\\x1b[0m', '\\u26A0 WARNING: You are using an outdated version of Ariana CLI');
       console.log('\\x1b[33m%s\\x1b[0m', `Your version: {VERSION}`);
       console.log('\\x1b[33m%s\\x1b[0m', `Latest version: ${{latestVersion}}`);
       console.log('\\x1b[33m%s\\x1b[0m', 'Please update to the latest version using: npm install -g ariana@latest');
@@ -357,7 +356,7 @@ try {{
   printBinaryInfo();
   process.exit(1);
 }}
-'''.replace('{VERSION}', VERSION))
+''')
 
     if platform.system().lower() != "windows":
         os.chmod(os.path.join(NPM_DIR, "ariana.js"), 0o755)

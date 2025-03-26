@@ -1,12 +1,66 @@
 #!/usr/bin/env node
-
 const { execFileSync, spawnSync, spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const https = require('https');
 
 const platform = os.platform();
 const arch = os.arch();
+const currentVersion = '0.3.5';
+
+// Function to check for the latest version
+function checkLatestVersion() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'registry.npmjs.org',
+      path: '/ariana',
+      method: 'GET',
+      timeout: 3000
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const packageInfo = JSON.parse(data);
+          resolve(packageInfo['dist-tags']?.latest);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => {
+      resolve(null);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+
+    req.end();
+  });
+}
+
+// Function to display version warning
+async function checkVersionAndWarn() {
+  try {
+    const latestVersion = await checkLatestVersion();
+    if (latestVersion && latestVersion !== '0.3.5') {
+      console.log('\x1b[33m%s\x1b[0m', '\u26A0 WARNING: You are using an outdated version of Ariana CLI');
+      console.log('\x1b[33m%s\x1b[0m', `Your version: 0.3.5`);
+      console.log('\x1b[33m%s\x1b[0m', `Latest version: ${latestVersion}`);
+      console.log('\x1b[33m%s\x1b[0m', 'Please update to the latest version using: npm install -g ariana@latest');
+    }
+  } catch (e) {
+    // Silently fail if version check fails
+  }
+}
 
 let binaryName;
 if (platform === 'linux' && arch === 'x64') {
@@ -60,6 +114,11 @@ if (process.argv[2] === 'install') {
   
   console.log('ariana binary installed successfully');
   process.exit(0);
+}
+
+// Check for version updates (don't await to avoid blocking)
+if (process.argv[2] !== 'version' && process.argv[2] !== '--version' && process.argv[2] !== '-v') {
+  checkVersionAndWarn();
 }
 
 try {

@@ -231,9 +231,6 @@ async fn main() -> Result<()> {
             } else {
                 println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}/__ariana_backup.zip", ariana_dir.display());
             }
-        } else {
-            println!("[Ariana] Removing .ariana/ ...");
-            fs_extra::dir::remove(ariana_dir)?;
         }
 
         // Exit with the same status code as the command

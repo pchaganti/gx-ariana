@@ -11,3 +11,8 @@ server
 /server
 /cli/server
 server/
+.ariana/
+.ariana.json
+.vault_secret_key
+.traces/
+.ariana_saved_traces/

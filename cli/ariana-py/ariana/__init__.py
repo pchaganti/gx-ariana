@@ -2,6 +2,19 @@ import os
 import subprocess
 import sys
 import platform
+import json
+import urllib.request
+from urllib.error import URLError
+
+def check_latest_version():
+    try:
+        url = "https://pypi.org/pypi/ariana/json"
+        with urllib.request.urlopen(url, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            return data.get("info", {}).get("version")
+    except (URLError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Failed to check for latest version: {e}")
+        return None
 
 def main():
     module_dir = os.path.dirname(__file__)
@@ -37,6 +50,17 @@ def main():
         except Exception as e:
             print(f"Warning: Could not set execute permissions on {binary}: {e}")
             # Continue anyway, the binary might already be executable
+
+    try:
+        latest_version = check_latest_version()
+        if latest_version and latest_version != '0.3.5':
+            print('\033[33m\u26A0  WARNING: You are using an outdated version of Ariana CLI\033[0m')
+            print(f'\033[33mYour version: 0.3.5\033[0m')
+            print(f'\033[33mLatest version: {latest_version}\033[0m')
+            print('\033[33mPlease update to the latest version using: pip install --upgrade ariana\033[0m')
+    except Exception:
+        # Silently fail if version check fails
+        pass
 
     try:
         subprocess.run([binary] + sys.argv[1:], check=True)
