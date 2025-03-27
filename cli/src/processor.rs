@@ -1,36 +1,122 @@
 use crate::collector::CollectedItems;
-use crate::instrumentation::instrument_file;
+use crate::instrumentation::instrument_files_batch;
 use crate::utils::create_link_or_copy;
 use anyhow::{Result, anyhow};
 use ariana_server::traces::instrumentalization::ecma::EcmaImportStyle;
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use zip::write::FileOptions;
 use zip::{ZipArchive, ZipWriter};
-use std::fs::File;
+use std::collections::HashMap;
+use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// Processes files_to_instrument in batches of up to 100 files in parallel.
+fn process_instrument_files_in_batches(
+    mut files: Vec<(PathBuf, PathBuf)>,
+    api_url: &str,
+    vault_key: &str,
+    import_style: &EcmaImportStyle,
+    pb: Arc<ProgressBar>,
+    is_inplace: bool,
+    zip_writer: Option<Arc<std::sync::Mutex<ZipWriter<File>>>>,
+) {
+    let mut duration_sum = 0;
+
+    let mut paths_sizes = HashMap::new();
+    files.sort_by(|a, b| {
+        let a_size = fs::metadata(&a.0).unwrap().len();
+        let b_size = fs::metadata(&b.0).unwrap().len();
+        paths_sizes.insert(a.0.clone(), a_size);
+        paths_sizes.insert(b.0.clone(), b_size);
+
+        a_size.cmp(&b_size)
+    });
+
+    for (i, batch) in files.chunks(100).enumerate() {
+        println!("Starting batch {}", i);
+
+        let mut total_size = 0;
+        for (src, _) in batch {
+            total_size += paths_sizes.get(src).unwrap();
+        }
+        println!("Avg size: {}\n Last el {:?}", total_size as f64 / batch.len() as f64, batch.last().unwrap());
+
+        let start_time = Instant::now();
+        
+        let contents_start = Instant::now();
+        let files_contents: Vec<String> = batch.par_iter().map(|(src, _)| {
+            fs::read_to_string(&src).unwrap()
+        })
+        .collect();
+        println!("Finished reading contents for batch {}, elapsed: {:?}", i, contents_start.elapsed());
+
+        let mut src_paths = vec![];
+        let mut dest_paths = vec![];
+        for (src, dest) in batch.into_iter() {
+            src_paths.push(src.clone());
+            dest_paths.push(dest.clone());
+        }
+        let result = instrument_files_batch(&src_paths, files_contents.clone(), api_url.to_string(), vault_key.to_string(), import_style);
+        let maybe_instrumented_contents = match result {
+            Ok(maybe_instrumented_contents) => maybe_instrumented_contents,
+            Err(e) => {
+                eprintln!("Could not process batch {} because of: {:?}", i, e.source());
+                continue;
+            }
+        };
+
+        for (((src_path, dest_path), original_content), maybe_instrumented_content) in src_paths.iter().zip(dest_paths.iter()).zip(files_contents.iter()).zip(maybe_instrumented_contents.iter()) {
+            let instrumented_content = if let Some(instrumented_content) = maybe_instrumented_content {
+                instrumented_content
+            } else {
+                original_content
+            };
+            if is_inplace {
+                if let Some(ref zw) = zip_writer {
+                    let mut zw = zw.lock().unwrap();
+                    let path_str = src_path.to_string_lossy().to_string();
+                    zw.start_file(&path_str, FileOptions::<()>::default()).unwrap();
+                    zw.write_all(original_content.as_bytes()).unwrap();
+                    fs::write(src_path, instrumented_content).unwrap();
+                } else {
+                    panic!("No zip writer");
+                }
+            } else {
+                fs::write(dest_path, instrumented_content).unwrap();
+            }
+            pb.inc(1);
+        }
+
+        let elapsed = start_time.elapsed();
+        duration_sum += elapsed.as_millis();
+        println!("Finished batch {}, elapsed: {:?}, avg: {} ms", i, elapsed, duration_sum as f64 / (i+1) as f64);
+    }
+}
 
 pub fn process_items(
     items: &CollectedItems,
     api_url: &str,
     vault_key: &str,
     import_style: &EcmaImportStyle,
-    is_inplace: bool
-) -> Result<()> {
+    is_inplace: bool,
+) -> Result<(), String> {
+    // Calculate total for progress bar
     let total = if is_inplace {
         items.files_to_instrument.len() as u64
     } else {
         (items.directories_to_link_or_copy.len()
-        + items.files_to_instrument.len()
-        + items.files_to_link_or_copy.len()) as u64
+         + items.files_to_instrument.len()
+         + items.files_to_link_or_copy.len()) as u64
     };
 
-    let pb = ProgressBar::new(total);
+    // Initialize progress bar
+    let pb = Arc::new(ProgressBar::new(total));
     pb.set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
@@ -38,6 +124,7 @@ pub fn process_items(
             .progress_chars("##-"),
     );
 
+    // Set up message thread for long-running processes
     let processing_done = Arc::new(AtomicBool::new(false));
     let pd_clone = processing_done.clone();
     let message_thread = thread::spawn(move || {
@@ -46,78 +133,65 @@ pub fn process_items(
             println!("[Ariana] Instrumentation is taking a while. For large projects, consider using the --inplace flag to instrument files in place, which may be faster.");
         }
     });
-   
-    let zip_file = if is_inplace {
-        std::fs::create_dir_all(".ariana")?;
-        Some(File::create(".ariana/__ariana_backups.zip")?)
-    } else {
-        None
-    };
-    let zip_writer = zip_file.map(|f| Arc::new(Mutex::new(ZipWriter::new(f))));
 
-    rayon::scope(|s| {
-        if !is_inplace {
+    // Process items based on is_inplace flag
+    if is_inplace {
+        fs::create_dir_all(".ariana").map_err(|_| format!("Couldn't create .ariana"))?;
+        let zip_file = File::create(".ariana/__ariana_backups.zip").map_err(|_| format!("Couldn't create .ariana/__ariana_backups.zip"))?;
+        let zip_writer = Arc::new(std::sync::Mutex::new(ZipWriter::new(zip_file)));
+        process_instrument_files_in_batches(
+            items.files_to_instrument.to_vec(),
+            api_url,
+            vault_key,
+            import_style,
+            pb.clone(),
+            true,
+            Some(zip_writer),
+        );
+    } else {
+        rayon::scope(|s| {
+            // Process directories to link or copy
             for (src, dest) in &items.directories_to_link_or_copy {
                 let pb = pb.clone();
                 let src = src.clone();
                 let dest = dest.clone();
                 s.spawn(move |_| {
-                    // println!("Copying or linking {:?}", src);
                     if let Err(_) = create_link_or_copy(&src, &dest) {
                         // eprintln!("Could not copy or link {:?}: {}", src, e);
                     }
                     pb.inc(1);
                 });
             }
-        }
-        for (src, dest) in &items.files_to_instrument {
-            let pb = pb.clone();
-            let src = src.clone();
-            let dest = dest.clone();
-            let api_url = api_url.to_string();
-            let vault_key = vault_key.to_string();
-            let import_style = import_style.clone();
-            let zip_writer = zip_writer.clone();
-            s.spawn(move |_| {
-                let content = std::fs::read_to_string(&src).unwrap();
-                // println!("Instrumenting {:?}", src);
-                let instrumented =
-                    instrument_file(src.clone(), content.clone(), api_url, vault_key, &import_style)
-                        .unwrap();
-                
-                if is_inplace {
-                    if let Some(zw) = zip_writer {
-                        let mut zw = zw.lock().unwrap();
-                        // Store original content in ZIP with path as name
-                        let path_str = src.to_string_lossy().to_string();
-                        zw.start_file(&path_str, FileOptions::<()>::default()).unwrap();
-                        zw.write_all(content.as_bytes()).unwrap();
-                        // Write instrumented content to original file
-                        std::fs::write(&src, instrumented).unwrap();
-                    }
-                } else {
-                    std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
-                    std::fs::write(&dest, instrumented).unwrap();
-                }
-                pb.inc(1);
-            });
-        }
-        if !is_inplace {
+
+            // Process files to link or copy
             for (src, dest) in &items.files_to_link_or_copy {
                 let pb = pb.clone();
                 let src = src.clone();
                 let dest = dest.clone();
                 s.spawn(move |_| {
-                    // println!("Copying or linking {:?}", src);
                     if let Err(_) = create_link_or_copy(&src, &dest) {
                         // eprintln!("Could not copy or link {:?}: {}", src, e);
                     }
                     pb.inc(1);
                 });
             }
-        }
-    });
 
+            // Process files_to_instrument in batches within a separate task
+            s.spawn(|_| {
+                process_instrument_files_in_batches(
+                    items.files_to_instrument.to_vec(),
+                    api_url,
+                    vault_key,
+                    import_style,
+                    pb.clone(),
+                    false,
+                    None,
+                );
+            });
+        });
+    }
+
+    // Finalize progress bar and message thread
     pb.finish();
     processing_done.store(true, Ordering::SeqCst);
     message_thread.join().unwrap();

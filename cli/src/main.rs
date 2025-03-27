@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use ariana_server::traces::Trace;
 use clap::Parser;
 use processor::restore_backup;
@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
 
         // Create vault
         println!("[Ariana] Creating a new vault for your traces");
-        let vault_key = create_vault(&cli.api_url)?;
+        let vault_key = create_vault(&cli.api_url).await?;
         let import_style = detect_project_import_style(&current_dir)?;
 
         // Process files
@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
         println!("[Ariana] Listing code files to instrument");
         let collected_items = collect_items(&current_dir, &ariana_dir)?;
         println!("[Ariana] Instrumenting code files");
-        process_items(&collected_items, &cli.api_url, &vault_key, &import_style, cli.inplace)?;
+        process_items(&collected_items, &cli.api_url, &vault_key, &import_style, cli.inplace).map_err(|s| anyhow!(s))?;
 
         // Write vault secret key
         let vault_secret_key_path = ariana_dir.join(".vault_secret_key");
