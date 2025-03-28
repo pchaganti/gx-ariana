@@ -133,7 +133,7 @@ ariana npm run start
 
 ## Code processing disclaimer
 
-We process (but never store!) your JS/TS code files on our server based in EU. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
+We process and temporarily store for 48 hours your JS/TS code files on our server based in EU. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
 
 ## Licence
 
