@@ -62,7 +62,7 @@ For example:
 
 Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggle Traced Expressions Highlighting` command.
 
-- 🗺️ Identify which sections of your code ran  
+- 🗺️ **Identify which sections of your code ran**
 
 
     | Highlight Color | Meaning                        |
@@ -72,7 +72,7 @@ Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggl
     | ⚪ **None**     | Code segment didn’t run or couldn't be recorded. | 
 
 
-- 🕵️ Hover over any expression to reveal its past values
+- 🕵️ **Hover over any expression to reveal its past values**
 
   ![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
 
