@@ -77,7 +77,7 @@ Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggl
   ![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
 
 
-#### 3) 🤖 (Experimental) Use AI to recap what your code did & identify error root causes
+#### 3) 🤖 Use AI to recap what your code did & identify error root causes (WIP)
 
 Run:
 
