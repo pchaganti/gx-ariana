@@ -6,14 +6,15 @@ import path = require('path');
 import { VaultManager } from './vaults/manager';
 import { getConfig } from './config';
 import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
-import * as fs from 'fs/promises';
 import { HighlightedRegion, highlightRegions } from './highlighting';
 import { clearDecorations } from './highlighting/decorations';
+import { handleArianaInstallation, updateArianaCLI } from './installation';
 
 let tracesData: Trace[] = [];
 let wsConnection: WebSocket | null = null;
 let vaultKeyPollingInterval: NodeJS.Timeout | null = null;
 let currentVaultSecretKey: string | null = null;
+let tracesHoverDisposable: vscode.Disposable | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Extension is now active');
@@ -27,6 +28,12 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     
     let showTraces = false;
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('ariana.updateCLI', () => {
+            updateArianaCLI(context);
+        })
+    );
 
     // Create a command to show the traceback panel
     context.subscriptions.push(
@@ -50,8 +57,6 @@ export async function activate(context: vscode.ExtensionContext) {
             });
         })
     );
-
-    let tracesHoverDisposable: vscode.Disposable | undefined;
 
     // Function to manage WebSocket connection
     async function connectToTraceWebSocket(vaultSecretKey: string) {
@@ -232,6 +237,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Fetch traces for initial active editor
     if (vscode.window.activeTextEditor) {
+        handleArianaInstallation(context);
         if (showTraces) {
             startVaultKeyMonitoring();
             highlightTraces();
@@ -241,6 +247,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for editor changes
     vscode.window.onDidChangeActiveTextEditor(async (editor) => {
         if (editor) {
+            unhighlightTraces(editor);
+            handleArianaInstallation(context);
             if (showTraces) {
                 highlightTraces(editor);
             }
@@ -325,5 +333,9 @@ export function deactivate() {
     // DropdownWebview.hide();
     if (vscode.window.activeTextEditor) {
         clearDecorations(vscode.window.activeTextEditor);
+        if (tracesHoverDisposable) {
+            tracesHoverDisposable.dispose();
+            tracesHoverDisposable = undefined;
+        }
     }
 }
