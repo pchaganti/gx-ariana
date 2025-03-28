@@ -1,9 +1,8 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use ariana_server::traces::Trace;
 use clap::Parser;
 use processor::restore_backup;
-use tokio::spawn;
-use tokio::sync::mpsc;
+use utils::generate_machine_id;
 use std::env;
 use std::fs;
 use std::process::exit;
@@ -11,6 +10,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tokio::io::AsyncBufReadExt;
+use tokio::spawn;
+use tokio::sync::mpsc;
 
 mod collector;
 mod instrumentation;
@@ -25,10 +26,7 @@ use trace_watcher::watch_traces;
 use utils::{add_to_gitignore, can_create_symlinks};
 
 #[derive(Parser)]
-#[command(
-    version,
-    about = "Ariana CLI"
-)]
+#[command(version, about = "Ariana CLI")]
 struct Cli {
     /// API URL for Ariana server
     #[arg(long, default_value_t = if cfg!(debug_assertions) { "http://localhost:8080/".to_string() } else { "https://api.ariana.dev/".to_string() })]
@@ -55,9 +53,13 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.recap {
-        // Recap mode (to be implemented as per original logic if needed)
-        println!("[Ariana] Recap mode has been temporarily disabled for maintenance.");
-        Ok(())
+        match run_recap(&cli.api_url).await {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                eprintln!("Error reading trace recap: {:#}", e);
+                return Err(e)
+            }
+        }
     } else {
         if cli.command.is_empty() {
             eprintln!("Error: A command is required when not using --recap");
@@ -102,10 +104,16 @@ async fn main() -> Result<()> {
             ariana_dir.clone()
         };
 
-        println!("[Ariana] Listing code files to instrument");
         let collected_items = collect_items(&current_dir, &ariana_dir)?;
         println!("[Ariana] Instrumenting code files");
-        process_items(&collected_items, &cli.api_url, &vault_key, &import_style, cli.inplace).map_err(|s| anyhow!(s))?;
+        process_items(
+            &collected_items,
+            &cli.api_url,
+            &vault_key,
+            &import_style,
+            cli.inplace,
+        )
+        .map_err(|s| anyhow!(s))?;
 
         // Write vault secret key
         let vault_secret_key_path = ariana_dir.join(".vault_secret_key");
@@ -117,14 +125,19 @@ async fn main() -> Result<()> {
         let (trace_tx, mut trace_rx) = mpsc::channel::<Trace>(1);
         let (stop_tx, mut stop_rx) = mpsc::channel::<()>(1);
         let api_url = cli.api_url.clone();
-        let trace_watcher= spawn(async move {
+        let trace_watcher = spawn(async move {
             let _ = watch_traces(&mut trace_rx, &api_url, &vault_key, &mut stop_rx).await;
         });
         // Prepare the command to run
         let mut command_args = cli.command.clone();
         let command = command_args.remove(0);
-        
-        println!("[Ariana] Running `{} {}` in {}/", command, command_args.join(" "), working_dir.file_name().unwrap().to_str().unwrap());
+
+        println!(
+            "[Ariana] Running `{} {}` in {}/",
+            command,
+            command_args.join(" "),
+            working_dir.file_name().unwrap().to_str().unwrap()
+        );
 
         println!("\n\n\n");
 
@@ -144,9 +157,10 @@ async fn main() -> Result<()> {
                 .spawn()?
         };
 
+        // Set up a Ctrl+C handler
         let running = Arc::new(AtomicBool::new(true));
         let r = running.clone();
-        // Set up a Ctrl+C handler
+
         let _ = ctrlc::set_handler(move || {
             println!("[Ariana] Received Ctrl+C, stopping your command...");
             r.store(false, Ordering::SeqCst);
@@ -157,28 +171,36 @@ async fn main() -> Result<()> {
         let mut reader = tokio::io::BufReader::new(stdout).lines();
 
         let perf_now = std::time::Instant::now();
-        
+
         // let mut sent_traces_futures = Vec::new();
-        while let Some(line) = reader.next_line().await.unwrap_or_else(|_| Some(String::new())) {
+        while let Some(line) = reader
+            .next_line()
+            .await
+            .unwrap_or_else(|_| Some(String::new()))
+        {
             let mut processed_line = String::new();
             let mut current_pos = 0;
-            
+
             // Find all trace tags in the line
             while let Some(start_idx) = line[current_pos..].find("<trace id=") {
                 let absolute_start = current_pos + start_idx;
-                
+
                 // Add text before the trace tag to the processed line
                 processed_line.push_str(&line[current_pos..absolute_start]);
-                
+
                 // Find the end of this trace tag
                 if let Some(end_idx) = line[absolute_start..].find("</trace>") {
                     let absolute_end = absolute_start + end_idx + 8; // 8 is the length of "</trace>"
-                    
+
                     // Extract trace id and content for logging
-                    if let Some(id_start) = line[absolute_start..absolute_start+20].find('\"') {
-                        if let Some(_) = line[absolute_start+id_start+1..absolute_start+50].find('\"') {
+                    if let Some(id_start) = line[absolute_start..absolute_start + 20].find('\"') {
+                        if let Some(_) =
+                            line[absolute_start + id_start + 1..absolute_start + 50].find('\"')
+                        {
                             // Extract just the content between the tags
-                            let id_end = line[absolute_start+id_start+1..absolute_start+50].find('\"').unwrap();
+                            let id_end = line[absolute_start + id_start + 1..absolute_start + 50]
+                                .find('\"')
+                                .unwrap();
                             let content_start = absolute_start + id_start + id_end + 3; // +3 for the closing " and the >
                             let content_end = absolute_start + end_idx;
                             let trace_content = &line[content_start..content_end];
@@ -187,7 +209,7 @@ async fn main() -> Result<()> {
                             trace_tx.send(trace).await?;
                         }
                     }
-                    
+
                     // Update position to after this trace tag
                     current_pos = absolute_end;
                 } else {
@@ -197,21 +219,27 @@ async fn main() -> Result<()> {
                     break;
                 }
             }
-            
+
             // Add any remaining text after the last trace tag
             if current_pos < line.len() {
                 processed_line.push_str(&line[current_pos..]);
             }
-            
+
             // Only print if the line contains non-whitespace characters
-            if !processed_line.trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08').is_empty() {
+            if !processed_line
+                .trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08')
+                .is_empty()
+            {
                 println!("{}", processed_line);
             }
         }
 
         let perf_end = std::time::Instant::now();
 
-        println!("[Ariana] Command finished, took {} ms. Waiting to finish sending collected traces...", perf_end.duration_since(perf_now).as_millis());
+        println!(
+            "[Ariana] Command finished, took {} ms. Waiting to finish sending collected traces...",
+            perf_end.duration_since(perf_now).as_millis()
+        );
 
         // let _ = futures::future::join_all(sent_traces_futures).await;
 
@@ -227,7 +255,11 @@ async fn main() -> Result<()> {
         // If running in-place, restore original files
         if cli.inplace {
             if let Err(e) = restore_backup(&collected_items) {
-                eprintln!("[Ariana] Could not restore backup from {}/__ariana_backup.zip: {}", ariana_dir.display(), e);
+                eprintln!(
+                    "[Ariana] Could not restore backup from {}/__ariana_backup.zip: {}",
+                    ariana_dir.display(),
+                    e
+                );
             } else {
                 println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}/__ariana_backup.zip", ariana_dir.display());
             }
@@ -240,4 +272,49 @@ async fn main() -> Result<()> {
 
         Ok(())
     }
+}
+
+async fn run_recap(api_url: &str) -> Result<()> {
+    println!("[Ariana] Reading vault secret key...");
+    let vault_key = read_vault_secret_key().await?;
+    
+    println!("[Ariana] Fetching recap from server...");
+    
+    // Generate a machine hash for the request
+    let machine_hash = generate_machine_id()?;
+    
+    // Call the server API to get the trace tree
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&format!("{}/vaults/{}/get-trace-tree", api_url, vault_key))
+        .header("X-Machine-Hash", machine_hash)
+        .send()
+        .await?;
+    
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to get trace tree: HTTP {}", response.status()));
+    }
+    
+    // Parse and print the response
+    let trace_tree_response: ariana_server::web::vaults::GetTraceTreeLLMResponse = response.json().await?;
+    
+    println!("\n[Ariana] Trace Recap:\n");
+    println!("{}", trace_tree_response.answer);
+    
+    Ok(())
+}
+
+/// Read the first line of the .ariana/.vault_secret_key file to get the vault secret key
+async fn read_vault_secret_key() -> Result<String> {
+    let current_dir = env::current_dir()?;
+    let vault_key_path = current_dir.join(ARIANA_DIR).join(".vault_secret_key");
+    
+    if !vault_key_path.exists() {
+        return Err(anyhow!("Vault secret key file not found at {}. Have you run 'ariana run' first?", vault_key_path.display()));
+    }
+    
+    let content = tokio::fs::read_to_string(&vault_key_path).await?;
+    let vault_key = content.lines().next().ok_or_else(|| anyhow!("Vault secret key file is empty"))?;
+    
+    Ok(vault_key.to_string())
 }

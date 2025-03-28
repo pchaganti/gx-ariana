@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use rand::distributions::Alphanumeric;
+use rand::thread_rng;
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use rand::thread_rng;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -38,15 +38,7 @@ pub fn should_explore_directory(dir_name: &str) -> bool {
 }
 
 pub fn should_copy_not_link(path: &Path) -> bool {
-    let unsafe_extensions = [
-        "html",
-        "htm",
-        "css",
-        "sass",
-        "scss",
-        "vue",
-        "svelte"      
-    ];
+    let unsafe_extensions = ["html", "htm", "css", "sass", "scss", "vue", "svelte"];
 
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
@@ -204,24 +196,24 @@ pub fn generate_machine_id() -> Result<String> {
                 .take(32)
                 .map(char::from)
                 .collect();
-            
+
             // Save this ID for future use
             let ariana_dir = dirs::home_dir()
                 .ok_or_else(|| anyhow!("Could not determine home directory"))?
                 .join(".ariana");
-            
+
             fs::create_dir_all(&ariana_dir)?;
             fs::write(ariana_dir.join("machine-id"), &random_id)?;
-            
+
             random_id
         }
     };
-    
+
     // Hash the ID for privacy
     let mut hasher = Sha256::new();
     hasher.update(id.as_bytes());
     let result = hasher.finalize();
-    
+
     Ok(format!("{:x}", result))
 }
 
@@ -234,11 +226,14 @@ fn get_stable_machine_id() -> Option<String> {
             return Some(id);
         }
     }
-    
+
     // Try to get a system machine ID (Windows/Linux specific)
     #[cfg(windows)]
     {
-        if let Ok(output) = Command::new("wmic").args(["csproduct", "get", "UUID"]).output() {
+        if let Ok(output) = Command::new("wmic")
+            .args(["csproduct", "get", "UUID"])
+            .output()
+        {
             let output = String::from_utf8_lossy(&output.stdout);
             let uuid = output.lines().nth(1).unwrap_or("").trim();
             if !uuid.is_empty() {
@@ -246,17 +241,17 @@ fn get_stable_machine_id() -> Option<String> {
             }
         }
     }
-    
+
     #[cfg(unix)]
     {
         if let Ok(id) = fs::read_to_string("/etc/machine-id") {
             return Some(id.trim().to_string());
         }
-        
+
         if let Ok(id) = fs::read_to_string("/var/lib/dbus/machine-id") {
             return Some(id.trim().to_string());
         }
     }
-    
+
     None
 }

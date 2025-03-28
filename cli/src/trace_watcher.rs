@@ -8,7 +8,7 @@ pub async fn watch_traces(
     trace_rx: &mut mpsc::Receiver<Trace>,
     api_url: &str,
     vault_key: &str,
-    stop_rx: &mut mpsc::Receiver<()>
+    stop_rx: &mut mpsc::Receiver<()>,
 ) -> Result<()> {
     let mut traces = Vec::new();
     let batch_size = 50_000;
@@ -58,16 +58,12 @@ pub async fn watch_traces(
     Ok(())
 }
 
-async fn process_traces(
-    traces: &[Trace],
-    api_url: &str,
-    vault_key: &str
-) -> Result<()> {
+async fn process_traces(traces: &[Trace], api_url: &str, vault_key: &str) -> Result<()> {
     // Create a properly typed request
     let request = PushTracesRequest {
         traces: traces.to_vec(),
     };
-    
+
     // Send the trace to the server
     let client = reqwest::Client::new();
     let response = client
@@ -80,6 +76,6 @@ async fn process_traces(
     if !response.status().is_success() {
         return Err(anyhow!("Failed to process trace: {}", response.status()));
     }
-    
+
     Ok(())
 }
