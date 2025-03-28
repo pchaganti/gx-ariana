@@ -92,7 +92,7 @@ It will tell you what might have gone wrong with your code.
 ----------------------------------------
 ## Preview : 
 
-To test Ariana before using it on your own code:*
+*To test Ariana before using it on your own code:*
 
 ```
 git clone https://github.com/dedale-dev/node-hello.git
