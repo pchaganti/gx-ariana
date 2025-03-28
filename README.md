@@ -137,6 +137,6 @@ We process and temporarily store for 48 hours your JS/TS code files on our serve
 
 ## Licence
 
-Ariana is released under AGPLv3. See [LICENCE.txt](LICENCE.txt) for more details.
+Code generated and/or transformed by Ariana is yours and not concerned by the following licence and terms.
 
-tl;dr: If you use Ariana as intended, which means in development, this is nothing to worry about as you don't technically bundle Ariana with your released code. If you use it in your production code, whether deployed on a server or on the end-user's machine in a code or binary format, your code needs to be available to the public under the same licence. We can lift that requirement upon request, even for free if your project is small. Please [let us know](mailto:an.nougaret@gmail.com).
+Ariana is released under AGPLv3. See [LICENCE.txt](LICENCE.txt) for more details.
