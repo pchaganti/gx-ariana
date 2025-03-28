@@ -140,16 +140,6 @@ pub fn process_items(
             .progress_chars("##-"),
     );
 
-    // Set up message thread for long-running processes
-    let processing_done = Arc::new(AtomicBool::new(false));
-    let pd_clone = processing_done.clone();
-    let message_thread = thread::spawn(move || {
-        thread::sleep(Duration::from_secs(10));
-        if !pd_clone.load(Ordering::SeqCst) {
-            println!("[Ariana] Instrumentation is taking a while. For large projects, consider using the --inplace flag to instrument files in place, which may be faster.");
-        }
-    });
-
     // Process items based on is_inplace flag
     if is_inplace {
         fs::create_dir_all(".ariana").map_err(|_| format!("Couldn't create .ariana"))?;
@@ -210,8 +200,6 @@ pub fn process_items(
 
     // Finalize progress bar and message thread
     pb.finish();
-    processing_done.store(true, Ordering::SeqCst);
-    message_thread.join().unwrap();
 
     Ok(())
 }
