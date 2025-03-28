@@ -69,7 +69,7 @@ Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggl
     |----------------|--------------------------------|
     | 🟢 **Green**   | Code segment ran successfully. |
     | 🔴 **Red**     | Code crashed here. |
-    | ⚪ **None**     | Code segment didn’t run. | 
+    | ⚪ **None**     | Code segment didn’t run or couldn't be recorded. | 
 
 
 - 🕵️ Hover over any expression to reveal its past values
