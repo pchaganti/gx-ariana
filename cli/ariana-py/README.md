@@ -16,70 +16,83 @@
   </div>
 </div>
 
-Ariana is an IDE extension to understand what happens during runtime. You don't have to put `print()`, `console.log()` or breakpoints everywhere. Currently supports JS/TS & Python.
+Ariana is an IDE extension to understand what happens during runtime. You don't have to put `print()`, `console.log()` or breakpoints. Currently supports JS/TS & Python.
 
 ## ✨ Key Features
 
 Use Ariana VSCode extension to :
-- 🕵️ Inspect the **last values taken by any expression** in your code just by hovering it.
+- 🕵️ Hover over any expression to see its **last recorded values**
 - ⏱️ See **how long** it took for any expression in your code to run.
-- 🧵 *Feed traces* ***to Copilot/Cursor*** *via MCP so they can know everything that happened when your code ran.* (soon) 
+- 🧵 *Provide runtime history to* **coding agent** *for context-aware debugging* (WIP)
+
+
+
+## 💾 How to install
+
+#### 1) Install the `extension` on your IDE 
+
+Install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.
+
+#### 2) Install the `ariana` CLI
+
+| Package Manager | Command                        |
+|-----------------|--------------------------------|
+| **npm**         | `npm install -g ariana`        |
+| **pip**         | `pip install ariana`           |
+
+
 
 ## 📖 How to use
 
-#### 1) 💾 Install the `ariana` CLI
-
-With npm:
-
-```bash
-npm install -g ariana
-```
-
-With pip:
-
-```bash
-pip install ariana
-```
-
-#### 2) ✨ Run supported code as you would from the command line but with the `ariana` command along side it
+#### 1) ✨ - REQUIRED - Add `ariana` just in front of your command. It will collect runtime information
 
 ```bash
 ariana <run command>
 ```
 
-For example, on a JS/TS codebase it could be:
+For example:
 
-```bash
-ariana npm run dev
-```
+| Codebase Type   | Command                                      |
+|-----------------|----------------------------------------------|
+| **JS/TS**       | `ariana npm run dev`                         |
+| **Python**      | `ariana python myscript.py --some-options-maybe` |
 
-... and on a Python codebase it could be:
 
-```bash
-ariana python myscript.py --some-options-maybe
-```
+#### 2) 👾 View runtime insights directly in your code.
 
-#### 3) 🤖 (Experimental) Ask for AI to recap what the code did and tell you if root causes of errors were identified
+Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggle Traced Expressions Highlighting` command.
 
-Whether you just want to know what your code did or want AI to figure out the root cause of some error that might have just crashed your program, run the following:
+- 🗺️ **Identify which sections of your code ran**
+
+
+    | Highlight Color | Meaning                        |
+    |----------------|--------------------------------|
+    | 🟢 **Green**   | Code segment ran successfully. |
+    | 🔴 **Red**     | Code crashed here. |
+    | ⚪ **None**     | Code segment didn’t run or couldn't be recorded. | 
+
+
+- 🕵️ **Hover over any expression to reveal its past values**
+
+  ![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
+
+
+#### 3) 🤖 Use AI to recap what your code did & identify error root causes (WIP)
+
+Run:
 
 ```
 ariana --recap
 ```
+It will tell you what might have gone wrong with your code.
 
-*Soon: prompt AI to look for specific information/answer specific questions*
+*Coming soon: A coding agent that answers questions and directly impacts your codebase*
 
-#### 4) 👾 In your IDE, get instant debugging information in your code files.
 
-You can install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.
+----------------------------------------
+## Preview : 
 
-- Open a code file, press `ctrl + shift + p` and search for the `Ariana: Toggle Traced Expressions Highlighting` command.
-- 🗺️ Know which code segments got ran and which didn't
-- 🕵️ Inspect the values that were taken by any expression in your code
-
-![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
-
-*Optional: If you just want to try out Ariana on example piece of code before using it on your own code, you can do this:*
+*To test Ariana before using it on your own code:*
 
 ```
 git clone https://github.com/dedale-dev/node-hello.git
@@ -87,7 +100,7 @@ cd node-hello
 npm i
 ariana npm run start
 ```
-
+-----------------------------------------
 ## Troubleshooting / Help
 
 😵‍💫 Ran into an issue? Need help? Shoot us [an issue on GitHub](https://github.com/dedale-dev/ariana/issues) or join [our Discord community](https://discord.gg/Y3TFTmE89g) to get help!
@@ -120,10 +133,10 @@ ariana npm run start
 
 ## Code processing disclaimer
 
-We need to process (but never store!) your JS/TS code files on our server based in EU in order to have Ariana work with it. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
+We process and temporarily store for 48 hours your code files on our server based in EU. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
 
 ## Licence
 
-Ariana is released under AGPLv3. See [LICENCE.txt](LICENCE.txt) for more details.
+Code generated and/or transformed by Ariana is yours and not concerned by the following licence and terms.
 
-tl;dr: If you use Ariana as intended, which means in development, this is nothing to worry about as you don't technically bundle Ariana with your released code. If you use it in your production code, whether deployed on a server or on the end-user's machine in a code or binary format, your code needs to be available to the public under the same licence. We can lift that requirement upon request, even for free if your project is small. Please [let us know](mailto:an.nougaret@gmail.com).
+Ariana is released under AGPLv3. See [LICENCE.txt](LICENCE.txt) for more details.
