@@ -36,21 +36,12 @@ pub fn collect_items(project_root: &Path, ariana_dir: &Path) -> Result<Collected
 
         if file_type.is_dir() {
             let dir_name = path.file_name().unwrap().to_str().unwrap_or("");
-            if dir_name == "node_modules" || dir_name == "dist" {
-                println!("{:?}", path);
-            }
 
             if ignore.matched(&path, path.is_dir()).is_none() && should_explore_directory(&dir_name) {
-                if dir_name == "node_modules" || dir_name == "dist" {
-                    println!("should_explore {:?}", path);
-                }
                 entries.extend(fs::read_dir(&path)?);
             }
 
             if should_copy_or_link_directory(dir_name) {
-                if dir_name == "node_modules" || dir_name == "dist" {
-                    println!("should_copy {:?}", path);
-                }
                 directories_to_link_or_copy.insert(path.to_owned());
             }
         } else if file_type.is_file() {

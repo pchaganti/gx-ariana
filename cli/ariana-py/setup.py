@@ -4,7 +4,7 @@ import platform
 
 setup(
     name='ariana',
-    version='0.4.2',
+    version='0.4.3',
     description='Debug your JS/TS/Python code in development way faster than with a traditional debugger',
     packages=['ariana'],
     package_data={
