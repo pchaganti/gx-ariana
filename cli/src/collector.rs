@@ -70,13 +70,9 @@ pub fn collect_items(project_root: &Path, ariana_dir: &Path) -> Result<Collected
         }
     }
 
-    println!("before: {:#?}", directories_to_link_or_copy);
-
     let directories_to_link_or_copy = directories_to_link_or_copy
         .difference(&parents_of_files)
         .collect::<HashSet<_>>();
-
-    println!("after: {:#?}", directories_to_link_or_copy);
 
     let files_to_link_or_copy = files_to_link_or_copy
         .difference(&files_to_instrument)

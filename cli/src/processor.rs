@@ -9,10 +9,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, Instant};
 use zip::write::FileOptions;
 use zip::{ZipArchive, ZipWriter};
 
@@ -26,8 +23,6 @@ fn process_instrument_files_in_batches(
     is_inplace: bool,
     zip_writer: Option<Arc<std::sync::Mutex<ZipWriter<File>>>>,
 ) {
-    let mut duration_sum = 0;
-
     let mut paths_sizes = HashMap::new();
     files.sort_by(|a, b| {
         let a_size = fs::metadata(&a.0).unwrap().len();
@@ -43,8 +38,6 @@ fn process_instrument_files_in_batches(
         for (src, _) in batch {
             total_size += paths_sizes.get(src).unwrap();
         }
-
-        let start_time = Instant::now();
 
         let files_contents: Vec<String> = batch
             .par_iter()
@@ -96,11 +89,6 @@ fn process_instrument_files_in_batches(
                     panic!("No zip writer");
                 }
             } else {
-                // println!(
-                //     "{:?}, Writing: {}",
-                //     dest_path,
-                //     instrumented_content.lines().take(1).collect::<Vec<_>>()[0]
-                // );
                 if let Some(parent) = dest_path.parent() {
                     // println!("create dir all {:?}", parent);
                     fs::create_dir_all(parent).unwrap();
@@ -109,9 +97,6 @@ fn process_instrument_files_in_batches(
             }
             pb.inc(1);
         }
-
-        let elapsed = start_time.elapsed();
-        duration_sum += elapsed.as_millis();
     }
 }
 
