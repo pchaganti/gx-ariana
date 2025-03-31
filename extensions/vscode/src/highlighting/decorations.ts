@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 
 const baseHighlightDecoration = {
-    backgroundColor: 'rgba(40, 120, 40, 0.2)',
+    backgroundColor: 'hsla(120, 80%, 31%, 0.2)',
     borderWidth: '1.5px',
     borderStyle: 'solid',
-    borderColor: 'rgba(40, 120, 40, 0.1)',
+    borderColor: 'hsla(120, 80%, 31%, 0.5)',
 };
 
 const baseErrorDecoration = {
-    backgroundColor: 'rgba(120, 40, 40, 0.2)',
+    backgroundColor: 'hsla(0, 80%, 31%, 0.2)',
     borderWidth: '1.5px',
     borderStyle: 'solid',
-    borderColor: 'rgba(120, 40, 40, 0.1)',
+    borderColor: 'hsla(0, 80%, 31%, 0.5)',
 };
 
 // Normal decorations
@@ -106,7 +106,8 @@ export const hoverErrorRightDecorationType = vscode.window.createTextEditorDecor
     borderRadius: '0 10px 10px 0',
 });
 
-export function clearDecorations(editor: vscode.TextEditor) {
+export function clearDecorations(editor: vscode.TextEditor, decoratedRanges: Map<vscode.Range, vscode.TextEditorDecorationType>) {
+    decoratedRanges.clear();
     editor.setDecorations(highlightDecorationType, []);
     editor.setDecorations(highlightInBetweenDecorationType, []);
     editor.setDecorations(highlightLeftDecorationType, []);

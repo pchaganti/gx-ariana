@@ -1,3 +1,5 @@
+import { config } from 'dotenv';
+
 export interface Config {
     apiUrl: string;
 }
@@ -6,7 +8,7 @@ export function getConfig(): Config {
     // Try to load from .env file if it exists
     try {
         // In production, this should resolve to the extension's installed directory
-        const env = require('dotenv').config();
+        const env = config();
         if (env.parsed?.API_URL) {
             return {
                 apiUrl: env.parsed.API_URL

@@ -8,3 +8,4 @@ dist/
 .vault_secret_key
 .traces/
 .ariana_saved_traces/
+result*.txt

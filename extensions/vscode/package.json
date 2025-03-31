@@ -2,7 +2,7 @@
   "name": "ariana",
   "displayName": "Ariana - Debugging with AI",
   "description": "Debug your JS/TS/Python code effortlessly just by hovering it, or by asking AI.",
-  "version": "0.8.1",
+  "version": "0.8.5",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.94.0"
@@ -57,44 +57,67 @@
             "id": "introduction",
             "title": "Welcome to Ariana",
             "description": "Ariana helps you understand your JS, TS and Python code by showing expression values and execution times without traditional debuggers or print statements.\n\nThis walkthrough will guide you through setting up and using Ariana for the first time.",
-            "media": { "image": "media/ariana-intro.png", "altText": "Ariana debugging overview" }
+            "media": {
+              "image": "media/ariana-intro.png",
+              "altText": "Ariana debugging overview"
+            }
           },
           {
             "id": "install-cli",
             "title": "Install the Ariana CLI",
             "description": "Before using the extension, you need to install the Ariana CLI globally:\n\n**For JavaScript/TypeScript:**\n```bash\nnpm install -g ariana\n```\n\n**For Python:**\n```bash\npip install ariana\n```\n\n[Open Terminal](command:workbench.action.terminal.new)",
-            "media": { "image": "media/cli-install.png", "altText": "Terminal showing CLI installation" }
+            "media": {
+              "image": "media/cli-install.png",
+              "altText": "Terminal showing CLI installation"
+            }
           },
           {
             "id": "run-code",
             "title": "Run Your Code with Ariana",
             "description": "Run your code as you normally would, but prefix the command with `ariana`:\n\n**JavaScript/TypeScript:**\n```bash\nariana npm run dev\n```\n\n**Python:**\n```bash\nariana python myscript.py\n```\n\nThis will generate execution traces that the extension can use.",
-            "media": { "image": "media/ariana-run.png", "altText": "Terminal showing Ariana CLI in action" }
+            "media": {
+              "image": "media/ariana-run.png",
+              "altText": "Terminal showing Ariana CLI in action"
+            }
           },
           {
             "id": "enable-highlighting",
             "title": "Enable Expression Highlighting",
             "description": "After running your code with Ariana, enable expression highlighting in VS Code to see which code was executed and inspect values:\n\n[Enable Highlighting](command:ariana.toggleHighlighting)",
-            "media": { "image": "media/highlighting.png", "altText": "Code with highlighted expressions" },
-            "completionEvents": ["onCommand:ariana.toggleHighlighting"]
+            "media": {
+              "image": "media/highlighting.png",
+              "altText": "Code with highlighted expressions"
+            },
+            "completionEvents": [
+              "onCommand:ariana.toggleHighlighting"
+            ]
           },
           {
             "id": "inspect-values",
             "title": "Inspect Expression Values",
             "description": "Hover over any highlighted expression to see:\n- The last value it took during execution\n- How long it took to run\n- How many times it was evaluated\n\nThis gives you immediate insight into your code's behavior without having to add print statements.",
-            "media": { "image": "media/hover-values.png", "altText": "Hovering over code to see values" }
+            "media": {
+              "image": "media/hover-values.png",
+              "altText": "Hovering over code to see values"
+            }
           },
           {
             "id": "ai-recap",
             "title": "Get AI Insights (Experimental)",
             "description": "After running your code with Ariana, you can ask AI to recap what happened or identify root causes of errors:\n\n```bash\nariana --recap\n```\n\nThis can help you understand complex execution flows or troubleshoot issues faster.\n\n[Open Terminal](command:workbench.action.terminal.new)",
-            "media": { "image": "media/ai-recap.png", "altText": "AI providing code execution insights" }
+            "media": {
+              "image": "media/ai-recap.png",
+              "altText": "AI providing code execution insights"
+            }
           },
           {
             "id": "community",
             "title": "Join the Community",
             "description": "Need help or want to share feedback?\n\n- [Report an Issue](https://github.com/dedale-dev/ariana/issues)\n- [Join Discord](https://discord.gg/Y3TFTmE89g)\n- [Visit Website](https://ariana.dev)\n\nThanks for trying Ariana!",
-            "media": { "image": "media/community.png", "altText": "Ariana community resources" }
+            "media": {
+              "image": "media/community.png",
+              "altText": "Ariana community resources"
+            }
           }
         ]
       }
@@ -102,10 +125,10 @@
   },
   "scripts": {
     "compile": "npm run check-types && node esbuild.js",
-    "check-types": "tsc --noEmit",
+    "check-types": "npx tsc --noEmit",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "watch:tsc": "npx tsc --noEmit --watch --project tsconfig.json",
     "vscode:prepublish": "npm run package",
     "package": "npm run check-types && node esbuild.js --production"
   },
@@ -125,8 +148,11 @@
   "dependencies": {
     "@types/adm-zip": "^0.5.7",
     "@types/node-fetch": "2",
+    "@types/ws": "^8.18.0",
     "adm-zip": "^0.5.16",
+    "dotenv": "^16.4.7",
     "glob": "^11.0.1",
-    "node-fetch": "2"
+    "node-fetch": "2",
+    "ws": "^8.18.0"
   }
 }

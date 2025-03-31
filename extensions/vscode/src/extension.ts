@@ -9,6 +9,7 @@ import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
 import { HighlightedRegion, highlightRegions } from './highlighting';
 import { clearDecorations } from './highlighting/decorations';
 import { handleArianaInstallation, updateArianaCLI } from './installation';
+import { WebSocket } from 'ws';
 
 let tracesData: Trace[] = [];
 let wsConnection: WebSocket | null = null;
@@ -69,44 +70,44 @@ export async function activate(context: vscode.ExtensionContext) {
 
         wsConnection = new WebSocket(fullWsUrl);
 
-        wsConnection.onopen = () => {
+        wsConnection.on('open', () => {
             console.log('WebSocket connection established');
-        };
+        });
 
-        wsConnection.onmessage = (event) => {
+        wsConnection.on('message', (data: Buffer) => {
             try {
-                const data = JSON.parse(event.data);
-                if (Array.isArray(data)) {
+                const parsedData = JSON.parse(data.toString());
+                if (Array.isArray(parsedData)) {
                     // Initial batch of traces
-                    console.log(`Received ${data.length} traces from WebSocket`);
-                    tracesData = data;
+                    console.log(`Received ${parsedData.length} traces from WebSocket`);
+                    tracesData = parsedData;
                     if (showTraces && vscode.window.activeTextEditor) {
-                        highlightTraces(vscode.window.activeTextEditor);
+                        declareTracesUpdate(vscode.window.activeTextEditor);
                     }
                 } else {
                     // Single new trace
                     console.log('Received new trace from WebSocket');
-                    tracesData.push(data);
+                    tracesData.push(parsedData);
                     
                     // If the file this trace belongs to is currently focused, update highlights
                     if (showTraces && vscode.window.activeTextEditor) {
                         const filepath = formatUriForDB(vscode.window.activeTextEditor.document.uri);
-                        if (data.start_pos.filepath === filepath) {
-                            highlightTraces(vscode.window.activeTextEditor);
+                        if (parsedData.start_pos.filepath === filepath) {
+                            declareTracesUpdate(vscode.window.activeTextEditor);
                         }
                     }
                 }
             } catch (error) {
                 console.error('Error processing WebSocket message:', error);
             }
-        };
+        });
 
-        wsConnection.onerror = (error) => {
+        wsConnection.on('error', (error: Error) => {
             console.error('WebSocket error:', error);
-        };
+        });
 
-        wsConnection.onclose = (event) => {
-            console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+        wsConnection.on('close', (code: number, reason: string) => {
+            console.log(`WebSocket connection closed: ${code} ${reason}`);
             wsConnection = null;
             
             // Try to reconnect after a delay if we should still be connected
@@ -117,7 +118,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     }
                 }, 5000);
             }
-        };
+        });
     }
 
     function closeWebSocketConnection() {
@@ -225,11 +226,11 @@ export async function activate(context: vscode.ExtensionContext) {
         
         if (showTraces) {
             startVaultKeyMonitoring();
-            highlightTraces();
         } else {
             stopVaultKeyMonitoring();
             closeWebSocketConnection();
             unhighlightTraces();
+            clearHoverTraces();
         }
 
         vscode.window.showInformationMessage(`Ariana traces: ${showTraces ? 'Enabled' : 'Disabled'}`);
@@ -240,7 +241,7 @@ export async function activate(context: vscode.ExtensionContext) {
         handleArianaInstallation(context);
         if (showTraces) {
             startVaultKeyMonitoring();
-            highlightTraces();
+            declareTracesUpdate(vscode.window.activeTextEditor);
         }
     }
 
@@ -248,53 +249,67 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.onDidChangeActiveTextEditor(async (editor) => {
         if (editor) {
             unhighlightTraces(editor);
+            clearHoverTraces(editor);
             handleArianaInstallation(context);
             if (showTraces) {
-                highlightTraces(editor);
+                declareTracesUpdate(editor);
             }
         }
     });
+
+    let tracesUpdates: vscode.TextEditor[] = [];
+
+    function declareTracesUpdate(editor: vscode.TextEditor) {
+        tracesUpdates.push(editor);
+    }
 
     async function highlightTraces(editor: vscode.TextEditor | undefined = undefined) {
         editor = editor ?? vscode.window.activeTextEditor;
         if (!editor) {
             return;
         }
-
-        vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "Loading traces...",
-            cancellable: false
-        }, async (progress) => {
-            try {
-                await fetchTracesForEditor(editor);
-                const regions = processTraces(tracesData.filter(trace => 
-                    formatUriForDB(editor.document.uri) === trace.start_pos.filepath
-                ));
-                if (tracesHoverDisposable) {
-                    tracesHoverDisposable.dispose();
-                }
-                clearDecorations(editor);
-                tracesHoverDisposable = highlightRegions(editor, regions);
-            } catch (error) {
-                vscode.window.showErrorMessage(`Failed to load traces: ${error}`);
-            }
-        });
+        const regions = tracesToRegions(tracesData.filter(trace => 
+            formatUriForDB(editor.document.uri) === trace.start_pos.filepath
+        ));
+        clearHoverTraces(editor);
+        tracesHoverDisposable = highlightRegions(editor, regions, decoratedRanges);
     }
+
+    setInterval(() => {
+        const currentEditor = vscode.window.activeTextEditor;
+        if (tracesUpdates.length > 0) {
+            while (tracesUpdates.length > 0 && tracesUpdates[tracesUpdates.length - 1] !== currentEditor) {
+                tracesUpdates.pop();
+            }
+            if (tracesUpdates.length > 0 && tracesUpdates[tracesUpdates.length - 1] === currentEditor) {
+                highlightTraces(currentEditor);
+                tracesUpdates.pop();
+            }
+        }
+    }, 500);
+
+    let decoratedRanges: Map<vscode.Range, vscode.TextEditorDecorationType> = new Map();
 
     function unhighlightTraces(editor: vscode.TextEditor | undefined = undefined) {
         editor = editor ?? vscode.window.activeTextEditor;
         if (!editor) {
             return;
         }
+        clearDecorations(editor, decoratedRanges);
+    }
+
+    function clearHoverTraces(editor: vscode.TextEditor | undefined = undefined) {
+        editor = editor ?? vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
         if (tracesHoverDisposable) {
-            clearDecorations(editor);
             tracesHoverDisposable.dispose();
             tracesHoverDisposable = undefined;
         }
     }
 
-    function processTraces(tracesData: Trace[]): Array<HighlightedRegion> {
+    function tracesToRegions(tracesData: Trace[]): Array<HighlightedRegion> {
         const uniqueRegions = new Set(tracesData.map(trace => 
             `${trace.start_pos.line},${trace.start_pos.column},${trace.end_pos.line},${trace.end_pos.column}`
         ));
@@ -332,7 +347,7 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     // DropdownWebview.hide();
     if (vscode.window.activeTextEditor) {
-        clearDecorations(vscode.window.activeTextEditor);
+        clearDecorations(vscode.window.activeTextEditor, new Map());
         if (tracesHoverDisposable) {
             tracesHoverDisposable.dispose();
             tracesHoverDisposable = undefined;

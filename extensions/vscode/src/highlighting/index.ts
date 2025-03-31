@@ -18,7 +18,11 @@ export type HighlightedRegionsTree = {
     parents: (number | null)[];
 }
 
-export function highlightRegions(editor: vscode.TextEditor, regions: Array<HighlightedRegion>): vscode.Disposable {
+export function highlightRegions(
+    editor: vscode.TextEditor,
+    regions: Array<HighlightedRegion>,
+    decoratedRanges: Map<vscode.Range, vscode.TextEditorDecorationType>
+): vscode.Disposable {
     // Sort regions by size (largest first) for proper nesting
     regions.sort((a, b) => {
         const sizeA = (a.endLine - a.startLine) * 1000 + (a.endCol - a.startCol);
@@ -47,13 +51,15 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
     function highlightRegion(regionIndex: number, tree: HighlightedRegionsTree, depth: number = 0): number {
         let region = tree.regions[regionIndex];
 
-        let isError = region.traces.some(trace =>
-            trace.start_pos.line === region.startLine + 1 &&
-            trace.start_pos.column === region.startCol + 1 &&
-            trace.end_pos.line === region.endLine + 1 &&
-            trace.end_pos.column === region.endCol &&
-            traceIsError(trace)
-        );
+        let isError = region.traces.some(trace => {
+            return (
+                trace.start_pos.line === region.startLine &&
+                trace.start_pos.column === region.startCol &&
+                trace.end_pos.line === region.endLine &&
+                trace.end_pos.column === region.endCol - 1 &&
+                traceIsError(trace)
+            )
+        });
 
         let line = region.startLine;
         let col = region.startCol;
@@ -154,7 +160,6 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
     });
 
     tree.regions.forEach((region, i) => {
-        // if no parent
         if (tree.parents[i] === null) {
             highlightRegion(i, tree);
         }
@@ -176,12 +181,14 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
         editor.setDecorations(decorationType, ranges);
     }
 
-    let onHoverSomeoneElse = () => { };
+    let onHoverAnotherPosition = () => { };
 
     // Setup hover provider
     let tracesHoverDisposable = vscode.languages.registerHoverProvider('*', {
         provideHover(document, position, token) {
-            onHoverSomeoneElse();
+            if (document != editor.document) return
+            onHoverAnotherPosition();
+
             // Check all decorations to find the one containing the hover position
             const containingDecorations = Array.from(rangeToRegionMap.keys())
                 .map(rangeStr => jsonToRange(JSON.parse(rangeStr)))
@@ -218,6 +225,13 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
                     right: hoverRightDecorationType
                 };
 
+                onHoverAnotherPosition = () => {
+                    editor.setDecorations(hoverTypes.full, []);
+                    editor.setDecorations(hoverTypes.left, []);
+                    editor.setDecorations(hoverTypes.between, []);
+                    editor.setDecorations(hoverTypes.right, []);
+                };
+
                 // Group ranges by decoration type
                 const hoverDecorations = new Map<vscode.TextEditorDecorationType, vscode.Range[]>();
                 for (const rangeStr of rangeToRegionMap.keys()) {
@@ -246,13 +260,6 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
                     editor.setDecorations(hoverType, ranges);
                 }
 
-                onHoverSomeoneElse = () => {
-                    editor.setDecorations(hoverTypes.full, []);
-                    editor.setDecorations(hoverTypes.left, []);
-                    editor.setDecorations(hoverTypes.between, []);
-                    editor.setDecorations(hoverTypes.right, []);
-                };
-
                 let tracesById: { [id: string]: Trace[] } = {};
                 for (const trace of smallestRegion.traces) {
                     if (trace.start_pos.line === smallestRegion.startLine &&
@@ -267,9 +274,11 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
                 }
 
                 const sortedTracesById = Object.entries(tracesById).sort((a, b) => {
-                    const aTrace = a[1].find(traceIsExit) || a[1].find(traceIsError) || a[1][0];
-                    const bTrace = b[1].find(traceIsExit) || b[1].find(traceIsError) || b[1][0];
-                    return bTrace.timestamp - aTrace.timestamp;
+                    a[1].sort((aa, ab) => ab.timestamp - aa.timestamp);
+                    b[1].sort((aa, ab) => ab.timestamp - aa.timestamp);
+                    const aTrace = a[1][0];
+                    const bTrace = b[1][0];
+                    return aTrace.timestamp - bTrace.timestamp;
                 });
 
                 function eclipseText(text: string, maxLength: number): string {
@@ -291,16 +300,17 @@ export function highlightRegions(editor: vscode.TextEditor, regions: Array<Highl
                     }) + ` + ${ms.toString().padStart(3, '0')}ms`;
                 };
 
-                const top3Recent = sortedTracesById.slice(-3).map(([traceId, traces]) => {
+                const top3Recent = sortedTracesById.slice(-5).map(([traceId, traces]) => {
+                    traces.sort((aa, ab) => aa.timestamp - ab.timestamp);
                     const trace = traces.find(traceIsExit) || traces.find(traceIsError) || traces[0];
                     if (traceIsExit(trace)) {
-                        return `*[${formatTimestamp(trace.timestamp)}] traced as:* \n\n\`\`\`\n${eclipseText((trace.trace_type as any).Exit.return_value, 300)}`;
+                        return `*[${formatTimestamp(traces[0].timestamp)}] traced as:* \n\n\`\`\`\n${eclipseText((trace.trace_type as any).Exit.return_value, 300)}`;
                     } else if (traceIsError(trace)) {
-                        return `*[${formatTimestamp(trace.timestamp)}] produced error:* \n\n\`\`\`\n${eclipseText((trace.trace_type as any).Error.error_message, 300)}`;
+                        return `*[${formatTimestamp(traces[0].timestamp)}] produced error:* \n\n\`\`\`\n${eclipseText((trace.trace_type as any).Error.error_message, 300)}`;
                     } else {
-                        return `*[${formatTimestamp(trace.timestamp)}] started evaluating, didn't finish*`;
+                        return `*[${formatTimestamp(traces[0].timestamp)}] started evaluating, didn't finish*`;
                     }
-                });
+                }).reverse();
 
                 const howManyAfter = sortedTracesById.length - 3;
 

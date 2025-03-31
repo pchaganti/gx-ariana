@@ -9,9 +9,11 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 async function copyWebviewDist() {
-    console.log('[webview] copying dist files...');
+    console.log('[webview] copying dist files 2...');
     try {
         await fs.ensureDir('dist/webview-ui');
+        await fs.removeSync('dist/webview-ui/dist');
+        await fs.ensureDir('webview-ui/dist');
         await fs.copy('webview-ui/dist', 'dist/webview-ui/dist');
         console.log('[webview] dist files copied');
     } catch (error) {
@@ -26,6 +28,7 @@ async function buildWebviewUI() {
         if (watch) {
             // Start webview build in background without waiting
             execAsync('cd webview-ui && npm run dev');
+            await new Promise(resolve => setTimeout(resolve, 5000));
             await copyWebviewDist();
         } else {
             await execAsync('cd webview-ui && npm run build');

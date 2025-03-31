@@ -114,7 +114,7 @@ const TraceGroup = ({ key, traces, requestHighlight }: { key: number, traces: Tr
                                     if (parsedValue === null) {
                                         return (
                                             <span className="font-mono text-red-500">
-                                                null
+                                                null/None
                                             </span>
                                         );
                                     }
@@ -180,6 +180,8 @@ const App = () => {
         }
         tracesById[trace.trace_id].push(trace);
     });
+
+    traces.sort((a, b) => b.timestamp - a.timestamp);
 
     return (
         <div className="flex flex-col py-1" style={{ height: '98vh', width: '100%' }}>

@@ -32,7 +32,7 @@ export class VaultManager {
 
     public async getVaultKey(filePath: string): Promise<string | null> {
         try {
-            const arianaDir = await this.findNearestArianaDir(filePath);
+            const arianaDir = await this.findNearestDirContainingAriana(filePath);
             if (!arianaDir) {
                 return null;
             }
@@ -54,7 +54,7 @@ export class VaultManager {
     }
 
     public async createVault(apiUrl: string, filePath: string): Promise<string> {
-        const projectRoot = await this.findNearestArianaDir(filePath);
+        const projectRoot = await this.findNearestDirContainingAriana(filePath);
         if (!projectRoot) {
             throw new Error('No .ariana directory found in parent directories');
         }
@@ -110,7 +110,7 @@ export class VaultManager {
         }
     }
 
-    private async findNearestArianaDir(filePath: string): Promise<string | null> {
+    private async findNearestDirContainingAriana(filePath: string): Promise<string | null> {
         let currentDir = path.dirname(filePath);
         const root = path.parse(currentDir).root;
 
