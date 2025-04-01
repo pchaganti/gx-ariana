@@ -166,8 +166,13 @@ pub fn process_items(
                 let src = src.clone();
                 let dest = dest.clone();
                 s.spawn(move |_| {
-                    if let Err(_) = create_link_or_copy(&src, &dest) {
-                        // eprintln!("Could not copy or link {:?}: {}", src, e);
+                    if let Some(parent) = dest.parent() {
+                        if let Err(e) = fs::create_dir_all(parent) {
+                            eprintln!("Could not create {:?}: {}", parent, e);
+                        }
+                    }
+                    if let Err(e) = create_link_or_copy(&src, &dest) {
+                        eprintln!("Could not copy or link {:?}: {}", src, e);
                     }
                     pb.inc(1);
                 });

@@ -104,7 +104,8 @@ pub fn create_link_or_copy(src: &Path, dest: &Path) -> Result<()> {
         {
             match std::os::windows::fs::symlink_file(src, dest) {
                 Ok(_) => return Ok(()),
-                Err(_) => {
+                Err(e) => {
+                    eprintln!("cannot symlink: {:?}", e);
                     // If symlink fails, copy the file
                     fs::copy(src, dest)?;
                     return Ok(());
