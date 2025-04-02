@@ -178,6 +178,7 @@ export function highlightRegions(
 
     // Apply all decorations
     for (const [decorationType, ranges] of finalDecorations) {
+        console.log("setting " + ranges.length + " highlighted ranges of type " + decorationType.key);
         editor.setDecorations(decorationType, ranges);
     }
 

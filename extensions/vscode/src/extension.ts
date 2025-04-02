@@ -62,7 +62,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Function to manage WebSocket connection
     async function connectToTraceWebSocket(vaultSecretKey: string) {
         // Close existing connection if any
-        closeWebSocketConnection();
+        if (wsConnection) {
+            wsConnection.close();
+            wsConnection = null;
+        }
 
         const wsUrl = apiUrl.replace(/^http/, 'ws');
         const fullWsUrl = `${wsUrl}/vaults/traces/${vaultSecretKey}/stream`;
@@ -74,19 +77,26 @@ export async function activate(context: vscode.ExtensionContext) {
             console.log('WebSocket connection established');
         });
 
+        let isFirst = true;
+
         wsConnection.on('message', (data: Buffer) => {
             try {
                 const parsedData = JSON.parse(data.toString());
                 if (Array.isArray(parsedData)) {
                     // Initial batch of traces
-                    console.log(`Received ${parsedData.length} traces from WebSocket`);
-                    tracesData = parsedData;
+                    if (isFirst) {
+                        console.log(`Received ${parsedData.length} initial traces from WebSocket`);
+                        tracesData = parsedData;
+                    } else {
+                        console.log(`Received ${parsedData.length} new traces from WebSocket`);
+                        parsedData.forEach(pd => tracesData.push(pd))
+                    }
                     if (showTraces && vscode.window.activeTextEditor) {
                         declareTracesUpdate(vscode.window.activeTextEditor);
                     }
                 } else {
                     // Single new trace
-                    console.log('Received new trace from WebSocket');
+                    console.log('Received exactly one new trace from WebSocket');
                     tracesData.push(parsedData);
                     
                     // If the file this trace belongs to is currently focused, update highlights
@@ -97,6 +107,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         }
                     }
                 }
+                isFirst = false;
             } catch (error) {
                 console.error('Error processing WebSocket message:', error);
             }
@@ -119,13 +130,6 @@ export async function activate(context: vscode.ExtensionContext) {
                 }, 5000);
             }
         });
-    }
-
-    function closeWebSocketConnection() {
-        if (wsConnection) {
-            wsConnection.close();
-            wsConnection = null;
-        }
     }
 
     // Function to start monitoring vault key changes
@@ -158,8 +162,6 @@ export async function activate(context: vscode.ExtensionContext) {
             const vaultSecretKey = await vaultManager.getVaultKey(vscode.window.activeTextEditor.document.uri.fsPath);
 
             if (!vaultSecretKey) {
-                closeWebSocketConnection();
-                currentVaultSecretKey = null;
                 return;
             }
 
@@ -225,10 +227,14 @@ export async function activate(context: vscode.ExtensionContext) {
         showTraces = !showTraces;
         
         if (showTraces) {
+            console.log("showing traces now");
             startVaultKeyMonitoring();
         } else {
+            console.log("hiding traces now");
             stopVaultKeyMonitoring();
-            closeWebSocketConnection();
+            wsConnection?.close();
+            wsConnection = null;
+            tracesData = []
             unhighlightTraces();
             clearHoverTraces();
         }
@@ -268,6 +274,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (!editor) {
             return;
         }
+        console.log("highlight requested of " + tracesData.length + " traces");
         const regions = tracesToRegions(tracesData.filter(trace => 
             formatUriForDB(editor.document.uri) === trace.start_pos.filepath
         ));
@@ -282,7 +289,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 tracesUpdates.pop();
             }
             if (tracesUpdates.length > 0 && tracesUpdates[tracesUpdates.length - 1] === currentEditor) {
-                highlightTraces(currentEditor);
+                console.log(tracesUpdates.length + " relevant trace update received now");
+                if (showTraces) {
+                    console.log("update triggers highlight because we show traces");
+                    highlightTraces(currentEditor);
+                }
                 tracesUpdates.pop();
             }
         }
@@ -295,6 +306,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (!editor) {
             return;
         }
+        console.log("unhighlighting traces now");
         clearDecorations(editor, decoratedRanges);
     }
 
@@ -304,6 +316,7 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
         if (tracesHoverDisposable) {
+            console.log("clearing hovers")
             tracesHoverDisposable.dispose();
             tracesHoverDisposable = undefined;
         }
@@ -335,11 +348,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(disposable);
 
-    // Make sure to clean up resources when deactivated
     context.subscriptions.push({
         dispose: () => {
             stopVaultKeyMonitoring();
-            closeWebSocketConnection();
+            wsConnection?.close()
         }
     });
 }
