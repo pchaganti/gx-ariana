@@ -9,3 +9,4 @@ dist/
 .traces/
 .ariana_saved_traces/
 result*.txt
+packaged/
