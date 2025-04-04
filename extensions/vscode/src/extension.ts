@@ -1,14 +1,11 @@
 import * as vscode from 'vscode';
-import { TracesPanelMode } from "./panels/TracesPanel";
 import { formatUriForDB } from './urilHelpers';
 import type { Trace } from './bindings/Trace';
-import path = require('path');
 import { VaultManager } from './vaults/manager';
 import { getConfig } from './config';
 import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
 import { HighlightedRegion, highlightRegions } from './highlighting';
 import { clearDecorations } from './highlighting/decorations';
-import { handleArianaInstallation, updateArianaCLI } from './installation';
 import { WebSocket } from 'ws';
 import { SidebarPanel } from './panels/SidebarPanel';
 
@@ -23,7 +20,9 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log('Extension is now active');
     const { apiUrl } = getConfig();
 
+    console.log('Initializing VaultManager...');
     VaultManager.initialize(context);
+    console.log('VaultManager initialized successfully');
 
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
@@ -32,46 +31,41 @@ export async function activate(context: vscode.ExtensionContext) {
     
     let showTraces = false;
 
-    // Register sidebar view provider
-    sidebarProvider = new SidebarPanel(context.extensionUri);
+    console.log('Creating sidebar panel provider...');
+    sidebarProvider = new SidebarPanel(context.extensionUri, context);
+    console.log('Sidebar panel provider created successfully');
+
+    console.log('Registering sidebar view provider...');
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(SidebarPanel.viewType, sidebarProvider)
     );
+    console.log('Sidebar view provider registered successfully');
 
-    // Register command to open the sidebar
-    context.subscriptions.push(
-        vscode.commands.registerCommand('ariana.openSidebar', () => {
-            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
-        })
-    );
-
-    // Automatically open the sidebar when the extension is activated
+    console.log('Automatically opening the sidebar...');
     vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
 
+    console.log('Registering command to open the sidebar...');
     context.subscriptions.push(
-        vscode.commands.registerCommand('ariana.updateCLI', () => {
-            updateArianaCLI(context);
+        vscode.commands.registerCommand('ariana.openSidebar', () => {
+            console.log('Opening sidebar...');
+            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
+            console.log('Sidebar opened successfully');
         })
     );
 
-    // Create a command to show the traceback panel
+    console.log('Updating the updateCLI command to use the SidebarPanel...');
     context.subscriptions.push(
-        vscode.commands.registerCommand('ariana.openWebview', (traceIds: string[], mode: TracesPanelMode) => {
-            // Filter traces by the provided trace IDs
-            const filteredTraces = tracesData.filter((trace) => traceIds.find((v) => v === trace.trace_id));
-            
-            // Open the sidebar and send the filtered traces
-            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
-            
-            // Send the filtered traces to the sidebar
+        vscode.commands.registerCommand('ariana.updateCLI', () => {
+            console.log('Updating CLI...');
             if (sidebarProvider) {
-                sidebarProvider.sendDataToWebView(filteredTraces);
+                sidebarProvider.updateArianaCli();
             }
         })
     );
 
-    // Function to manage WebSocket connection
+    console.log('Defining function to manage WebSocket connection...');
     async function connectToTraceWebSocket(vaultSecretKey: string) {
+        console.log('Connecting to WebSocket...');
         // Close existing connection if any
         if (wsConnection) {
             wsConnection.close();
@@ -91,6 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
         let isFirst = true;
 
         wsConnection.on('message', (data: Buffer) => {
+            console.log('Received WebSocket message...');
             try {
                 const parsedData = JSON.parse(data.toString());
                 if (Array.isArray(parsedData)) {
@@ -151,8 +146,9 @@ export async function activate(context: vscode.ExtensionContext) {
         });
     }
 
-    // Function to start monitoring vault key changes
+    console.log('Defining function to start monitoring vault key changes...');
     function startVaultKeyMonitoring() {
+        console.log('Starting vault key monitoring...');
         // Stop existing monitoring if any
         stopVaultKeyMonitoring();
 
@@ -162,16 +158,18 @@ export async function activate(context: vscode.ExtensionContext) {
         vaultKeyPollingInterval = setInterval(checkVaultKeyAndUpdateConnection, 5000); // Check every 5 seconds
     }
 
-    // Function to stop monitoring vault key changes
+    console.log('Defining function to stop monitoring vault key changes...');
     function stopVaultKeyMonitoring() {
+        console.log('Stopping vault key monitoring...');
         if (vaultKeyPollingInterval) {
             clearInterval(vaultKeyPollingInterval);
             vaultKeyPollingInterval = null;
         }
     }
 
-    // Function to check vault key and update connection if necessary
+    console.log('Defining function to check vault key and update connection if necessary...');
     async function checkVaultKeyAndUpdateConnection() {
+        console.log('Checking vault key...');
         if (!vscode.window.activeTextEditor) {
             return;
         }
@@ -197,8 +195,9 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    // Function to fetch traces for an editor (fallback to REST if WebSocket fails)
+    console.log('Defining function to fetch traces for an editor (fallback to REST if WebSocket fails)...');
     async function fetchTracesForEditor(editor: vscode.TextEditor) {
+        console.log('Fetching traces for editor...');
         const document = editor.document;
         console.log('Active document:', document.uri.fsPath);
         tracesHoverDisposable = undefined;
@@ -247,6 +246,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     let disposable = vscode.commands.registerCommand('ariana.highlightTraces', () => {
+        console.log('Toggling showTraces...');
         showTraces = !showTraces;
         
         if (showTraces) {
@@ -265,21 +265,20 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Ariana traces: ${showTraces ? 'Enabled' : 'Disabled'}`);
     });
 
-    // Fetch traces for initial active editor
+    console.log('Fetching traces for initial active editor...');
     if (vscode.window.activeTextEditor) {
-        handleArianaInstallation(context);
         if (showTraces) {
             startVaultKeyMonitoring();
             declareTracesUpdate(vscode.window.activeTextEditor);
         }
     }
 
-    // Listen for editor changes
+    console.log('Listening for editor changes...');
     vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+        console.log('Editor changed...');
         if (editor) {
             unhighlightTraces(editor);
             clearHoverTraces(editor);
-            handleArianaInstallation(context);
             if (showTraces) {
                 declareTracesUpdate(editor);
             }
@@ -288,11 +287,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let tracesUpdates: vscode.TextEditor[] = [];
 
+    console.log('Defining function to declare traces update...');
     function declareTracesUpdate(editor: vscode.TextEditor) {
+        console.log('Declaring traces update...');
         tracesUpdates.push(editor);
     }
 
+    console.log('Defining function to highlight traces...');
     async function highlightTraces(editor: vscode.TextEditor | undefined = undefined) {
+        console.log('Highlighting traces...');
         editor = editor ?? vscode.window.activeTextEditor;
         if (!editor) {
             return;
@@ -310,7 +313,9 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    console.log('Setting interval to check for traces updates...');
     setInterval(() => {
+        console.log('Checking for traces updates...');
         const currentEditor = vscode.window.activeTextEditor;
         if (tracesUpdates.length > 0) {
             while (tracesUpdates.length > 0 && tracesUpdates[tracesUpdates.length - 1] !== currentEditor) {
@@ -329,7 +334,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let decoratedRanges: Map<vscode.Range, vscode.TextEditorDecorationType> = new Map();
 
+    console.log('Defining function to unhighlight traces...');
     function unhighlightTraces(editor: vscode.TextEditor | undefined = undefined) {
+        console.log('Unhighlighting traces...');
         editor = editor ?? vscode.window.activeTextEditor;
         if (!editor) {
             return;
@@ -338,7 +345,9 @@ export async function activate(context: vscode.ExtensionContext) {
         clearDecorations(editor, decoratedRanges);
     }
 
+    console.log('Defining function to clear hover traces...');
     function clearHoverTraces(editor: vscode.TextEditor | undefined = undefined) {
+        console.log('Clearing hover traces...');
         editor = editor ?? vscode.window.activeTextEditor;
         if (!editor) {
             return;
@@ -350,7 +359,9 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    console.log('Defining function to convert traces to regions...');
     function tracesToRegions(tracesData: Trace[]): Array<HighlightedRegion> {
+        console.log('Converting traces to regions...');
         const uniqueRegions = new Set(tracesData.map(trace => 
             `${trace.start_pos.line},${trace.start_pos.column},${trace.end_pos.line},${trace.end_pos.column}`
         ));
@@ -374,17 +385,22 @@ export async function activate(context: vscode.ExtensionContext) {
         }).filter(region => region.traces.length > 0);
     }
 
+    console.log('Adding disposable to context subscriptions...');
     context.subscriptions.push(disposable);
 
+    console.log('Adding dispose function to context subscriptions...');
     context.subscriptions.push({
         dispose: () => {
+            console.log('Disposing...');
             stopVaultKeyMonitoring();
             wsConnection?.close();
         }
     });
 }
 
+console.log('Defining deactivate function...');
 export function deactivate() {
+    console.log('Deactivating Ariana extension...');
     // DropdownWebview.hide();
     if (vscode.window.activeTextEditor) {
         clearDecorations(vscode.window.activeTextEditor, new Map());

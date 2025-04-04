@@ -39,10 +39,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "ariana.openWebview",
-        "title": "Ariana: Open in Debugging View"
-      },
-      {
         "command": "ariana.highlightTraces",
         "title": "Ariana: Toggle Traced Expressions Highlighting"
       },
