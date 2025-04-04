@@ -231,7 +231,7 @@ function findErrorTrace(traces: Trace[], traceId: string): Trace | undefined {
 }
 
 function findExitTrace(traces: Trace[], traceId: string): Trace | undefined {
-  return traces.find(t => t.trace_id === traceId && t.trace_type !== 'Enter' && t.trace_type !== 'Awaited' && t.trace_type !== 'Normal' && 'Exit' in t.trace_type);
+  return traces.find(t => t.trace_id === traceId && traceIsExit(t));
 }
 
 function findEnterTrace(traces: Trace[], traceId: string): Trace | undefined {
