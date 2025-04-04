@@ -14,11 +14,16 @@ interface ArianaCliStatus {
 
 interface FooterProps {
     cliStatus: ArianaCliStatus | null;
+    onUpdate?: () => void;
 }
 
-const Footer: React.FC<FooterProps> = ({ cliStatus }) => {
+const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
     const handleUpdate = () => {
-        postMessageToExtension({ command: 'updateArianaCli' });
+        if (onUpdate) {
+            onUpdate();
+        } else {
+            postMessageToExtension({ command: 'updateArianaCli' });
+        }
     };
 
     return (

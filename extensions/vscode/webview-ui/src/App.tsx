@@ -6,6 +6,7 @@ import type { Trace } from './bindings/Trace';
 import MainTab from './components/MainTab';
 import { postMessageToExtension } from './utils/vscode';
 import Footer from './components/Footer';
+import stateManager from './utils/stateManager';
 
 type HighlightRequest = (file: string, startLine: number, startCol: number, endLine: number, endCol: number) => void;
 
@@ -24,7 +25,7 @@ interface ArianaCliStatus {
 const App = () => {
     const [traces, setTraces] = useState<Trace[]>([]);
     const [requestHighlight, setRequestHighlight] = useState<HighlightRequest>(() => () => { });
-    const [activeTab, setActiveTab] = useState('main');
+    const [activeTab, setActiveTab] = useState(() => stateManager.get('activeTab'));
     const [theme, setTheme] = useState('light');
     const [logoUrl, setLogoUrl] = useState('');
     const [textLogoUrl, setTextLogoUrl] = useState('');
@@ -123,7 +124,10 @@ const App = () => {
         switch (message.type) {
             case 'traces':
                 setTraces(message.value);
-                setActiveTab('traces');
+                // Only change tab if explicitly requested or if we have traces and no tab is active
+                if (message.switchToTab || (message.value.length > 0 && !activeTab)) {
+                    handleTabChange('traces');
+                }
                 break;
             case 'theme':
                 setTheme(message.value);
@@ -162,6 +166,13 @@ const App = () => {
         postMessageToExtension({ command: 'updateArianaCli' });
     };
 
+    // Handle tab change and persist in state manager
+    const handleTabChange = (value: string) => {
+        setActiveTab(value);
+        stateManager.set('activeTab', value);
+        console.log('Tab changed to:', value);
+    };
+
     if (!isInitialized) {
         console.log('App not yet initialized, rendering loading state');
         return <div className="p-4">Loading Ariana...</div>;
@@ -176,7 +187,7 @@ const App = () => {
                     <Tabs
                         defaultValue="main"
                         value={activeTab}
-                        onValueChange={setActiveTab}
+                        onValueChange={handleTabChange}
                         className="flex-1 flex flex-col h-full max-h-full"
                     >
                         <div className="px-1">
@@ -203,19 +214,12 @@ const App = () => {
                             </TabsContent>
                         )}
                     </Tabs>
-                    
-                    {/* Footer */}
-                    <Footer cliStatus={cliStatus} />
+                    <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </div>
             ) : (
-                // Regular webview (not sidebar)
                 <div className="flex flex-col h-full">
-                    <div className="flex-1">
-                        <TracesTab traces={traces} requestHighlight={requestHighlight} />
-                    </div>
-                    
-                    {/* Footer */}
-                    <Footer cliStatus={cliStatus} />
+                    <MainTab textLogoUrl={textLogoUrl} onLogoClick={handleLogoClick} />
+                    <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </div>
             )}
         </div>

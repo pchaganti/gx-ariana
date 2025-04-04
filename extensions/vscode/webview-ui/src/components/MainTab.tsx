@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { getVSCodeAPI, postMessageToExtension } from '../utils/vscode';
+import stateManager from '../utils/stateManager';
 
 // Define interface for Ariana CLI status
 interface ArianaCliStatus {
@@ -105,18 +106,11 @@ interface OnboardingTabProps {
 }
 
 const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick }) => {
-	const [isCollapsed, setIsCollapsed] = useState(false);
+	// Use state manager for persisting collapsed state
+	const [isCollapsed, setIsCollapsed] = useState(() => stateManager.get('isOnboardingCollapsed'));
 	const [renderKey, setRenderKey] = useState(0);
 	const [cliStatus, setCliStatus] = useState<ArianaCliStatus | null>(null);
-
-	// Check if user has seen the onboarding before
-	useEffect(() => {
-		const hasSeenOnboarding = localStorage.getItem('ariana-has-seen-onboarding');
-		if (hasSeenOnboarding === 'true') {
-			setIsCollapsed(true);
-		}
-	}, []);
-
+	
 	// Request Ariana CLI status on mount
 	useEffect(() => {
 		postMessageToExtension({ command: 'getArianaCliStatus' });
@@ -148,9 +142,9 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 	const handleToggleCollapse = () => {
 		const newState = !isCollapsed;
 		setIsCollapsed(newState);
-		if (newState) {
-			localStorage.setItem('ariana-has-seen-onboarding', 'true');
-		}
+		// Update state in both localStorage (for backward compatibility) and state manager
+		localStorage.setItem('ariana-has-seen-onboarding', newState.toString());
+		stateManager.set('isOnboardingCollapsed', newState);
 	};
 
 	// Handle installation
@@ -199,17 +193,17 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 								{cliStatus?.isInstalled ? (
 									<p className="text-[var(--fg-2)]">Ariana CLI is installed. {cliStatus.version && `Version: ${cliStatus.version.split('ariana ')[1]}`}</p>
 								) : (
-									<>
-										<p className="text-[var(--fg-2)]">Install the Ariana CLI to start capturing execution traces.</p>
+									<div className="space-y-4">
+										<p className="text-[var(--fg-2)]">Install the Ariana CLI to run Python code with tracing.</p>
 										
 										{cliStatus && (
-											<div className="mt-4 space-y-4">
+											<div className="space-y-4">
 												{cliStatus.npmAvailable && (
 													<InstallOption 
 														method={ArianaInstallMethod.NPM} 
-														command="npm i -g ariana" 
-														available={true} 
-														onInstall={handleInstall} 
+														command="npm install -g ariana" 
+														available={cliStatus.npmAvailable}
+														onInstall={handleInstall}
 													/>
 												)}
 												
@@ -217,53 +211,56 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 													<InstallOption 
 														method={ArianaInstallMethod.PIP} 
 														command="pip install ariana" 
-														available={true} 
-														onInstall={handleInstall} 
+														available={cliStatus.pipAvailable}
+														onInstall={handleInstall}
 													/>
 												)}
 												
-												{!cliStatus.npmAvailable && (
+												{cliStatus.pythonPipAvailable && (
 													<InstallOption 
-														method={ArianaInstallMethod.NPM} 
-														command="npm i -g ariana" 
-														available={false} 
-														onInstall={handleInstall} 
+														method={ArianaInstallMethod.PYTHON_PIP} 
+														command="python -m pip install ariana" 
+														available={cliStatus.pythonPipAvailable}
+														onInstall={handleInstall}
 													/>
 												)}
 												
-												{!cliStatus.pipAvailable && (
+												{cliStatus.python3PipAvailable && (
 													<InstallOption 
-														method={ArianaInstallMethod.PIP} 
-														command="pip install ariana" 
-														available={false} 
-														onInstall={handleInstall} 
+														method={ArianaInstallMethod.PYTHON3_PIP} 
+														command="python3 -m pip install ariana" 
+														available={cliStatus.python3PipAvailable}
+														onInstall={handleInstall}
 													/>
 												)}
 											</div>
 										)}
-									</>
+									</div>
 								)}
 							</OnboardingStep>
 
 							<OnboardingStep
 								number={2}
-								title="Instrument Your Code"
+								title="Run Python code with Ariana"
 								active={cliStatus?.isInstalled || false}
 							>
-								<p className="text-[var(--fg-2)]">Add the Ariana decorator to functions you want to trace.</p>
+								<div className="space-y-4">
+									<p className="text-[var(--fg-2)]">Run your Python code with the Ariana CLI to see traces.</p>
+									<div className="p-3 rounded-md font-mono text-sm bg-[var(--bg-1)] text-[var(--fg-1)]">
+										ariana run your_script.py
+									</div>
+								</div>
 							</OnboardingStep>
 
 							<OnboardingStep
 								number={3}
-								title="View Traces"
+								title="View and analyze traces"
 								active={cliStatus?.isInstalled || false}
 							>
-								<p className="text-[var(--fg-2)]">Hover over your code to see execution traces or view them in this panel.</p>
-								<img
-									src="https://github.com/dedale-dev/.github/raw/main/ariana_readme_thumbnail.png?raw=true"
-									alt="Trace View"
-									className="mt-3 rounded-md w-full max-w-md border border-[var(--border-0)]"
-								/>
+								<div className="space-y-4">
+									<p className="text-[var(--fg-2)]">After running your code with Ariana, switch to the Traces tab to view execution traces.</p>
+									<p className="text-[var(--fg-2)]">Click on a trace to highlight the corresponding code in your editor.</p>
+								</div>
 							</OnboardingStep>
 						</div>
 					</div>

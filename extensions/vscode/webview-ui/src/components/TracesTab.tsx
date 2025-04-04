@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import JsonView from 'react-json-view';
 import type { Trace } from '../bindings/Trace';
+import stateManager from '../utils/stateManager';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -148,6 +149,7 @@ interface TracesTabProps {
 
 const TracesTab: React.FC<TracesTabProps> = ({ traces, requestHighlight }) => {
   const [renderKey, setRenderKey] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Force rerender when theme changes
   useEffect(() => {
@@ -166,6 +168,23 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, requestHighlight }) => {
       window.removeEventListener('message', handleThemeChange);
     };
   }, []);
+
+  // Restore scroll position when tab is shown
+  useEffect(() => {
+    if (containerRef.current) {
+      const savedScrollPosition = stateManager.get('tracesScrollPosition');
+      if (typeof savedScrollPosition === 'number') {
+        containerRef.current.scrollTop = savedScrollPosition;
+      }
+    }
+  }, []);
+
+  // Save scroll position when scrolling
+  const handleScroll = () => {
+    if (containerRef.current) {
+      stateManager.set('tracesScrollPosition', containerRef.current.scrollTop);
+    }
+  };
   
   let tracesById: Record<string, Trace[]> = {};
   traces.forEach(trace => {
@@ -179,7 +198,11 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, requestHighlight }) => {
 
   return (
     <div key={renderKey} className="p-4" style={{ height: '100%', width: '100%' }}>
-      <div className="flex flex-col gap-3 w-full max-w-full h-full overflow-y-auto">
+      <div 
+        ref={containerRef}
+        className="flex flex-col gap-3 w-full max-w-full h-full overflow-y-auto"
+        onScroll={handleScroll}
+      >
         {traces.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-[var(--vscode-descriptionForeground)] p-4 text-center">
             <p className="mb-2">No traces available</p>
@@ -208,7 +231,7 @@ function findErrorTrace(traces: Trace[], traceId: string): Trace | undefined {
 }
 
 function findExitTrace(traces: Trace[], traceId: string): Trace | undefined {
-  return traces.find(t => t.trace_id === traceId && traceIsExit(t));
+  return traces.find(t => t.trace_id === traceId && t.trace_type !== 'Enter' && t.trace_type !== 'Awaited' && t.trace_type !== 'Normal' && 'Exit' in t.trace_type);
 }
 
 function findEnterTrace(traces: Trace[], traceId: string): Trace | undefined {
