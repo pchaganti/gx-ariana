@@ -61,7 +61,7 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 				)}
 			</div>
 			{number < 3 && (
-				<div className="absolute left-5 top-10 h-full w-0.5 bg-[var(--accent)] text-[var(--fg-3)]" />
+				<div className="absolute left-5 top-10 w-0.5 bg-[var(--accent)] text-[var(--fg-3)]" style={{ height: 'calc(100% - 32px)' }} />
 			)}
 		</div>
 	);
