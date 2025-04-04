@@ -1,6 +1,6 @@
 [package]
 name = "ariana"
-version = "0.4.5"
+version = "0.4.6"
 edition = "2021"
 
 [dependencies]
@@ -13,7 +13,7 @@ ignore = "0.4.23"
 indicatif = "0.17.11"
 rand = "0.8.5"
 rayon = "1.10.0"
-reqwest = { version = "0.12.15", features = ["blocking", "json"] }
+reqwest = { version = "0.12.15", features = ["blocking", "json", "rustls-tls"], default-features = false }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 sha2 = "0.10"
