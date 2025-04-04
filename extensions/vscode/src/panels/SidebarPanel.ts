@@ -300,11 +300,23 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
       case 'retryWebview':
         this._refreshWebview();
         break;
-      case 'highlight':
-        this._highlightCode(message.file, message.startLine, message.startCol, message.endLine, message.endCol);
+      case 'highlightCode':
+        this._highlightCode(
+          message.file,
+          message.startLine,
+          message.startCol,
+          message.endLine,
+          message.endCol
+        );
+        break;
+      case 'openExternal':
+        // Open external URL (e.g., Discord link)
+        if (message.url) {
+          vscode.env.openExternal(vscode.Uri.parse(message.url));
+        }
         break;
       default:
-        console.log('Unhandled message:', message);
+        console.log('Unknown command:', message.command);
     }
   }
   

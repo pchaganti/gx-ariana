@@ -5,8 +5,21 @@ import ColorVisualizerTab from './components/ColorVisualizerTab';
 import type { Trace } from './bindings/Trace';
 import MainTab from './components/MainTab';
 import { postMessageToExtension } from './utils/vscode';
+import Footer from './components/Footer';
 
 type HighlightRequest = (file: string, startLine: number, startCol: number, endLine: number, endCol: number) => void;
+
+// Define interface for Ariana CLI status
+interface ArianaCliStatus {
+    isInstalled: boolean;
+    version?: string;
+    latestVersion?: string;
+    needsUpdate: boolean;
+    npmAvailable: boolean;
+    pipAvailable: boolean;
+    pythonPipAvailable: boolean;
+    python3PipAvailable: boolean;
+}
 
 const App = () => {
     const [traces, setTraces] = useState<Trace[]>([]);
@@ -19,6 +32,7 @@ const App = () => {
     const [showColorTab, setShowColorTab] = useState(false);
     const [logoClicks, setLogoClicks] = useState<number[]>([]);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [cliStatus, setCliStatus] = useState<ArianaCliStatus | null>(null);
 
     // Initialize the app
     useEffect(() => {
@@ -119,6 +133,7 @@ const App = () => {
                 setTimeout(() => detectTheme(), 0);
                 break;
             case 'arianaCliStatus':
+                setCliStatus(message.value);
                 break;
             case 'viewVisible':
                 postMessageToExtension({ command: 'getArianaCliStatus' });
@@ -141,6 +156,10 @@ const App = () => {
 
             return recentClicks;
         });
+    };
+
+    const handleUpdate = () => {
+        postMessageToExtension({ command: 'updateArianaCli' });
     };
 
     if (!isInitialized) {
@@ -170,24 +189,34 @@ const App = () => {
                             </TabsList>
                         </div>
 
-                        <TabsContent value="main" className="flex-1 h-[97%] max-h-[97%] mt-0">
+                        <TabsContent value="main" className="flex-1 h-[calc(100%-30px)] max-h-[calc(100%-30px)] mt-0">
                             <MainTab textLogoUrl={textLogoUrl} onLogoClick={handleLogoClick} />
                         </TabsContent>
 
-                        <TabsContent value="traces" className="flex-1 overflow-auto mt-0">
+                        <TabsContent value="traces" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
                             <TracesTab traces={traces} requestHighlight={requestHighlight} />
                         </TabsContent>
 
                         {showColorTab && (
-                            <TabsContent value="colors" className="flex-1 overflow-auto mt-0">
+                            <TabsContent value="colors" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
                                 <ColorVisualizerTab />
                             </TabsContent>
                         )}
                     </Tabs>
+                    
+                    {/* Footer */}
+                    <Footer cliStatus={cliStatus} />
                 </div>
             ) : (
                 // Regular webview (not sidebar)
-                <TracesTab traces={traces} requestHighlight={requestHighlight} />
+                <div className="flex flex-col h-full">
+                    <div className="flex-1">
+                        <TracesTab traces={traces} requestHighlight={requestHighlight} />
+                    </div>
+                    
+                    {/* Footer */}
+                    <Footer cliStatus={cliStatus} />
+                </div>
             )}
         </div>
     );

@@ -269,21 +269,6 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 					</div>
 				)}
 			</div>
-
-			{/* Version footer */}
-			{cliStatus?.isInstalled && cliStatus.version && (
-				<div className="mt-4 text-center text-xs text-[var(--fg-2)]">
-					ariana - {cliStatus.version.split('ariana ')[1]}
-					{cliStatus.needsUpdate && (
-						<button 
-							className="ml-2 px-2 py-1 text-xs bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:bg-opacity-90 transition-colors"
-							onClick={handleUpdate}
-						>
-							Update
-						</button>
-					)}
-				</div>
-			)}
 		</div>
 	);
 };
