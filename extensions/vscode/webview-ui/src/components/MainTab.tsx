@@ -162,8 +162,8 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 	};
 
 	return (
-		<div key={renderKey} className="flex flex-col p-4 max-w-full mx-auto h-full max-h-full overflow-y-auto scrollbar-w-2">
-			<div className="flex flex-col items-center mb-6">
+		<div key={renderKey} className="flex flex-col px-1 mt-2 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ maxHeight: 'calc(100% - 10px)' }}>
+			<div className="flex flex-col items-center my-6">
 				<img
 					src={textLogoUrl}
 					alt="Ariana"

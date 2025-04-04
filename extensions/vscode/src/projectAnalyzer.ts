@@ -274,30 +274,57 @@ async function isCommandAvailable(command: string): Promise<boolean> {
 async function getAvailableCommands(): Promise<Record<string, boolean>> {
   const commonCommands = [
     // JavaScript/TypeScript
-    'node', 'npm', 'npx', 'yarn', 'pnpm', 'ts-node', 'tsc', 'bun',
+    'node', 'deno', 'npm', 'npx', 'yarn', 'pnpm', 'ts-node', 'tsc', 'bun',
     // Python
     'python', 'python3', 'pip', 'pip3', 'poetry', 'uv', 'pytest', 'flask', 'django-admin',
-    // Rust
-    'cargo', 'rustc', 'rustup',
-    // Go
-    'go',
-    // Java
-    'java', 'javac', 'mvn', 'gradle',
-    // .NET
-    'dotnet',
-    // Ruby
-    'ruby', 'gem', 'bundle',
-    // PHP
-    'php', 'composer',
-    // Docker
-    'docker', 'docker-compose',
     // Other build tools
     'make', 'cmake', 'bazel', 'ninja'
   ];
 
   const availableCommands: Record<string, boolean> = {};
   const checkPromises = commonCommands.map(async (command) => {
-    availableCommands[command] = await isCommandAvailable(command);
+    try {
+      // Try with --version first, then --help if that fails
+      const versionCheck = await new Promise<boolean>((resolve) => {
+        const process = childProcess.spawn(command, ['--version'], {
+          shell: true,
+          stdio: 'ignore'
+        });
+        
+        process.on('close', (code) => {
+          resolve(code === 0);
+        });
+        
+        setTimeout(() => {
+          process.kill();
+          resolve(false);
+        }, 1000);
+      });
+      
+      if (versionCheck) {
+        availableCommands[command] = true;
+        return;
+      }
+      
+      // Try with --help if --version failed
+      availableCommands[command] = await new Promise<boolean>((resolve) => {
+        const process = childProcess.spawn(command, ['--help'], {
+          shell: true,
+          stdio: 'ignore'
+        });
+        
+        process.on('close', (code) => {
+          resolve(code === 0);
+        });
+        
+        setTimeout(() => {
+          process.kill();
+          resolve(false);
+        }, 1000);
+      });
+    } catch (error) {
+      availableCommands[command] = false;
+    }
   });
 
   await Promise.all(checkPromises);
