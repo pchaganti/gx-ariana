@@ -1,0 +1,12 @@
+:root {
+  --primary: var(--vscode-editor-selectionBackground);
+  --accent: var(--vscode-activityBarBadge-background);
+  --bg-0: var(--vscode-editor-background);
+  --bg-1: var(--vscode-sideBar-background);
+  --bg-2: var(--vscode-activityBar-background);
+  --bg-3: var(--vscode-sideBar-dropBackground);
+  --fg-0: var(--vscode-editor-foreground);
+  --fg-1: var(--vscode-sideBarTitle-foreground);
+  --fg-2: var(--vscode-activityBar-inactiveForeground);
+  --fg-3: var(--vscode-activityBar-foreground);
+}

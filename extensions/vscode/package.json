@@ -45,8 +45,33 @@
       {
         "command": "ariana.highlightTraces",
         "title": "Ariana: Toggle Traced Expressions Highlighting"
+      },
+      {
+        "command": "ariana.openSidebar",
+        "title": "Ariana: Open Sidebar",
+        "icon": "$(debug-alt)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ariana-sidebar",
+          "title": "Ariana",
+          "icon": "resources/ariana.svg"
+        }
+      ]
+    },
+    "views": {
+      "ariana-sidebar": [
+        {
+          "type": "webview",
+          "id": "ariana.sidebarView",
+          "name": "Ariana",
+          "icon": "resources/ariana.svg",
+          "contextualTitle": "Ariana"
+        }
+      ]
+    },
     "walkthroughs": [
       {
         "id": "ariana-getting-started",

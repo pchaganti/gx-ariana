@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { TracesPanel, TracesPanelMode } from "./panels/TracesPanel";
+import { TracesPanelMode } from "./panels/TracesPanel";
 import { formatUriForDB } from './urilHelpers';
 import type { Trace } from './bindings/Trace';
 import path = require('path');
@@ -10,12 +10,14 @@ import { HighlightedRegion, highlightRegions } from './highlighting';
 import { clearDecorations } from './highlighting/decorations';
 import { handleArianaInstallation, updateArianaCLI } from './installation';
 import { WebSocket } from 'ws';
+import { SidebarPanel } from './panels/SidebarPanel';
 
 let tracesData: Trace[] = [];
 let wsConnection: WebSocket | null = null;
 let vaultKeyPollingInterval: NodeJS.Timeout | null = null;
 let currentVaultSecretKey: string | null = null;
 let tracesHoverDisposable: vscode.Disposable | undefined;
+let sidebarProvider: SidebarPanel | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Extension is now active');
@@ -30,6 +32,22 @@ export async function activate(context: vscode.ExtensionContext) {
     
     let showTraces = false;
 
+    // Register sidebar view provider
+    sidebarProvider = new SidebarPanel(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(SidebarPanel.viewType, sidebarProvider)
+    );
+
+    // Register command to open the sidebar
+    context.subscriptions.push(
+        vscode.commands.registerCommand('ariana.openSidebar', () => {
+            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
+        })
+    );
+
+    // Automatically open the sidebar when the extension is activated
+    vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
+
     context.subscriptions.push(
         vscode.commands.registerCommand('ariana.updateCLI', () => {
             updateArianaCLI(context);
@@ -39,23 +57,16 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create a command to show the traceback panel
     context.subscriptions.push(
         vscode.commands.registerCommand('ariana.openWebview', (traceIds: string[], mode: TracesPanelMode) => {
-            const panel = TracesPanel.render(context.extensionUri, tracesData.filter((trace) => traceIds.find((v) => v === trace.trace_id)), mode, async (file, startLine, startCol, endLine, endCol) => {
-                console.log('Highlighting:', file, startLine, startCol, endLine, endCol);
-                // Try to use existing editor if it's showing the right file
-                // Check all visible editors first
-                let editor = vscode.window.visibleTextEditors.find(e => formatUriForDB(e.document.uri) === file);
-                if (!editor) {
-                    // Open the file if no matching editor is found
-                    console.log('Opening file:', file);
-                    const doc = await vscode.workspace.openTextDocument(file);
-                    editor = await vscode.window.showTextDocument(doc);
-                }
-
-                // Reveal and highlight the range
-                const range = new vscode.Range(startLine, startCol, endLine, endCol);
-                editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-                editor.selection = new vscode.Selection(range.start, range.end);
-            });
+            // Filter traces by the provided trace IDs
+            const filteredTraces = tracesData.filter((trace) => traceIds.find((v) => v === trace.trace_id));
+            
+            // Open the sidebar and send the filtered traces
+            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
+            
+            // Send the filtered traces to the sidebar
+            if (sidebarProvider) {
+                sidebarProvider.sendDataToWebView(filteredTraces);
+            }
         })
     );
 
@@ -89,10 +100,14 @@ export async function activate(context: vscode.ExtensionContext) {
                         tracesData = parsedData;
                     } else {
                         console.log(`Received ${parsedData.length} new traces from WebSocket`);
-                        parsedData.forEach(pd => tracesData.push(pd))
+                        parsedData.forEach(pd => tracesData.push(pd));
                     }
                     if (showTraces && vscode.window.activeTextEditor) {
                         declareTracesUpdate(vscode.window.activeTextEditor);
+                    }
+                    // Send traces to sidebar if it exists
+                    if (sidebarProvider) {
+                        sidebarProvider.sendDataToWebView(tracesData);
                     }
                 } else {
                     // Single new trace
@@ -105,6 +120,10 @@ export async function activate(context: vscode.ExtensionContext) {
                         if (parsedData.start_pos.filepath === filepath) {
                             declareTracesUpdate(vscode.window.activeTextEditor);
                         }
+                    }
+                    // Send updated traces to sidebar if it exists
+                    if (sidebarProvider) {
+                        sidebarProvider.sendDataToWebView(tracesData);
                     }
                 }
                 isFirst = false;
@@ -217,6 +236,10 @@ export async function activate(context: vscode.ExtensionContext) {
             console.log('Traces data:', data.length);
             if (vscode.window.activeTextEditor?.document.uri.toString() === document.uri.toString()) {
                 tracesData = data;
+                // Send traces to sidebar if it exists
+                if (sidebarProvider) {
+                    sidebarProvider.sendDataToWebView(tracesData);
+                }
             }
         } catch (error) {
             console.error('Error fetching traces:', error);
@@ -234,7 +257,7 @@ export async function activate(context: vscode.ExtensionContext) {
             stopVaultKeyMonitoring();
             wsConnection?.close();
             wsConnection = null;
-            tracesData = []
+            tracesData = [];
             unhighlightTraces();
             clearHoverTraces();
         }
@@ -280,6 +303,11 @@ export async function activate(context: vscode.ExtensionContext) {
         ));
         clearHoverTraces(editor);
         tracesHoverDisposable = highlightRegions(editor, regions, decoratedRanges);
+        
+        // Send traces to sidebar if it exists
+        if (sidebarProvider) {
+            sidebarProvider.sendDataToWebView(tracesData);
+        }
     }
 
     setInterval(() => {
@@ -316,7 +344,7 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
         if (tracesHoverDisposable) {
-            console.log("clearing hovers")
+            console.log("clearing hovers");
             tracesHoverDisposable.dispose();
             tracesHoverDisposable = undefined;
         }
@@ -351,7 +379,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push({
         dispose: () => {
             stopVaultKeyMonitoring();
-            wsConnection?.close()
+            wsConnection?.close();
         }
     });
 }
