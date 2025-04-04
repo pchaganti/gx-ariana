@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { getVSCodeAPI, postMessageToExtension } from '../utils/vscode';
 import stateManager from '../utils/stateManager';
+import RunCommandsPanel from './RunCommandsPanel';
 
 // Define interface for Ariana CLI status
 interface ArianaCliStatus {
@@ -161,7 +162,7 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 	};
 
 	return (
-		<div key={renderKey} className="flex flex-col p-4 max-w-full mx-auto h-full max-h-full">
+		<div key={renderKey} className="flex flex-col p-4 max-w-full mx-auto h-full max-h-full overflow-y-auto scrollbar-w-2">
 			<div className="flex flex-col items-center mb-6">
 				<img
 					src={textLogoUrl}
@@ -171,100 +172,105 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 				/>
 			</div>
 
-			<div className="rounded-md bg-[var(--bg-0)] max-h-full overflow-y-auto scrollbar-w-2">
-				<div
-					className={"group sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-[var(--bg-0)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--bg-1)] rounded-b-none')}
-					onClick={handleToggleCollapse}
-				>
-					<h2 className="text-md font-medium text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">Getting Started</h2>
-					<div className={"h-3 w-3 group-hover:bg-[var(--bg-3)] " + (isCollapsed ? 'rounded-full bg-[var(--bg-1)]' : 'rounded-xs bg-[var(--bg-2)]')}>
-					</div>
-				</div>
-
-				{!isCollapsed && (
-					<div className="px-4 pt-2 pb-6 mt-2">
-						<div className="space-y-2">
-							<OnboardingStep
-								number={1}
-								title="Install Ariana CLI"
-								active={true}
-								completed={cliStatus?.isInstalled}
-							>
-								{cliStatus?.isInstalled ? (
-									<p className="text-[var(--fg-2)]">Ariana CLI is installed. {cliStatus.version && `Version: ${cliStatus.version.split('ariana ')[1]}`}</p>
-								) : (
-									<div className="space-y-4">
-										<p className="text-[var(--fg-2)]">Install the Ariana CLI to run Python code with tracing.</p>
-										
-										{cliStatus && (
-											<div className="space-y-4">
-												{cliStatus.npmAvailable && (
-													<InstallOption 
-														method={ArianaInstallMethod.NPM} 
-														command="npm install -g ariana" 
-														available={cliStatus.npmAvailable}
-														onInstall={handleInstall}
-													/>
-												)}
-												
-												{cliStatus.pipAvailable && (
-													<InstallOption 
-														method={ArianaInstallMethod.PIP} 
-														command="pip install ariana" 
-														available={cliStatus.pipAvailable}
-														onInstall={handleInstall}
-													/>
-												)}
-												
-												{cliStatus.pythonPipAvailable && (
-													<InstallOption 
-														method={ArianaInstallMethod.PYTHON_PIP} 
-														command="python -m pip install ariana" 
-														available={cliStatus.pythonPipAvailable}
-														onInstall={handleInstall}
-													/>
-												)}
-												
-												{cliStatus.python3PipAvailable && (
-													<InstallOption 
-														method={ArianaInstallMethod.PYTHON3_PIP} 
-														command="python3 -m pip install ariana" 
-														available={cliStatus.python3PipAvailable}
-														onInstall={handleInstall}
-													/>
-												)}
-											</div>
-										)}
-									</div>
-								)}
-							</OnboardingStep>
-
-							<OnboardingStep
-								number={2}
-								title="Run Python code with Ariana"
-								active={cliStatus?.isInstalled || false}
-							>
-								<div className="space-y-4">
-									<p className="text-[var(--fg-2)]">Run your Python code with the Ariana CLI to see traces.</p>
-									<div className="p-3 rounded-md font-mono text-sm bg-[var(--bg-1)] text-[var(--fg-1)]">
-										ariana run your_script.py
-									</div>
-								</div>
-							</OnboardingStep>
-
-							<OnboardingStep
-								number={3}
-								title="View and analyze traces"
-								active={cliStatus?.isInstalled || false}
-							>
-								<div className="space-y-4">
-									<p className="text-[var(--fg-2)]">After running your code with Ariana, switch to the Traces tab to view execution traces.</p>
-									<p className="text-[var(--fg-2)]">Click on a trace to highlight the corresponding code in your editor.</p>
-								</div>
-							</OnboardingStep>
+			<div className="flex flex-col gap-1 h-full">
+				<div className="rounded-md bg-[var(--bg-0)]">
+					<div
+						className={"group sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-[var(--bg-0)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--bg-1)] rounded-b-none')}
+						onClick={handleToggleCollapse}
+					>
+						<h2 className="text-md font-medium text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">Getting Started</h2>
+						<div className={"h-3 w-3 group-hover:bg-[var(--bg-3)] " + (isCollapsed ? 'rounded-full bg-[var(--bg-1)]' : 'rounded-xs bg-[var(--bg-2)]')}>
 						</div>
 					</div>
-				)}
+
+					{!isCollapsed && (
+						<div className="px-4 pt-2 pb-6 mt-2">
+							<div className="space-y-2">
+								<OnboardingStep
+									number={1}
+									title="Install Ariana CLI"
+									active={true}
+									completed={cliStatus?.isInstalled}
+								>
+									{cliStatus?.isInstalled ? (
+										<p className="text-[var(--fg-2)]">Ariana CLI is installed. {cliStatus.version && `Version: ${cliStatus.version.split('ariana ')[1]}`}</p>
+									) : (
+										<div className="space-y-4">
+											<p className="text-[var(--fg-2)]">Install the Ariana CLI to run Python code with tracing.</p>
+											
+											{cliStatus && (
+												<div className="space-y-4">
+													{cliStatus.npmAvailable && (
+														<InstallOption 
+															method={ArianaInstallMethod.NPM} 
+															command="npm install -g ariana" 
+															available={cliStatus.npmAvailable}
+															onInstall={handleInstall}
+														/>
+													)}
+													
+													{cliStatus.pipAvailable && (
+														<InstallOption 
+															method={ArianaInstallMethod.PIP} 
+															command="pip install ariana" 
+															available={cliStatus.pipAvailable}
+															onInstall={handleInstall}
+														/>
+													)}
+													
+													{cliStatus.pythonPipAvailable && (
+														<InstallOption 
+															method={ArianaInstallMethod.PYTHON_PIP} 
+															command="python -m pip install ariana" 
+															available={cliStatus.pythonPipAvailable}
+															onInstall={handleInstall}
+														/>
+													)}
+													
+													{cliStatus.python3PipAvailable && (
+														<InstallOption 
+															method={ArianaInstallMethod.PYTHON3_PIP} 
+															command="python3 -m pip install ariana" 
+															available={cliStatus.python3PipAvailable}
+															onInstall={handleInstall}
+														/>
+													)}
+												</div>
+											)}
+										</div>
+									)}
+								</OnboardingStep>
+
+								<OnboardingStep
+									number={2}
+									title="Run Python code with Ariana"
+									active={cliStatus?.isInstalled || false}
+								>
+									<div className="space-y-4">
+										<p className="text-[var(--fg-2)]">Run your Python code with the Ariana CLI to see traces.</p>
+										<div className="p-3 rounded-md font-mono text-sm bg-[var(--bg-1)] text-[var(--fg-1)]">
+											ariana run your_script.py
+										</div>
+									</div>
+								</OnboardingStep>
+
+								<OnboardingStep
+									number={3}
+									title="View and analyze traces"
+									active={cliStatus?.isInstalled || false}
+								>
+									<div className="space-y-4">
+										<p className="text-[var(--fg-2)]">After running your code with Ariana, switch to the Traces tab to view execution traces.</p>
+										<p className="text-[var(--fg-2)]">Click on a trace to highlight the corresponding code in your editor.</p>
+									</div>
+								</OnboardingStep>
+							</div>
+						</div>
+					)}
+
+					{/* Add Run Commands Panel */}
+				</div>
+				<RunCommandsPanel isInstalled={cliStatus?.isInstalled || false} />
 			</div>
 		</div>
 	);

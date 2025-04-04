@@ -1,15 +1,24 @@
 import * as vscode from 'vscode';
 import { Trace } from '../bindings/Trace';
 import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installArianaCli, updateArianaCli } from '../installation/cliManager';
+import { WebviewService } from '../services/WebviewService';
+import { RunCommandsService } from '../services/RunCommandsService';
+import { TraceService } from '../services/TraceService';
 
 export class SidebarPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
   private _view?: vscode.WebviewView;
   private _lastSentTraces?: Trace[];
   private _context: vscode.ExtensionContext;
+  private _webviewService: WebviewService;
+  private _runCommandsService: RunCommandsService;
+  private _traceService: TraceService;
 
   constructor(private readonly _extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
     this._context = context;
+    this._webviewService = new WebviewService(_extensionUri);
+    this._runCommandsService = new RunCommandsService(context);
+    this._traceService = new TraceService();
     console.log('SidebarPanel constructor called with extension URI:', _extensionUri.toString());
   }
 
@@ -28,7 +37,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
 
     try {
       console.log('Setting webview HTML');
-      webviewView.webview.html = this._getWebviewContent(webviewView.webview);
+      webviewView.webview.html = this._webviewService.getWebviewContent(webviewView.webview);
       console.log('Webview HTML set successfully');
     } catch (error) {
       console.error('Error setting webview HTML:', error);
@@ -41,10 +50,10 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
     });
 
     // Send initial theme information
-    this._sendThemeInfo(webviewView.webview);
+    this._webviewService.sendThemeInfo(webviewView.webview);
 
     // Register theme change listener
-    this._registerThemeChangeListener(webviewView.webview);
+    this._webviewService.registerThemeChangeListener(webviewView.webview);
 
     // If we have traces already, send them to the webview
     if (this._lastSentTraces) {
@@ -73,11 +82,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
   public sendDataToWebView(traces: Trace[]) {
     if (this._view) {
       this._lastSentTraces = traces;
-      try {
-        this._view.webview.postMessage({ type: 'traces', value: traces });
-      } catch (error) {
-        console.error('Error sending traces to webview:', error);
-      }
+      this._traceService.sendTracesToWebview(this._view.webview, traces);
     } else {
       console.log('Cannot send traces - webview not initialized');
     }
@@ -101,207 +106,51 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
   private _sendArianaCliStatus(status: ArianaCliStatus) {
     if (this._view) {
       try {
-        this._view.webview.postMessage({ 
-          type: 'arianaCliStatus', 
-          value: status 
-        });
+        this._view.webview.postMessage({ type: 'arianaCliStatus', value: status });
       } catch (error) {
-        console.error('Error sending CLI status to webview:', error);
+        console.error('Error sending Ariana CLI status to webview:', error);
       }
-    } else {
-      console.error('Cannot send CLI status - webview not initialized');
     }
-  }
-
-  /**
-   * Install Ariana CLI
-   */
-  private async _installArianaCli(method: ArianaInstallMethod) {
-    try {
-      await vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: 'Installing Ariana CLI...',
-        cancellable: false
-      }, async () => {
-        const success = await installArianaCli(method, this._context);
-        if (success) {
-          vscode.window.showInformationMessage('Ariana CLI installed successfully!');
-          await this._checkAndSendArianaCliStatus();
-        } else {
-          vscode.window.showErrorMessage('Failed to install Ariana CLI');
-        }
-      });
-    } catch (error) {
-      vscode.window.showErrorMessage(`Error installing Ariana CLI: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Update Ariana CLI
-   */
-  public async updateArianaCli() {
-    try {
-      await vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: 'Updating Ariana CLI...',
-        cancellable: false
-      }, async () => {
-        const success = await updateArianaCli(this._context);
-        if (success) {
-          vscode.window.showInformationMessage('Ariana CLI updated successfully!');
-          // Update the CLI status
-          await this._checkAndSendArianaCliStatus();
-        } else {
-          vscode.window.showErrorMessage('Failed to update Ariana CLI');
-        }
-      });
-    } catch (error) {
-      vscode.window.showErrorMessage(`Error updating Ariana CLI: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  private async _updateArianaCli() {
-    await this.updateArianaCli();
-  }
-
-  /**
-   * Highlight code in the editor
-   */
-  private async _highlightCode(file: string, startLine: number, startCol: number, endLine: number, endCol: number) {
-    try {
-      const document = await vscode.workspace.openTextDocument(file);
-      const editor = await vscode.window.showTextDocument(document);
-
-      // Convert to zero-based positions
-      const startPosition = new vscode.Position(startLine - 1, startCol - 1);
-      const endPosition = new vscode.Position(endLine - 1, endCol - 1);
-      const range = new vscode.Range(startPosition, endPosition);
-
-      // Highlight the range
-      editor.selection = new vscode.Selection(startPosition, endPosition);
-      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-    } catch (error) {
-      console.error('Failed to highlight code:', error);
-      vscode.window.showErrorMessage(`Failed to highlight code: ${error}`);
-    }
-  }
-
-  /**
-   * Send theme information to the webview
-   */
-  private _sendThemeInfo(webview: vscode.Webview) {
-    const themeKind = vscode.window.activeColorTheme.kind;
-    try {
-      console.log('Sending theme info to webview');
-      webview.postMessage({ 
-        type: 'theme', 
-        value: themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast ? 'dark' : 'light',
-        theme: themeKind
-      });
-    } catch (error) {
-      console.error('Error sending theme info to webview:', error);
-    }
-  }
-
-  /**
-   * Register theme change listener
-   */
-  private _registerThemeChangeListener(webview: vscode.Webview) {
-    // Listen for theme changes
-    vscode.window.onDidChangeActiveColorTheme(() => {
-      if (this._view) {
-        try {
-          webview.postMessage({ type: 'themeChange' });
-          this._sendThemeInfo(webview);
-        } catch (error) {
-          console.error('Error sending theme change to webview:', error);
-        }
-      }
-    });
-  }
-
-  /**
-   * Get the HTML content for the webview
-   */
-  private _getWebviewContent(webview: vscode.Webview): string {
-    console.log('Getting webview content');
-    
-    // Get paths to the webview resources
-    const webviewUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist'));
-    console.log('Webview URI:', webviewUri.toString());
-    
-    const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist', 'assets', 'index.css'));
-    console.log('Styles URI:', stylesUri.toString());
-    
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist', 'index.js'));
-    console.log('Script URI:', scriptUri.toString());
-
-    // Get paths to logo resources
-    const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'logo.png'));
-    const textLogoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'logo_text_highres.png'));
-
-    // Create a nonce for script security
-    const nonce = this._getNonce();
-
-    // Generate the HTML content
-    const html = `<!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:; connect-src ${webview.cspSource} https:; frame-src 'self';">
-          <link rel="stylesheet" type="text/css" href="${stylesUri}">
-          <title>Ariana</title>
-        </head>
-        <body>
-          <div id="root" data-vscode-context='${JSON.stringify({webviewType: "sidebar"})}' data-ariana-logo="${logoUri}" data-ariana-text-logo="${textLogoUri}"></div>
-          <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
-        </body>
-      </html>`;
-
-    console.log('Generated HTML:', html);
-    return html;
-  }
-
-  /**
-   * Generate a nonce for CSP
-   */
-  private _getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-      text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
   }
 
   /**
    * Handle messages from the webview
-   * @param message 
    */
-  private _handleMessage(message: any) {
-    console.log('Received message from webview:', message);
-    
+  private async _handleMessage(message: any) {
     switch (message.command) {
       case 'getTheme':
         // Send the current theme to the webview
-        this._sendThemeInfo(this._view!.webview);
+        if (this._view) {
+          this._webviewService.sendThemeInfo(this._view.webview);
+        }
         break;
       case 'getArianaCliStatus':
-        // Get and send the Ariana CLI status
-        this._sendCliStatus();
+        await this._checkAndSendArianaCliStatus();
         break;
       case 'installArianaCli':
-        this._installArianaCli(message.method);
+        await this._installArianaCli(message.method);
         break;
       case 'updateArianaCli':
-        this._updateArianaCli();
+        await this._updateArianaCli();
+        // Clear run commands cache after updating CLI
+        this._runCommandsService.clearCache();
         break;
-      case 'retryWebview':
-        this._refreshWebview();
+      case 'clearRunCommandsCache':
+        this._runCommandsService.clearCache();
+        if (this._view) {
+          this._view.webview.postMessage({ type: 'runCommandsCacheCleared' });
+        }
+        break;
+      case 'getRunCommands':
+        if (this._view) {
+          await this._runCommandsService.getRunCommands(this._view.webview);
+        }
+        break;
+      case 'runArianaCommand':
+        this._runCommandsService.runArianaCommand(message.arianaCommand);
         break;
       case 'highlightCode':
-        this._highlightCode(
+        await this._traceService.highlightCode(
           message.file,
           message.startLine,
           message.startCol,
@@ -310,39 +159,69 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
         );
         break;
       case 'openExternal':
-        // Open external URL (e.g., Discord link)
         if (message.url) {
           vscode.env.openExternal(vscode.Uri.parse(message.url));
         }
         break;
       default:
-        console.log('Unknown command:', message.command);
+        console.log(`Unknown command: ${message.command}`);
     }
   }
-  
+
   /**
-   * Send the current CLI status to the webview
+   * Install Ariana CLI
    */
-  private async _sendCliStatus() {
-    console.log('Getting Ariana CLI status');
+  private async _installArianaCli(method: ArianaInstallMethod) {
     try {
-      const status = await getArianaCliStatus();
-      console.log('Got CLI status:', status);
-      this._sendArianaCliStatus(status);
+      // Show progress notification
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Installing Ariana CLI...',
+        cancellable: false
+      }, async () => {
+        await installArianaCli(method, this._context);
+      });
+
+      // Check and send updated status
+      await this._checkAndSendArianaCliStatus();
+
+      // Show success message
+      vscode.window.showInformationMessage('Ariana CLI installed successfully!');
     } catch (error) {
-      console.error('Error getting CLI status:', error);
+      console.error('Error installing Ariana CLI:', error);
+      vscode.window.showErrorMessage(`Failed to install Ariana CLI: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   /**
-   * Refresh the webview
+   * Update Ariana CLI
    */
-  private _refreshWebview() {
-    console.log('Refreshing webview');
-    if (this._view) {
-      // Update the webview content
-      this._view.webview.html = this._getWebviewContent(this._view.webview);
-      console.log('Webview content reloaded');
+  public async updateArianaCli(): Promise<void> {
+    await this._updateArianaCli();
+  }
+
+  /**
+   * Update Ariana CLI
+   */
+  private async _updateArianaCli() {
+    try {
+      // Show progress notification
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Updating Ariana CLI...',
+        cancellable: false
+      }, async () => {
+        await updateArianaCli(this._context);
+      });
+
+      // Check and send updated status
+      await this._checkAndSendArianaCliStatus();
+
+      // Show success message
+      vscode.window.showInformationMessage('Ariana CLI updated successfully!');
+    } catch (error) {
+      console.error('Error updating Ariana CLI:', error);
+      vscode.window.showErrorMessage(`Failed to update Ariana CLI: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }

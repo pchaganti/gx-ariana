@@ -7,7 +7,7 @@ const https = require('https');
 
 const platform = os.platform();
 const arch = os.arch();
-const currentVersion = '0.4.5';
+const currentVersion = '0.4.6';
 
 // Function to check for the latest version
 function checkLatestVersion() {
@@ -51,9 +51,9 @@ function checkLatestVersion() {
 async function checkVersionAndWarn() {
   try {
     const latestVersion = await checkLatestVersion();
-    if (latestVersion && latestVersion !== '0.4.5') {
+    if (latestVersion && latestVersion !== '0.4.6') {
       console.log('\x1b[33m%s\x1b[0m', '\u26A0 WARNING: You are using an outdated version of Ariana CLI');
-      console.log('\x1b[33m%s\x1b[0m', `Your version: 0.4.5`);
+      console.log('\x1b[33m%s\x1b[0m', `Your version: 0.4.6`);
       console.log('\x1b[33m%s\x1b[0m', `Latest version: ${latestVersion}`);
       console.log('\x1b[33m%s\x1b[0m', 'Please update to the latest version using: npm install -g ariana@latest');
     }
