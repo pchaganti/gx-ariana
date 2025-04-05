@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';
 import { ProjectContext } from './bindings/ProjectContext';
+import { SystemCommand } from './bindings/SystemCommand';
 
 /**
  * Get the operating system information
@@ -233,7 +234,7 @@ export async function generateProjectContext(workspacePath: string, currentFileP
     files_tree: filesTree,
     important_workspace_files: importantWorkspaceFiles,
     important_workspace_file_content: importantWorkspaceFileContent,
-    available_commands: availableCommands || null,
+    system_commands: availableCommands!,
     current_focused_file_path: currentFilePath || null,
     current_focused_file_content: currentFilePath ? getFileContent(currentFilePath) : null
   };
@@ -249,18 +250,35 @@ export async function generateProjectContext(workspacePath: string, currentFileP
 async function isCommandAvailable(command: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const platform = os.platform();
-    const cmd = platform === 'win32' ? 'where' : 'which';
-    const process = childProcess.spawn(cmd, [command], {
+    let cmd: string;
+    let args: string[];
+    
+    if (platform === 'win32') {
+      // On Windows, try both 'where' and direct command check with 'cmd /c'
+      cmd = 'cmd';
+      args = ['/c', `(where ${command} || ${command} --version || ${command} -v) 2>nul`];
+    } else {
+      // On Unix-like systems, use 'which'
+      cmd = 'which';
+      args = [command];
+    }
+
+    console.log(`Checking availability of command: ${command}`);
+    console.log(`Command: ${cmd}, Args: ${args}`);
+    
+    const process = childProcess.spawn(cmd, args, {
       shell: true,
       stdio: 'ignore'
     });
 
     process.on('close', (code) => {
+      console.log(`Command closed with code: ${code}`);
       resolve(code === 0);
     });
 
     // Set a timeout in case the command hangs
     setTimeout(() => {
+      console.log(`Command timeout: ${command}`);
       process.kill();
       resolve(false);
     }, 1000);
@@ -269,61 +287,149 @@ async function isCommandAvailable(command: string): Promise<boolean> {
 
 /**
  * Get available development commands on the system
- * @returns Object with command availability information
+ * @returns Object with command availability information and usage examples
  */
-async function getAvailableCommands(): Promise<Record<string, boolean>> {
-  const commonCommands = [
+async function getAvailableCommands(): Promise<SystemCommand[]> {
+  const commandsInfo: Record<string, { description: string; goodExamples: string[]; badExamples: string[] }> = {
     // JavaScript/TypeScript
-    'node', 'deno', 'npm', 'npx', 'yarn', 'pnpm', 'ts-node', 'tsc', 'bun',
+    'node': {
+      description: 'JavaScript runtime',
+      goodExamples: ['node script.js', 'node index.js'],
+      badExamples: ['node script.ts', 'node script.py']
+    },
+    'deno': {
+      description: 'Secure JavaScript/TypeScript runtime',
+      goodExamples: ['deno run script.ts', 'deno run main.js'],
+      badExamples: ['deno script.js', 'deno run script.py']
+    },
+    'npm': {
+      description: 'Node package manager',
+      goodExamples: ['npm start', 'npm run build', 'npm test'],
+      badExamples: ['npm script.js', 'npm execute start']
+    },
+    'npx': {
+      description: 'Node package runner',
+      goodExamples: ['npx create-react-app my-app', 'npx tsc'],
+      badExamples: ['npx start', 'npx script.js']
+    },
+    'yarn': {
+      description: 'Alternative package manager',
+      goodExamples: ['yarn start', 'yarn build', 'yarn test'],
+      badExamples: ['yarn script.js', 'yarn execute start']
+    },
+    'pnpm': {
+      description: 'Fast, disk space efficient package manager',
+      goodExamples: ['pnpm start', 'pnpm run build', 'pnpm test'],
+      badExamples: ['pnpm script.js', 'pnpm execute start']
+    },
+    'ts-node': {
+      description: 'TypeScript execution environment',
+      goodExamples: ['ts-node script.ts', 'ts-node src/index.ts'],
+      badExamples: ['ts-node script.js', 'ts-node script.py']
+    },
+    'tsc': {
+      description: 'TypeScript compiler',
+      goodExamples: ['tsc', 'tsc --project tsconfig.json'],
+      badExamples: ['tsc script.ts', 'tsc run script.ts']
+    },
+    'bun': {
+      description: 'JavaScript runtime, bundler, test runner, and package manager',
+      goodExamples: ['bun run index.ts', 'bun run script.js', 'bun test'],
+      badExamples: ['bun script.py', 'bun execute script.js']
+    },
     // Python
-    'python', 'python3', 'pip', 'pip3', 'poetry', 'uv', 'pytest', 'flask', 'django-admin',
+    'python': {
+      description: 'Python interpreter',
+      goodExamples: ['python script.py', 'python -m pytest'],
+      badExamples: ['python script.js', 'python script.ts']
+    },
+    'python3': {
+      description: 'Python 3 interpreter',
+      goodExamples: ['python3 script.py', 'python3 -m pytest'],
+      badExamples: ['python3 script.js', 'python3 script.ts']
+    },
+    'pip': {
+      description: 'Python package installer',
+      goodExamples: ['pip install package', 'pip install -r requirements.txt'],
+      badExamples: ['pip run script.py', 'pip execute script.py']
+    },
+    'pip3': {
+      description: 'Python 3 package installer',
+      goodExamples: ['pip3 install package', 'pip3 install -r requirements.txt'],
+      badExamples: ['pip3 run script.py', 'pip3 execute script.py']
+    },
+    'poetry': {
+      description: 'Python dependency management tool',
+      goodExamples: ['poetry run python script.py', 'poetry install'],
+      badExamples: ['poetry script.py', 'poetry python script.py']
+    },
+    'uv': {
+      description: 'Python package installer and environment manager',
+      goodExamples: ['uv run main.py', 'uv run my_script.py'],
+      badExamples: ['uv run python my_script.py', 'uv run my_script.js']
+    },
+    'pytest': {
+      description: 'Python testing framework',
+      goodExamples: ['pytest', 'pytest tests/test_file.py'],
+      badExamples: ['pytest run tests', 'pytest script.py']
+    },
+    'flask': {
+      description: 'Python web framework command',
+      goodExamples: ['flask run', 'flask --app app run'],
+      badExamples: ['flask app.py', 'flask execute']
+    },
+    'django-admin': {
+      description: 'Django command-line utility',
+      goodExamples: ['django-admin startproject mysite', 'django-admin runserver'],
+      badExamples: ['django-admin app.py', 'django-admin run app.py']
+    },
     // Other build tools
-    'make', 'cmake', 'bazel', 'ninja'
-  ];
+    'make': {
+      description: 'Build automation tool',
+      goodExamples: ['make', 'make target'],
+      badExamples: ['make run script', 'make execute']
+    },
+    'cmake': {
+      description: 'Cross-platform build system generator',
+      goodExamples: ['cmake .', 'cmake -B build'],
+      badExamples: ['cmake run', 'cmake execute']
+    },
+    'bazel': {
+      description: 'Build and test tool',
+      goodExamples: ['bazel build //path/to:target', 'bazel test //...'],
+      badExamples: ['bazel script.py', 'bazel execute']
+    },
+    'ninja': {
+      description: 'Small build system focused on speed',
+      goodExamples: ['ninja', 'ninja -C build'],
+      badExamples: ['ninja run', 'ninja script.py']
+    }
+  };
 
-  const availableCommands: Record<string, boolean> = {};
+  const availableCommands: SystemCommand[] = [];
+  const commonCommands = Object.keys(commandsInfo);
+  
   const checkPromises = commonCommands.map(async (command) => {
     try {
-      // Try with --version first, then --help if that fails
-      const versionCheck = await new Promise<boolean>((resolve) => {
-        const process = childProcess.spawn(command, ['--version'], {
-          shell: true,
-          stdio: 'ignore'
+      const isAvailable = await isCommandAvailable(command);
+      if (isAvailable) {
+        let commandString = command;
+        if (commandsInfo[command]) {
+          let description = commandsInfo[command].description;
+          let goodExamplesString = commandsInfo[command].goodExamples.join(', ');
+          let badExamplesString = commandsInfo[command].badExamples.join(', ');
+          commandString = `${command}: ${description} (Good usage examples: ${goodExamplesString}) (Bad usage examples: ${badExamplesString})\n`;
+        }
+
+        availableCommands.push({
+          available: true,
+          command_description: commandString
         });
-        
-        process.on('close', (code) => {
-          resolve(code === 0);
-        });
-        
-        setTimeout(() => {
-          process.kill();
-          resolve(false);
-        }, 1000);
-      });
-      
-      if (versionCheck) {
-        availableCommands[command] = true;
-        return;
+      } else {
+        availableCommands.push({ available: false, command_description: command });
       }
-      
-      // Try with --help if --version failed
-      availableCommands[command] = await new Promise<boolean>((resolve) => {
-        const process = childProcess.spawn(command, ['--help'], {
-          shell: true,
-          stdio: 'ignore'
-        });
-        
-        process.on('close', (code) => {
-          resolve(code === 0);
-        });
-        
-        setTimeout(() => {
-          process.kill();
-          resolve(false);
-        }, 1000);
-      });
     } catch (error) {
-      availableCommands[command] = false;
+      availableCommands.push({ available: false, command_description: command });
     }
   });
 

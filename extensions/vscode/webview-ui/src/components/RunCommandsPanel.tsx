@@ -3,18 +3,24 @@ import { postMessageToExtension } from '../utils/vscode';
 import CodeBlockWithRunButton from './ui/CodeBlockWithRunButton';
 import { cn } from '../lib/utils';
 
-interface RunCommand {
+interface CommandWithPath {
   command: string;
-  description?: string;
+  relative_path: string[];
 }
 
 interface RunCommandsResponse {
-  project: string[];
-  file: string[];
+  project: CommandWithPath[];
+  file: CommandWithPath[];
+  generated_at?: number; // Optional client-side timestamp when commands were generated
 }
 
 interface RunCommandsPanelProps {
   isInstalled: boolean;
+}
+
+// Group commands by their relative path
+interface GroupedCommands {
+  [path: string]: CommandWithPath[];
 }
 
 const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
@@ -23,6 +29,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
   const [runCommands, setRunCommands] = useState<RunCommandsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCacheCleared, setIsCacheCleared] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState<{ project: boolean; file: boolean }>({ project: false, file: false });
 
   const handleToggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -37,6 +44,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
     setIsLoading(true);
     setError(null);
     setIsCacheCleared(false);
+    setCacheStatus({ project: false, file: false });
     
     if (clearCache) {
       postMessageToExtension({
@@ -58,11 +66,48 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
     fetchRunCommands(false);
   };
 
-  const handleRunCommand = (command: string) => {
+  const handleRunCommand = (command: CommandWithPath) => {
     postMessageToExtension({
       command: 'runArianaCommand',
-      arianaCommand: command
+      commandData: command
     });
+  };
+
+  // Format the cache timestamp
+  const formatCacheTime = (timestamp?: number): string => {
+    if (!timestamp) {
+      return '';
+    }
+    
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Group commands by their relative path
+  const groupCommandsByPath = (commands: CommandWithPath[]): GroupedCommands => {
+    const grouped: GroupedCommands = {};
+    
+    // Special group for commands without a path
+    const rootKey = '.';
+    
+    commands.forEach(cmd => {
+      if (!cmd.relative_path || cmd.relative_path.length === 0) {
+        // Commands without a path go to the root group
+        if (!grouped[rootKey]) {
+          grouped[rootKey] = [];
+        }
+        grouped[rootKey].push(cmd);
+      } else {
+        // Use the relative path as the group key
+        const pathKey = cmd.relative_path.join('/');
+        if (!grouped[pathKey]) {
+          grouped[pathKey] = [];
+        }
+        grouped[pathKey].push(cmd);
+      }
+    });
+    
+    return grouped;
   };
 
   // Handle message from extension with run commands
@@ -70,10 +115,17 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       
-      if (message.type === 'runCommands') {
+      if (message.type === 'runCommandsLoading') {
+        setIsLoading(true);
+      } else if (message.type === 'runCommands') {
         console.log("Received run commands:", message.value);
         setRunCommands(message.value);
         setIsLoading(false);
+        
+        // Check if we're using cached data
+        if (message.cacheStatus) {
+          setCacheStatus(message.cacheStatus);
+        }
       } else if (message.type === 'runCommandsError') {
         setError(message.error);
         setIsLoading(false);
@@ -146,56 +198,82 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
             </div>
           ) : runCommands ? (
             <div className="space-y-4">
+              {/* File Commands Section */}
               {runCommands.file && runCommands.file.length > 0 && (
                 <div>
-                  <h3 className="text-md font-medium mb-2 text-[var(--fg-1)]">Current File Commands</h3>
-                  <div className="space-y-2">
-                    {runCommands.file.map((command, index) => (
-                      <CodeBlockWithRunButton
-                        key={`file-${index}`}
-                        code={command}
-                        language="bash"
-                        onRun={() => handleRunCommand(command)}
-                        className="bg-[var(--bg-1)] rounded-md overflow-hidden"
-                      />
-                    ))}
-                  </div>
+                  <h3 className="text-md font-medium mb-2 text-[var(--fg-1)]">
+                    Current File Commands
+                    {cacheStatus.file && <span className="ml-2 text-xs text-[var(--fg-2)]">(cached)</span>}
+                  </h3>
+                  
+                  {/* Group file commands by path */}
+                  {Object.entries(groupCommandsByPath(runCommands.file)).map(([path, commands]) => (
+                    <div key={`file-group-${path}`} className="mb-3">
+                      {/* Only show path heading if it's not the root path */}
+                      {path !== '.' && (
+                        <h4 className="text-sm font-medium mb-1 text-[var(--fg-2)] pl-2">
+                          {path}
+                        </h4>
+                      )}
+                      <div className="space-y-2">
+                        {commands.map((command, index) => (
+                          <CodeBlockWithRunButton
+                            key={`file-${path}-${index}`}
+                            code={command.command}
+                            language="bash"
+                            onRun={() => handleRunCommand(command)}
+                            className="bg-[var(--bg-1)] rounded-md overflow-hidden"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
               
+              {/* Project Commands Section */}
               {runCommands.project && runCommands.project.length > 0 && (
                 <div>
-                  <h3 className="text-md font-medium mb-2 text-[var(--fg-1)]">Project Commands</h3>
-                  <div className="space-y-2">
-                    {runCommands.project.map((command, index) => (
-                      <CodeBlockWithRunButton
-                        key={`project-${index}`}
-                        code={command}
-                        language="bash"
-                        onRun={() => handleRunCommand(command)}
-                        className="bg-[var(--bg-1)] rounded-md overflow-hidden"
-                      />
-                    ))}
-                  </div>
+                  <h3 className="text-md font-medium mb-2 text-[var(--fg-1)]">
+                    Project Commands
+                    {cacheStatus.project && <span className="ml-2 text-xs text-[var(--fg-2)]">(cached)</span>}
+                  </h3>
+                  
+                  {/* Group project commands by path */}
+                  {Object.entries(groupCommandsByPath(runCommands.project)).map(([path, commands]) => (
+                    <div key={`project-group-${path}`} className="mb-3">
+                      {/* Only show path heading if it's not the root path */}
+                      {path !== '.' && (
+                        <h4 className="text-sm font-medium mb-1 text-[var(--fg-2)] pl-2">
+                          {path}
+                        </h4>
+                      )}
+                      <div className="space-y-2">
+                        {commands.map((command, index) => (
+                          <CodeBlockWithRunButton
+                            key={`project-${path}-${index}`}
+                            code={command.command}
+                            language="bash"
+                            onRun={() => handleRunCommand(command)}
+                            className="bg-[var(--bg-1)] rounded-md overflow-hidden"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
               
-              {(!runCommands.file || runCommands.file.length === 0) && 
-               (!runCommands.project || runCommands.project.length === 0) && (
-                <div className="p-3 bg-[var(--bg-1)] rounded-md">
-                  <p className="text-[var(--fg-2)]">No commands found for this project.</p>
-                </div>
-              )}
-              
-              {isCacheCleared && (
-                <div className="mt-2 p-2 bg-[var(--bg-1)] rounded-md text-xs text-[var(--fg-2)]">
-                  Cache cleared. Showing fresh commands.
+              {/* Show timestamp if available */}
+              {runCommands.generated_at && (
+                <div className="text-xs text-[var(--fg-2)] mt-2">
+                  Generated at {formatCacheTime(runCommands.generated_at)}
                 </div>
               )}
             </div>
           ) : (
             <div className="p-3 bg-[var(--bg-1)] rounded-md">
-              <p className="text-[var(--fg-2)]">No commands available.</p>
+              <p className="text-[var(--fg-2)]">No commands available. Click Refresh to generate commands.</p>
             </div>
           )}
         </div>

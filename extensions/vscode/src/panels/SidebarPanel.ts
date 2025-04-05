@@ -147,7 +147,9 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
         }
         break;
       case 'runArianaCommand':
-        this._runCommandsService.runArianaCommand(message.arianaCommand);
+        if (message.commandData) {
+          this._runCommandsService.executeRunCommand(message.commandData);
+        }
         break;
       case 'highlightCode':
         await this._traceService.highlightCode(

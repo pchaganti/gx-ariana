@@ -53,6 +53,33 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    console.log('Registering command to generate run commands...');
+    context.subscriptions.push(
+        vscode.commands.registerCommand('ariana.generateRunCommands', async (context) => {
+            console.log('Generating run commands...');
+            try {
+                const { apiUrl } = getConfig();
+                // Call the API endpoint to generate run commands
+                const response = await fetch(`${apiUrl}/unauthenticated/codebase-intel/run-commands`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ context })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error generating run commands:', error);
+                throw error;
+            }
+        })
+    );
+
     console.log('Updating the updateCLI command to use the SidebarPanel...');
     context.subscriptions.push(
         vscode.commands.registerCommand('ariana.updateCLI', () => {
