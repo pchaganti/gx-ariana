@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import JsonView from 'react-json-view';
 import type { Trace } from '../bindings/Trace';
 import stateManager from '../utils/stateManager';
+import { requestHighlight } from '../lib/highlight';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -14,9 +15,7 @@ const formatTimestamp = (timestamp: number) => {
     }) + ` + ${ms.toString().padStart(3, '0')}ms`;
 };
 
-type HighlightRequest = (file: string, startLine: number, startCol: number, endLine: number, endCol: number) => void;
-
-const TraceGroup = ({ key, traces, requestHighlight }: { key: number, traces: Trace[], requestHighlight: HighlightRequest }) => {
+const TraceGroup = ({ key, traces }: { key: number, traces: Trace[] }) => {
     let enterTrace = findEnterTrace(traces, traces[0].trace_id);
     let exitTrace = findExitTrace(traces, traces[0].trace_id);
     let errorTrace = findErrorTrace(traces, traces[0].trace_id);
@@ -144,12 +143,12 @@ const TraceGroup = ({ key, traces, requestHighlight }: { key: number, traces: Tr
 
 interface TracesTabProps {
   traces: Trace[];
-  requestHighlight: HighlightRequest;
 }
 
-const TracesTab: React.FC<TracesTabProps> = ({ traces, requestHighlight }) => {
+const TracesTab: React.FC<TracesTabProps> = ({ traces }) => {
   const [renderKey, setRenderKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
   
   // Force rerender when theme changes
   useEffect(() => {
@@ -172,17 +171,14 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, requestHighlight }) => {
   // Restore scroll position when tab is shown
   useEffect(() => {
     if (containerRef.current) {
-      const savedScrollPosition = stateManager.get('tracesScrollPosition');
-      if (typeof savedScrollPosition === 'number') {
-        containerRef.current.scrollTop = savedScrollPosition;
-      }
+        containerRef.current.scrollTop = scrollPosition;
     }
   }, []);
 
   // Save scroll position when scrolling
   const handleScroll = () => {
     if (containerRef.current) {
-      stateManager.set('tracesScrollPosition', containerRef.current.scrollTop);
+      setScrollPosition(containerRef.current.scrollTop);
     }
   };
   
@@ -210,7 +206,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, requestHighlight }) => {
           </div>
         ) : (
           traces.filter(t => t.trace_type === 'Enter').map((trace, i) => (
-            <TraceGroup key={i} traces={tracesById[trace.trace_id] ?? []} requestHighlight={requestHighlight} />
+            <TraceGroup key={i} traces={tracesById[trace.trace_id] ?? []} />
           ))
         )}
       </div>

@@ -108,9 +108,9 @@ interface OnboardingTabProps {
 
 const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick }) => {
 	// Use state manager for persisting collapsed state
-	const [isCollapsed, setIsCollapsed] = useState(() => stateManager.get('isOnboardingCollapsed'));
+	const [isCollapsed, setIsCollapsed] = stateManager.usePersistedState<boolean>('isOnboardingCollapsed', false);
 	const [renderKey, setRenderKey] = useState(0);
-	const [cliStatus, setCliStatus] = useState<ArianaCliStatus | null>(null);
+	const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
 	
 	// Request Ariana CLI status on mount
 	useEffect(() => {
@@ -143,9 +143,7 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 	const handleToggleCollapse = () => {
 		const newState = !isCollapsed;
 		setIsCollapsed(newState);
-		// Update state in both localStorage (for backward compatibility) and state manager
 		localStorage.setItem('ariana-has-seen-onboarding', newState.toString());
-		stateManager.set('isOnboardingCollapsed', newState);
 	};
 
 	// Handle installation
@@ -154,11 +152,6 @@ const OnboardingTab: React.FC<OnboardingTabProps> = ({ textLogoUrl, onLogoClick 
 			command: 'installArianaCli',
 			method: method
 		});
-	};
-
-	// Handle update
-	const handleUpdate = () => {
-		postMessageToExtension({ command: 'updateArianaCli' });
 	};
 
 	return (

@@ -7,33 +7,17 @@ import MainTab from './components/MainTab';
 import { postMessageToExtension } from './utils/vscode';
 import Footer from './components/Footer';
 import stateManager from './utils/stateManager';
-
-type HighlightRequest = (file: string, startLine: number, startCol: number, endLine: number, endCol: number) => void;
-
-// Define interface for Ariana CLI status
-interface ArianaCliStatus {
-    isInstalled: boolean;
-    version?: string;
-    latestVersion?: string;
-    needsUpdate: boolean;
-    npmAvailable: boolean;
-    pipAvailable: boolean;
-    pythonPipAvailable: boolean;
-    python3PipAvailable: boolean;
-}
+import { ArianaCliStatus } from './lib/cli';
 
 const App = () => {
     const [traces, setTraces] = useState<Trace[]>([]);
-    const [requestHighlight, setRequestHighlight] = useState<HighlightRequest>(() => () => { });
-    const [activeTab, setActiveTab] = useState(() => stateManager.get('activeTab'));
-    const [theme, setTheme] = useState('light');
-    const [logoUrl, setLogoUrl] = useState('');
+    const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
     const [textLogoUrl, setTextLogoUrl] = useState('');
     const [isSidebar, setIsSidebar] = useState(false);
     const [showColorTab, setShowColorTab] = useState(false);
-    const [logoClicks, setLogoClicks] = useState<number[]>([]);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [cliStatus, setCliStatus] = useState<ArianaCliStatus | null>(null);
+    const [_, setLogoClicks] = useState<number[]>([]);
+    const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
 
     // Initialize the app
     useEffect(() => {
@@ -58,12 +42,7 @@ const App = () => {
             }
         }
 
-        // Get logo URLs from data attributes
-        console.log('Logo URL from data attribute:', rootElement?.dataset.arianaLogo);
         console.log('Text logo URL from data attribute:', rootElement?.dataset.arianaTextLogo);
-        if (rootElement?.dataset.arianaLogo) {
-            setLogoUrl(rootElement.dataset.arianaLogo);
-        }
         if (rootElement?.dataset.arianaTextLogo) {
             setTextLogoUrl(rootElement.dataset.arianaTextLogo);
         }
@@ -110,11 +89,6 @@ const App = () => {
         const isDark = document.body.classList.contains('vscode-dark') ||
             window.matchMedia('(prefers-color-scheme: dark)').matches;
         console.log('Detected theme from CSS:', isDark ? 'dark' : 'light');
-        if (isDark) {
-            setTheme('dark');
-        } else {
-            setTheme('light');
-        }
     };
 
     const handleMessage = (event: MessageEvent) => {
@@ -130,11 +104,9 @@ const App = () => {
                 }
                 break;
             case 'theme':
-                setTheme(message.value);
                 break;
             case 'themeChange':
-                setTheme(prev => prev === 'light' ? 'dark' : 'light');
-                setTimeout(() => detectTheme(), 0);
+                setTimeout(() => detectTheme(), 1000);
                 break;
             case 'arianaCliStatus':
                 setCliStatus(message.value);
@@ -169,7 +141,7 @@ const App = () => {
     // Handle tab change and persist in state manager
     const handleTabChange = (value: string) => {
         setActiveTab(value);
-        stateManager.set('activeTab', value);
+
         console.log('Tab changed to:', value);
     };
 
@@ -205,7 +177,7 @@ const App = () => {
                         </TabsContent>
 
                         <TabsContent value="traces" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                            <TracesTab traces={traces} requestHighlight={requestHighlight} />
+                            <TracesTab traces={traces} />
                         </TabsContent>
 
                         {showColorTab && (

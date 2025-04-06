@@ -1,43 +1,49 @@
+import { useState, useEffect } from 'react';
+import { ArianaCliStatus } from '../lib/cli';
 import { getVSCodeAPI } from './vscode';
 
 // Define the shape of our global state
-export interface GlobalState {
-  // Tab state
-  activeTab: string;
+// export interface GlobalState {
+//   // Tab state
+//   activeTab: string;
   
-  // MainTab state
-  isOnboardingCollapsed: boolean;
+//   // MainTab state
+//   isOnboardingCollapsed: boolean;
   
-  // TracesTab state
-  tracesScrollPosition: number;
+//   // TracesTab state
+//   tracesScrollPosition: number;
   
-  // ColorVisualizerTab state
-  colorTabSettings?: any;
+//   // ColorVisualizerTab state
+//   colorTabSettings?: any;
   
-  // Add more state properties as needed
-}
+//   // CLI status
+//   cliStatus: ArianaCliStatus | null;
+  
+//   // Add more state properties as needed
+// }
 
 // Default state values
-const defaultState: GlobalState = {
-  activeTab: 'main',
-  isOnboardingCollapsed: false,
-  tracesScrollPosition: 0,
-  colorTabSettings: {}
-};
+// const defaultState: GlobalState = {
+//   activeTab: 'main',
+//   isOnboardingCollapsed: false,
+//   tracesScrollPosition: 0,
+//   colorTabSettings: {},
+//   cliStatus: null
+// };
 
 /**
  * Global state manager that persists state across tab changes and webview reopens
  * using VS Code's built-in state management.
  */
 class StateManager {
-  private state: GlobalState;
+  private state: Record<string, any>;
   
   constructor() {
     // Initialize state from VS Code API or use defaults
     const vscodeApi = getVSCodeAPI();
-    const savedState = vscodeApi.getState() as GlobalState | undefined;
+    const savedState = vscodeApi.getState() as Record<string, any> | undefined;
     
-    this.state = savedState || { ...defaultState };
+    this.state = savedState || {};
     
     // Save initial state if none exists
     if (!savedState) {
@@ -48,42 +54,40 @@ class StateManager {
   }
   
   /**
-   * Get the entire global state
-   */
-  getState(): GlobalState {
-    return { ...this.state };
-  }
-  
-  /**
-   * Get a specific property from the global state
-   */
-  get<K extends keyof GlobalState>(key: K): GlobalState[K] {
-    return this.state[key];
-  }
-  
-  /**
-   * Update a specific property in the global state
-   */
-  set<K extends keyof GlobalState>(key: K, value: GlobalState[K]): void {
-    this.state[key] = value;
-    this.saveState();
-  }
-  
-  /**
-   * Update multiple properties in the global state at once
-   */
-  update(partialState: Partial<GlobalState>): void {
-    this.state = { ...this.state, ...partialState };
-    this.saveState();
-  }
-  
-  /**
    * Save the current state to VS Code's state storage
    */
   private saveState(): void {
     const vscodeApi = getVSCodeAPI();
     vscodeApi.setState(this.state);
     console.log('State saved:', this.state);
+  }
+
+  /**
+   * Custom React hook that syncs component state with this state manager.
+   * Use this as a replacement for useState when you want the state to be
+   * automatically persisted in the global state.
+   * 
+   * @param key Key in the GlobalState to bind to
+   * @param initialValue Optional default value if not present in global state
+   * @returns A state tuple [value, setValue] just like React's useState
+   */
+  usePersistedState<T>(
+    key: string,
+    initialValue?: T
+  ): [T, React.Dispatch<React.SetStateAction<T>>] {
+    // Initialize from the state manager, or use initialValue if state doesn't exist
+    const [value, setValue] = useState<T>(() => {
+      const storedValue = this.state[key];
+      return storedValue !== undefined ? storedValue : initialValue as T;
+    });
+
+    // Sync component state with state manager when component state changes
+    useEffect(() => {
+      this.state[key] = value;
+      this.saveState();
+    }, [key, value]);
+
+    return [value, setValue];
   }
 }
 

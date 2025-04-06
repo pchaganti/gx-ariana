@@ -262,9 +262,6 @@ async function isCommandAvailable(command: string): Promise<boolean> {
       cmd = 'which';
       args = [command];
     }
-
-    console.log(`Checking availability of command: ${command}`);
-    console.log(`Command: ${cmd}, Args: ${args}`);
     
     const process = childProcess.spawn(cmd, args, {
       shell: true,
@@ -272,13 +269,11 @@ async function isCommandAvailable(command: string): Promise<boolean> {
     });
 
     process.on('close', (code) => {
-      console.log(`Command closed with code: ${code}`);
       resolve(code === 0);
     });
 
     // Set a timeout in case the command hangs
     setTimeout(() => {
-      console.log(`Command timeout: ${command}`);
       process.kill();
       resolve(false);
     }, 1000);
@@ -435,20 +430,4 @@ async function getAvailableCommands(): Promise<SystemCommand[]> {
 
   await Promise.all(checkPromises);
   return availableCommands;
-}
-
-// If this script is run directly (not imported)
-if (require.main === module) {
-  const args = process.argv.slice(2);
-  const workspacePath = args[0];
-  const currentFilePath = args[1];
-  
-  if (!workspacePath) {
-    console.error('Please provide a workspace path');
-    process.exit(1);
-  }
-  
-  generateProjectContext(workspacePath, currentFilePath).then((context) => {
-    console.log(JSON.stringify(context, null, 2));
-  });
 }
