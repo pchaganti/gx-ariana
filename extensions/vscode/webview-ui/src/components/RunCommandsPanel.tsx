@@ -3,6 +3,7 @@ import { postMessageToExtension } from '../utils/vscode';
 import CodeBlockWithRunButton from './ui/CodeBlockWithRunButton';
 import { cn } from '../lib/utils';
 import stateManager from '../utils/stateManager';
+import { setTimeoutCancelIfDifferentNonce } from '../utils/timerManagement';
 
 interface CommandWithPath {
   command: string;
@@ -106,7 +107,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
       } else if (message.type === 'runCommands') {
         setRunCommands(message.value);
         setIsLoading(false);
-        setTimeout(() => {
+        setTimeoutCancelIfDifferentNonce(() => {
           fetchRunCommands(false);
         }, 2000);
       } else if (message.type === 'runCommandsError') {

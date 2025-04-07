@@ -8,6 +8,7 @@ import { postMessageToExtension } from './utils/vscode';
 import Footer from './components/Footer';
 import stateManager from './utils/stateManager';
 import { ArianaCliStatus } from './lib/cli';
+import { setCurrentRenderNonce, setTimeoutCancelIfDifferentNonce } from './utils/timerManagement';
 
 const App = () => {
     const [traces, setTraces] = useState<Trace[]>([]);
@@ -106,13 +107,20 @@ const App = () => {
             case 'theme':
                 break;
             case 'themeChange':
-                setTimeout(() => detectTheme(), 1000);
+                setTimeoutCancelIfDifferentNonce(() => detectTheme(), 1000);
                 break;
             case 'arianaCliStatus':
                 setCliStatus(message.value);
                 break;
             case 'viewVisible':
                 postMessageToExtension({ command: 'getArianaCliStatus' });
+                break;
+            case 'hotReload':
+                console.log('This render was triggered by a hot reload.');
+                break;
+            case 'renderNonce':
+                console.log('Received new render nonce:', message.value);
+                setCurrentRenderNonce(message.value);
                 break;
             default:
                 console.log('Unhandled message type:', message.type);

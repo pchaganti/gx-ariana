@@ -128,7 +128,7 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
           <div className="space-y-2">
             <OnboardingStep
               number={1}
-              title="Install Ariana CLI"
+              title="Install Ariana CLI hot reload babe!!!!"
               active={true}
               completed={cliStatus?.isInstalled}
             >

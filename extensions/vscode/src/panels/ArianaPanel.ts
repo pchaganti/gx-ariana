@@ -4,6 +4,7 @@ import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installAriana
 import { WebviewService } from '../services/WebviewService';
 import { RunCommandsService } from '../services/RunCommandsService';
 import { TraceService } from '../services/TraceService';
+import { HotReloadService } from '../services/HotReloadService';
 
 export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
@@ -13,12 +14,14 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   private _webviewService: WebviewService;
   private _runCommandsService: RunCommandsService;
   private _traceService: TraceService;
+  private _hotReloadService: HotReloadService;
 
   constructor(private readonly _extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
     this._context = context;
     this._webviewService = new WebviewService(_extensionUri);
     this._runCommandsService = new RunCommandsService(context);
     this._traceService = new TraceService();
+    this._hotReloadService = new HotReloadService(_extensionUri, this._webviewService);
     console.log('ArianaPanel constructor called with extension URI:', _extensionUri.toString());
   }
 
@@ -29,6 +32,9 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   ) {
     console.log('resolveWebviewView called');
     this._view = webviewView;
+
+    // Set up hot reload service with current webview
+    this._hotReloadService.setWebviewPanel(webviewView);
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -45,6 +51,9 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
 
     // Send initial theme information
     this._webviewService.sendThemeInfo(webviewView.webview);
+    
+    // Send initial render nonce for timer management
+    this._webviewService.sendRenderNonce(webviewView.webview);
 
     // Register theme change listener
     this._webviewService.registerThemeChangeListener(webviewView.webview);
@@ -58,6 +67,8 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
         this._view?.webview.postMessage({ type: 'viewVisible' });
+        // Send a fresh render nonce when view becomes visible again
+        this._webviewService.sendRenderNonce(webviewView.webview);
       }
     });
 

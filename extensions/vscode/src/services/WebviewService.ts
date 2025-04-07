@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 /**
  * Service for handling webview-related functionality
  */
 export class WebviewService {
   private _extensionUri: vscode.Uri;
+  private _currentNonce: string;
 
   constructor(extensionUri: vscode.Uri) {
     this._extensionUri = extensionUri;
+    this._currentNonce = this._generateUniqueNonce();
   }
 
   /**
@@ -16,6 +17,10 @@ export class WebviewService {
    */
   public getWebviewContent(webview: vscode.Webview): string {
     console.log('Getting webview content');
+    
+    // Generate new render nonce for timer cancellation
+    this._currentNonce = this._generateUniqueNonce();
+    console.log('Generated new render nonce:', this._currentNonce);
     
     // Get paths to the webview resources
     const webviewUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist'));
@@ -55,6 +60,28 @@ export class WebviewService {
   }
 
   /**
+   * Get the current render nonce
+   */
+  public getCurrentNonce(): string {
+    return this._currentNonce;
+  }
+
+  /**
+   * Send the current render nonce to the webview
+   */
+  public sendRenderNonce(webview: vscode.Webview): void {
+    try {
+      console.log('Sending render nonce to webview:', this._currentNonce);
+      webview.postMessage({ 
+        type: 'renderNonce', 
+        value: this._currentNonce
+      });
+    } catch (error) {
+      console.error('Error sending render nonce to webview:', error);
+    }
+  }
+
+  /**
    * Send theme information to the webview
    */
   public sendThemeInfo(webview: vscode.Webview): void {
@@ -87,7 +114,7 @@ export class WebviewService {
   }
 
   /**
-   * Generate a nonce string
+   * Generate a nonce string for script security
    */
   private _getNonce(): string {
     let text = '';
@@ -96,5 +123,12 @@ export class WebviewService {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return text;
+  }
+
+  /**
+   * Generate a unique nonce for timer cancellation
+   */
+  private _generateUniqueNonce(): string {
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 }
