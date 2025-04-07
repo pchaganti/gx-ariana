@@ -20,8 +20,7 @@ export type HighlightedRegionsTree = {
 
 export function highlightRegions(
     editor: vscode.TextEditor,
-    regions: Array<HighlightedRegion>,
-    decoratedRanges: Map<vscode.Range, vscode.TextEditorDecorationType>
+    regions: Array<HighlightedRegion>
 ): vscode.Disposable {
     // Sort regions by size (largest first) for proper nesting
     regions.sort((a, b) => {
@@ -187,7 +186,7 @@ export function highlightRegions(
     // Setup hover provider
     let tracesHoverDisposable = vscode.languages.registerHoverProvider('*', {
         provideHover(document, position, token) {
-            if (document != editor.document) return
+            if (document !== editor.document) return
             onHoverAnotherPosition();
 
             // Check all decorations to find the one containing the hover position
@@ -362,4 +361,28 @@ export function highlightRegions(
     }
 
     return tracesHoverDisposable;
+}
+
+export function tracesToRegions(tracesData: Trace[]): Array<HighlightedRegion> {
+    const uniqueRegions = new Set(tracesData.map(trace => 
+        `${trace.start_pos.line},${trace.start_pos.column},${trace.end_pos.line},${trace.end_pos.column}`
+    ));
+
+    return Array.from(uniqueRegions).map(regionKey => {
+        const [startLine, startCol, endLine, endCol] = regionKey.split(',').map(Number);
+        const tracesInRegion = tracesData.filter(trace =>
+            trace.start_pos.line >= startLine &&
+            trace.start_pos.column >= startCol &&
+            trace.end_pos.line <= endLine &&
+            trace.end_pos.column <= endCol
+        );
+
+        return {
+            traces: tracesInRegion,
+            startLine,
+            startCol,
+            endLine,
+            endCol: endCol + 1
+        };
+    }).filter(region => region.traces.length > 0);
 }

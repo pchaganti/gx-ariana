@@ -96,5 +96,5 @@ type AvailableVaultsMessage = { type: 'availableVaults', vaults: VaultInfo[] };
 ## Integration Points
 - `VaultsManager`: Subscribe to vault changes
 - `extension.ts`: Update WebSocket management and trace organization
-- `SidebarPanel`: Add message handlers for vault selection and overlay toggle
+- `ArianaPanel`: Add message handlers for vault selection and overlay toggle
 - `TracesTab.tsx`: Update to support vault-based organization and selection

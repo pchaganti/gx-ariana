@@ -106,9 +106,8 @@ export const hoverErrorRightDecorationType = vscode.window.createTextEditorDecor
     borderRadius: '0 10px 10px 0',
 });
 
-export function clearDecorations(editor: vscode.TextEditor, decoratedRanges: Map<vscode.Range, vscode.TextEditorDecorationType>) {
+export function clearDecorations(editor: vscode.TextEditor) {
     console.log("clearing decorations now")
-    decoratedRanges.clear();
     editor.setDecorations(highlightDecorationType, []);
     editor.setDecorations(highlightInBetweenDecorationType, []);
     editor.setDecorations(highlightLeftDecorationType, []);

@@ -4,9 +4,8 @@ import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installAriana
 import { WebviewService } from '../services/WebviewService';
 import { RunCommandsService } from '../services/RunCommandsService';
 import { TraceService } from '../services/TraceService';
-import { VaultHistoryEntry } from '../vaults/manager';
 
-export class SidebarPanel implements vscode.WebviewViewProvider {
+export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
   private _view?: vscode.WebviewView;
   private _lastSentTraces?: Trace[];
@@ -20,7 +19,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
     this._webviewService = new WebviewService(_extensionUri);
     this._runCommandsService = new RunCommandsService(context);
     this._traceService = new TraceService();
-    console.log('SidebarPanel constructor called with extension URI:', _extensionUri.toString());
+    console.log('ArianaPanel constructor called with extension URI:', _extensionUri.toString());
   }
 
   public resolveWebviewView(
@@ -36,18 +35,12 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
       localResourceRoots: [this._extensionUri]
     };
 
-    try {
-      console.log('Setting webview HTML');
-      webviewView.webview.html = this._webviewService.getWebviewContent(webviewView.webview);
-      console.log('Webview HTML set successfully');
-    } catch (error) {
-      console.error('Error setting webview HTML:', error);
-    }
+    webviewView.webview.html = this._webviewService.getWebviewContent(webviewView.webview);
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async message => {
       console.log('Received message from webview:', message);
-      this._handleMessage(message);
+      this.handleMessageFromWebview(message);
     });
 
     // Send initial theme information
@@ -63,18 +56,13 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
 
     // When the view becomes visible, notify the webview
     webviewView.onDidChangeVisibility(() => {
-      console.log('Webview visibility changed, visible:', webviewView.visible);
       if (webviewView.visible) {
-        try {
-          this._view?.webview.postMessage({ type: 'viewVisible' });
-        } catch (error) {
-          console.error('Error sending viewVisible message:', error);
-        }
+        this._view?.webview.postMessage({ type: 'viewVisible' });
       }
     });
 
     // Send initial CLI status
-    this._checkAndSendArianaCliStatus();
+    this.checkAndSendArianaCliStatus();
   }
 
   /**
@@ -90,29 +78,12 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Notify the webview about a new vault being detected
-   */
-  public notifyNewVaultDetected(entry: VaultHistoryEntry) {
-    if (this._view) {
-      try {
-        this._view.webview.postMessage({ 
-          type: 'newVaultDetected', 
-          vault: entry 
-        });
-        console.log(`Notified webview about new vault: ${entry.key}`);
-      } catch (error) {
-        console.error('Error notifying webview about new vault:', error);
-      }
-    }
-  }
-
-  /**
    * Check and send Ariana CLI status to the webview
    */
-  private async _checkAndSendArianaCliStatus() {
+  private async checkAndSendArianaCliStatus() {
     try {
       const status = await getArianaCliStatus();
-      this._sendArianaCliStatus(status);
+      this.sendArianaCliStatus(status);
     } catch (error) {
       console.error('Error checking Ariana CLI status:', error);
     }
@@ -121,7 +92,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
   /**
    * Send Ariana CLI status to the webview
    */
-  private _sendArianaCliStatus(status: ArianaCliStatus) {
+  private sendArianaCliStatus(status: ArianaCliStatus) {
     if (this._view) {
       try {
         this._view.webview.postMessage({ type: 'arianaCliStatus', value: status });
@@ -134,7 +105,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
   /**
    * Handle messages from the webview
    */
-  private async _handleMessage(message: any) {
+  private async handleMessageFromWebview(message: any) {
     switch (message.command) {
       case 'getTheme':
         // Send the current theme to the webview
@@ -143,13 +114,13 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
         }
         break;
       case 'getArianaCliStatus':
-        await this._checkAndSendArianaCliStatus();
+        await this.checkAndSendArianaCliStatus();
         break;
       case 'installArianaCli':
-        await this._installArianaCli(message.method);
+        await this.installArianaCli(message.method);
         break;
       case 'updateArianaCli':
-        await this._updateArianaCli();
+        await this.updateArianaCli();
         // Clear run commands cache after updating CLI
         this._runCommandsService.clearCache();
         break;
@@ -191,7 +162,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
   /**
    * Install Ariana CLI
    */
-  private async _installArianaCli(method: ArianaInstallMethod) {
+  private async installArianaCli(method: ArianaInstallMethod) {
     try {
       // Show progress notification
       await vscode.window.withProgress({
@@ -203,7 +174,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
       });
 
       // Check and send updated status
-      await this._checkAndSendArianaCliStatus();
+      await this.checkAndSendArianaCliStatus();
 
       // Show success message
       vscode.window.showInformationMessage('Ariana CLI installed successfully!');
@@ -213,17 +184,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
     }
   }
 
-  /**
-   * Update Ariana CLI
-   */
   public async updateArianaCli(): Promise<void> {
-    await this._updateArianaCli();
-  }
-
-  /**
-   * Update Ariana CLI
-   */
-  private async _updateArianaCli() {
     try {
       // Show progress notification
       await vscode.window.withProgress({
@@ -235,7 +196,7 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
       });
 
       // Check and send updated status
-      await this._checkAndSendArianaCliStatus();
+      await this.checkAndSendArianaCliStatus();
 
       // Show success message
       vscode.window.showInformationMessage('Ariana CLI updated successfully!');

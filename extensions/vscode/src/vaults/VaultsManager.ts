@@ -5,42 +5,26 @@ import * as fs from 'fs/promises';
 // Define the structure for vault history entries
 export interface VaultHistoryEntry {
     key: string;
-    createdAt: number; // Using number (milliseconds since epoch) for easier sorting
+    createdAt: number;
 }
 
 export class VaultsManager {
     // private static readonly STORAGE_KEY = 'ariana.vaultSecrets'; // Original key, maybe unused now?
     private static readonly VAULT_HISTORY_STORAGE_KEY = 'ariana.vaultHistory'; // A.1
-    private static instance: VaultsManager;
     private globalState: vscode.Memento;
 
-    // A.2: Event emitter for new vaults added to history
     private readonly _onDidAddVault = new vscode.EventEmitter<VaultHistoryEntry>();
     public readonly onDidAddVault = this._onDidAddVault.event;
 
-    private constructor(context: vscode.ExtensionContext) {
-        this.globalState = context.globalState;
-    }
-
-    public static initialize(context: vscode.ExtensionContext): VaultsManager {
-        if (!VaultsManager.instance) {
-            VaultsManager.instance = new VaultsManager(context);
-        }
-        return VaultsManager.instance;
-    }
-
-    public static getInstance(): VaultsManager {
-        if (!VaultsManager.instance) {
-            throw new Error('VaultsManager not initialized');
-        }
-        return VaultsManager.instance;
+    constructor(globalState: vscode.Memento) {
+        this.globalState = globalState;
     }
 
     /**
      * Finds the nearest .ariana directory and reads the .vault_secret_key.
      * Does NOT store the key or timestamp itself.
      */
-    public async getCurrentLocalVaultKey(filePath: string): Promise<{ key: string; vaultKeyPath: string } | null> {
+    public async getCurrentLocalVaultKey(filePath: string): Promise<VaultHistoryEntry | null> {
         try {
             const arianaDir = await this.findNearestDirContainingAriana(filePath);
             if (!arianaDir) {
@@ -53,7 +37,13 @@ export class VaultsManager {
                 const secretKey = keyContent.split('\n')[0]?.trim(); // Get first line and trim whitespace
 
                 if (secretKey) {
-                    return { key: secretKey, vaultKeyPath: vaultKeyPath };
+                    // Get file stats to use file creation time as timestamp
+                    const stats = await fs.stat(vaultKeyPath);
+                    const createdAt = stats.birthtime.getTime();
+
+                    this.addVaultToHistory(secretKey, createdAt);
+
+                    return { key: secretKey, createdAt };
                 } else {
                     console.warn(`Vault key file found but empty or invalid: ${vaultKeyPath}`);
                     return null;
@@ -71,27 +61,12 @@ export class VaultsManager {
     }
 
     /**
-     * Stores a vault key in history using its file path to get the timestamp.
-     * A.1 & A.2 (Triggering storage and event)
-     */
-    public async storeVaultKey(key: string, vaultKeyPath: string): Promise<void> {
-        try {
-            const stats = await fs.stat(vaultKeyPath);
-            const createdAt = stats.mtimeMs;
-            await this.addVaultToHistory(key, createdAt);
-        } catch (statError) {
-            console.error(`Error getting stats for vault key file ${vaultKeyPath}:`, statError);
-            // Decide whether to proceed without timestamp? No, timestamp is essential.
-        }
-    }
-
-    /**
      * Adds a vault key and timestamp to the persistent history if it doesn't exist.
      * Fires the onDidAddVault event upon successful addition.
      */
     private async addVaultToHistory(key: string, createdAt: number): Promise<void> {
         const history = this.getVaultHistory(); // Gets current sorted history
-        const exists = history.some(entry => entry.key === key && entry.createdAt === createdAt);
+        const exists = history.some(entry => entry.key === key);
 
         if (!exists) {
             console.log(`Adding new vault to history: ${key} (Created at: ${new Date(createdAt).toISOString()})`);
@@ -109,14 +84,12 @@ export class VaultsManager {
     /**
      * Retrieves all stored vault keys and their creation timestamps,
      * sorted from most recent to least recent.
-     * A.3
      */
     public getVaultHistory(): VaultHistoryEntry[] {
         // Retrieve, default to empty array, and ensure sort order
         return this.globalState.get<VaultHistoryEntry[]>(VaultsManager.VAULT_HISTORY_STORAGE_KEY, [])
                .sort((a, b) => b.createdAt - a.createdAt);
     }
-
 
     private async findNearestDirContainingAriana(filePath: string): Promise<string | null> {
         let currentDir = path.dirname(filePath);
