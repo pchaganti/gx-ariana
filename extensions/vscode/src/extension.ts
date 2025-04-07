@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { formatUriForDB } from './urilHelpers';
 import type { Trace } from './bindings/Trace';
-import { VaultManager } from './vaults/manager';
+import { VaultsManager } from './vaults/manager';
 import { getConfig } from './config';
 import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
 import { HighlightedRegion, highlightRegions } from './highlighting';
@@ -27,9 +27,9 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log('Extension is now active');
     apiUrl = getConfig().apiUrl;
 
-    console.log('Initializing VaultManager...');
-    VaultManager.initialize(context);
-    console.log('VaultManager initialized successfully');
+    console.log('Initializing VaultsManager...');
+    VaultsManager.initialize(context);
+    console.log('VaultsManager initialized successfully');
 
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
@@ -354,19 +354,19 @@ async function checkVaultKeyAndUpdateConnection() {
     }
 
     try {
-        const vaultManager = VaultManager.getInstance();
-        const vaultSecretKey = await vaultManager.getVaultKey(vscode.window.activeTextEditor.document.uri.fsPath);
+        const vaultManager = VaultsManager.getInstance();
+        const vault = await vaultManager.getCurrentLocalVaultKey(vscode.window.activeTextEditor.document.uri.fsPath);
 
-        if (!vaultSecretKey) {
+        if (!vault) {
             return;
         }
 
         // If vault key changed or we need to connect and don't have a connection
-        if (currentVaultSecretKey !== vaultSecretKey || (showTraces && !wsConnection)) {
-            currentVaultSecretKey = vaultSecretKey;
+        if (currentVaultSecretKey !== vault.key || (showTraces && !wsConnection)) {
+            currentVaultSecretKey = vault.key;
             
             if (showTraces) {
-                connectToTraceWebSocket(vaultSecretKey);
+                connectToTraceWebSocket(vault.key);
             }
         }
     } catch (error) {
