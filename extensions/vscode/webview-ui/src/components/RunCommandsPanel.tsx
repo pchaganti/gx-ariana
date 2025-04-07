@@ -51,6 +51,9 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
 
   const handleRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isLoading) {
+      return;
+    }
     fetchRunCommands(true);
   };
 
@@ -137,27 +140,17 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
     <div className="mb-4 rounded-sm bg-[var(--bg-0)] shadow-sm">
       <div
         className={cn(
-          "group sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-[var(--bg-0)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors rounded-sm",
+          "group sticky top-0 z-20 flex items-center justify-between px-4 py-4 bg-[var(--bg-0)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors rounded-sm",
           !isCollapsed && "border-solid border-b-2 border-[var(--bg-1)] rounded-b-none"
         )}
         onClick={handleToggleCollapse}
       >
         <div className="flex items-center gap-2">
-          <h2 className="text-md font-medium text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">
-            Run with Ariana
+          <h2 className="text-lg font-medium text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">
+            🧵 Run your code with Ariana
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          {!isCollapsed && (
-            <button
-              className="group text-xs px-2 py-1 rounded bg-[var(--bg-0)] hover:bg-[var(--accent)] text-[var(--fg-3)] hover:text-[var(--fg-0)] transition-colors"
-              disabled={isLoading}
-              onClick={handleRefresh}
-              title="Refresh commands (clears cache)"
-            >
-              <div className="group-hover:opacity-100 opacity-70 group-disabled:opacity-50">Refresh</div>
-            </button>
-          )}
           <div className={cn(
             "h-3 w-3 group-hover:bg-[var(--bg-3)]",
             isCollapsed ? 'rounded-full bg-[var(--bg-1)]' : 'rounded-xs bg-[var(--bg-2)]'
@@ -167,26 +160,15 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
       </div>
 
       {!isCollapsed && (
-        <div className="p-4 flex flex-col gap-1">
+        <div className="p-4 flex flex-col gap-5">
           {isLoading && !runCommands && (
             <div className="flex items-center justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-[var(--accent)] border-r-[var(--accent)] border-b-transparent border-l-transparent"></div>
               <span className="ml-2 text-[var(--fg-2)]">Loading commands...</span>
             </div>
           )}
-          {error && (
-            <div className="p-3 bg-[var(--bg-1)] rounded-md">
-              <p className="text-[var(--fg-2)]">Error refreshing commands: {error}</p>
-              <button 
-                className="mt-2 px-3 py-1 bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:bg-opacity-90 transition-colors"
-                onClick={handleRefresh}
-              >
-                Retry
-              </button>
-            </div>
-          )}
           { runCommands && (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-3">
               {/* File Commands Section */}
               {runCommands.file && runCommands.file.length > 0 && (
                 <div>
@@ -210,7 +192,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
                             code={command.command}
                             language="bash"
                             onRun={() => handleRunCommand(command)}
-                            className="bg-[var(--bg-1)] rounded-md overflow-hidden"
+                            buttonText='Run with Ariana'
                           />
                         ))}
                       </div>
@@ -242,7 +224,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
                             code={command.command}
                             language="bash"
                             onRun={() => handleRunCommand(command)}
-                            className="bg-[var(--bg-1)] rounded-md overflow-hidden"
+                            buttonText="Run with Ariana"
                           />
                         ))}
                       </div>
@@ -251,12 +233,31 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
                 </div>
               )}
               
-              {/* Show timestamp if available */}
-              {runCommands.generated_at && (
-                <div className="text-xs text-[var(--fg-2)] mt-2">
-                  Infered by Ariana AI at {formatCacheTime(runCommands.generated_at)}
-                </div>
-              )}
+              <div className="flex justify-between items-center mt-2">
+                {runCommands.generated_at && (
+                  <><div className="text-xs text-[var(--fg-2)]">
+                    Infered by Ariana AI at {formatCacheTime(runCommands.generated_at)}
+                  </div>
+                  <button
+                    className="group text-xs px-1 py-0.5 rounded bg-[var(--bg-0)] hover:bg-[var(--accent)] text-[var(--fg-2)] hover:text-[var(--fg-3)] transition-colors cursor-pointer"
+                    onClick={handleRefresh}
+                    title="Refresh commands (clears cache)"
+                  >
+                    <div className="group-hover:opacity-100 opacity-70 group-disabled:opacity-50">refresh</div>
+                  </button></>
+                )}
+              </div>
+            </div>
+          )}
+          {error && (
+            <div className="p-3 bg-[var(--bg-1)] rounded-md opacity-70">
+              <p className="text-[var(--fg-2)]">Error refreshing commands: {error}</p>
+              <button 
+                className="mt-2 px-3 py-1 bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:bg-opacity-90 transition-colors"
+                onClick={handleRefresh}
+              >
+                Retry
+              </button>
             </div>
           )}
         </div>

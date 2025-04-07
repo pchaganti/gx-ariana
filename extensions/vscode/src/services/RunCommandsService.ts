@@ -34,7 +34,7 @@ export class RunCommandsService {
   private _context: vscode.ExtensionContext;
   private _projectCommandsCache: Map<string, RunCommandsCache> = new Map();
   private _fileCommandsCache: Map<string, RunCommandsCache> = new Map();
-  private _cacheTTL: number = 5 * 60 * 1000; // 5 minutes in milliseconds
+  private _cacheTTL: number = 60 * 60 * 1000; // 60 minutes in milliseconds
   private _globalStoragePath: string;
   private _cacheFilePath: string;
   private _workspaceToIdMap: Map<string, string> = new Map();
@@ -276,6 +276,7 @@ export class RunCommandsService {
       });
       
       try {
+        console.log('Fetching new run commands');
         // Call the Ariana CLI to generate run commands
         const newRunCommands = await this._generateRunCommands(context);
         
@@ -376,7 +377,7 @@ export class RunCommandsService {
       }
       
       // Execute the command
-      terminal.sendText(command.command);
+      terminal.sendText(`ariana ${command.command}`);
       terminal.show();
     } catch (error) {
       console.error('Failed to execute run command:', error);

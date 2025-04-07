@@ -151,7 +151,7 @@ const App = () => {
     }
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden" style={{
+        <div className="flex flex-col h-screen overflow-hidden text-base" style={{
             color: 'var(--foreground)',
         }}>
             {isSidebar ? (
@@ -162,7 +162,7 @@ const App = () => {
                         onValueChange={handleTabChange}
                         className="flex-1 flex flex-col h-full max-h-full"
                     >
-                        <div className="px-1">
+                        <div className="pl-1 pr-1.5">
                             <TabsList className="w-full">
                                 <TabsTrigger value="main" className="flex-1">Main</TabsTrigger>
                                 <TabsTrigger value="traces" className="flex-1">Traces</TabsTrigger>

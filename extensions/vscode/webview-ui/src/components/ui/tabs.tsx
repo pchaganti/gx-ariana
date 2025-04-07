@@ -31,7 +31,7 @@ const TabsTrigger = React.forwardRef<
       "inline-flex items-center justify-center whitespace-nowrap first:rounded-l-sm last:rounded-r-sm px-3 py-1 text-sm font-medium transition-all cursor-pointer",
       "text-[var(--fg-3)]",
       "data-[state=active]:bg-[var(--bg-2)] data-[state=active]:text-[var(--fg-0)]",
-      "data-[state=inactive]:hover:bg-[var(--bg-1)] data-[state=inactive]:hover:text-[var(--fg-0)]",
+      "data-[state=inactive]:hover:bg-[var(--accent)] data-[state=inactive]:hover:text-[var(--fg-0)]",
       className
     )}
     {...props}
