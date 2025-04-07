@@ -7,7 +7,7 @@ import { getConfig } from "../config";
 export class FocusedVaultManager {
     private focusedVault: FocusedVault | null = null;
     private vaultKeyPollingInterval: NodeJS.Timeout | null = null;
-    private vaultsManager: VaultsManager;
+    private vaultsManager: VaultsManager | null = null;
     private focusedVaultSubscribers: Map<string, (vault: FocusedVault | null) => void> = new Map();
     private singleTraceSubscribers: Map<string, (trace: Trace) => void> = new Map();
     private batchTraceSubscribers: Map<string, (trace: Trace[]) => void> = new Map();
@@ -53,7 +53,7 @@ export class FocusedVaultManager {
         // Check immediately and then at regular intervals
         this.checkVaultKeyAndUpdateConnection();
     
-        this.vaultKeyPollingInterval = setInterval(this.checkVaultKeyAndUpdateConnection, 5000); // Check every 5 seconds
+        this.vaultKeyPollingInterval = setInterval(() => this.checkVaultKeyAndUpdateConnection(), 5000); // Check every 5 seconds
     }
     
     public dispose() {
@@ -78,9 +78,12 @@ export class FocusedVaultManager {
             return;
         }
 
-        const vaults: (VaultHistoryEntry | null)[] = await Promise.all(workspaceFolders.map(async (folder) => {
-            return this.vaultsManager.getCurrentLocalVaultKey(folder.uri.fsPath);
+        let vaults: (VaultHistoryEntry | null)[] = await Promise.all(workspaceFolders.map(async (folder) => {
+            return this.vaultsManager?.getCurrentLocalVaultKey(folder.uri.fsPath) ?? null;
         }));
+        vaults = vaults.filter((v) => v !== null);
+
+        console.log("found vaults: ", vaults);
 
         // sort by recency
         vaults.sort((a, b) => {

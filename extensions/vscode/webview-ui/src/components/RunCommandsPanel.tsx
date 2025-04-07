@@ -38,15 +38,10 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
     setIsLoading(true);
     setError(null);
 
-    if (clearCache) {
-      postMessageToExtension({
-        command: 'clearRunCommandsCache'
-      });
-    } else {
-      postMessageToExtension({
-        command: 'getRunCommands'
-      });
-    }
+    postMessageToExtension({
+      command: 'getRunCommands',
+      clearCache
+    });
   };
 
   const handleRefresh = (e: React.MouseEvent) => {
@@ -117,11 +112,6 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
       } else if (message.type === 'runCommandsError') {
         setError(message.error);
         setIsLoading(false);
-      } else if (message.type === 'runCommandsCacheCleared') {
-        // After cache is cleared, fetch new commands
-        postMessageToExtension({
-          command: 'getRunCommands'
-        });
       }
     };
 

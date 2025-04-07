@@ -6,6 +6,7 @@ import { RunCommands } from '../bindings/RunCommands';
 import { CommandWithPath } from '../bindings/CommandWithPath';
 import { ProjectContext } from '../bindings/ProjectContext';
 import { generateProjectContext } from '../projectAnalyzer';
+import { getConfig } from '../config';
 
 // Cache interface for storing run commands
 interface RunCommandsCache {
@@ -34,7 +35,7 @@ export class RunCommandsService {
   private _context: vscode.ExtensionContext;
   private _projectCommandsCache: Map<string, RunCommandsCache> = new Map();
   private _fileCommandsCache: Map<string, RunCommandsCache> = new Map();
-  private _cacheTTL: number = 60 * 60 * 1000; // 60 minutes in milliseconds
+  private _cacheTTL: number = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
   private _globalStoragePath: string;
   private _cacheFilePath: string;
   private _workspaceToIdMap: Map<string, string> = new Map();
@@ -58,7 +59,7 @@ export class RunCommandsService {
       workspace_path: context.workspace_path,
       os: context.os,
     };
-    
+
     if (type === 'project') {
       // For project commands, include workspace files and content
       cacheableContext.important_workspace_files = context.important_workspace_files;
@@ -68,7 +69,7 @@ export class RunCommandsService {
       cacheableContext.current_focused_file_path = context.current_focused_file_path;
       cacheableContext.current_focused_file_content = context.current_focused_file_content;
     }
-    
+
     // Create a hash of the stringified context
     return crypto
       .createHash('md5')
@@ -103,35 +104,35 @@ export class RunCommandsService {
   private _loadCacheFromDisk(): void {
     try {
       this.ensureGlobalStorageExists();
-      
+
       if (!fs.existsSync(this._cacheFilePath)) {
         return;
       }
-      
+
       const cacheData = fs.readFileSync(this._cacheFilePath, 'utf8');
       const cache: PersistentCache = JSON.parse(cacheData);
-      
+
       // Load workspace to ID mapping
       if (cache.workspaces) {
         for (const [workspacePath, cacheId] of Object.entries(cache.workspaces)) {
           this._workspaceToIdMap.set(workspacePath, cacheId);
         }
       }
-      
+
       // Load project commands cache
       if (cache.projectCommands) {
         for (const [key, value] of Object.entries(cache.projectCommands)) {
           this._projectCommandsCache.set(key, value);
         }
       }
-      
+
       // Load file commands cache
       if (cache.fileCommands) {
         for (const [key, value] of Object.entries(cache.fileCommands)) {
           this._fileCommandsCache.set(key, value);
         }
       }
-      
+
       console.log('Loaded run commands cache from disk');
     } catch (error) {
       console.error('Failed to load run commands cache from disk:', error);
@@ -144,28 +145,28 @@ export class RunCommandsService {
   private _saveCacheToDisk(): void {
     try {
       this.ensureGlobalStorageExists();
-      
+
       const cache: PersistentCache = {
         workspaces: {},
         projectCommands: {},
         fileCommands: {}
       };
-      
+
       // Save workspace to ID mapping
       for (const [workspacePath, cacheId] of this._workspaceToIdMap.entries()) {
         cache.workspaces[workspacePath] = cacheId;
       }
-      
+
       // Save project commands cache
       for (const [key, value] of this._projectCommandsCache.entries()) {
         cache.projectCommands[key] = value;
       }
-      
+
       // Save file commands cache
       for (const [key, value] of this._fileCommandsCache.entries()) {
         cache.fileCommands[key] = value;
       }
-      
+
       fs.writeFileSync(this._cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
       console.log('Saved run commands cache to disk');
     } catch (error) {
@@ -180,13 +181,13 @@ export class RunCommandsService {
    */
   private getWorkspaceId(workspacePath: string): string {
     let workspaceId = this._workspaceToIdMap.get(workspacePath);
-    
+
     if (!workspaceId) {
       workspaceId = this.generateWorkspaceId(workspacePath);
       this._workspaceToIdMap.set(workspacePath, workspaceId);
       this._saveCacheToDisk();
     }
-    
+
     return workspaceId;
   }
 
@@ -219,10 +220,10 @@ export class RunCommandsService {
       const activeEditor = vscode.window.activeTextEditor;
       const currentFilePath = activeEditor?.document.uri.fsPath;
       const workspacePath = workspaceFolders[0].uri.fsPath;
-      
+
       // Get the project context
       const context = await generateProjectContext(workspacePath, currentFilePath);
-      
+
       if (!context) {
         webview.postMessage({
           type: 'runCommandsError',
@@ -230,26 +231,26 @@ export class RunCommandsService {
         });
         return;
       }
-      
+
       // Generate hash keys for caching
       const workspaceId = this.getWorkspaceId(context.workspace_path);
       const projectContextHash = `${workspaceId}_project_${this.generateContextHash(context, 'project')}`;
       const fileContextHash = `${workspaceId}_file_${this.generateContextHash(context, 'file')}`;
-      
+
       // Check if we have valid cached results
       const now = Date.now();
       const cachedProjectResult = this._projectCommandsCache.get(projectContextHash);
       const cachedFileResult = this._fileCommandsCache.get(fileContextHash);
-      
+
       // Determine if we need to fetch new commands
       const projectCacheValid = cachedProjectResult && (now - cachedProjectResult.timestamp) < this._cacheTTL;
       const fileCacheValid = cachedFileResult && (now - cachedFileResult.timestamp) < this._cacheTTL;
-      
+
       let runCommands: RunCommandsWithTimestamp = {
         project: [],
         file: []
       };
-      
+
       // If both caches are valid, use them
       if (projectCacheValid && fileCacheValid) {
         console.log('Using cached run commands for both project and file');
@@ -258,7 +259,7 @@ export class RunCommandsService {
           file: cachedFileResult.commands.file,
           generated_at: Math.min(cachedProjectResult.timestamp, cachedFileResult.timestamp)
         };
-        
+
         webview.postMessage({
           type: 'runCommands',
           value: runCommands,
@@ -269,20 +270,20 @@ export class RunCommandsService {
         });
         return;
       }
-      
+
       // If we need to fetch new commands, show loading state
       webview.postMessage({
         type: 'runCommandsLoading'
       });
-      
+
       try {
         console.log('Fetching new run commands');
         // Call the Ariana CLI to generate run commands
         const newRunCommands = await this._generateRunCommands(context);
-        
+
         // Cache the results with the current timestamp
         const now = Date.now();
-        
+
         // If we have valid project cache but need to fetch file commands
         if (projectCacheValid) {
           runCommands.project = cachedProjectResult.commands.project;
@@ -294,7 +295,7 @@ export class RunCommandsService {
             timestamp: now
           });
         }
-        
+
         // If we have valid file cache but need to fetch project commands
         if (fileCacheValid) {
           runCommands.file = cachedFileResult.commands.file;
@@ -306,13 +307,13 @@ export class RunCommandsService {
             timestamp: now
           });
         }
-        
+
         // Add the timestamp
         runCommands.generated_at = now;
-        
+
         // Save the updated cache to disk
         this._saveCacheToDisk();
-        
+
         // Send the run commands to the webview
         webview.postMessage({
           type: 'runCommands',
@@ -344,10 +345,26 @@ export class RunCommandsService {
    * @returns The generated run commands
    */
   private async _generateRunCommands(context: ProjectContext): Promise<RunCommands> {
-    // This would call the Ariana CLI to generate run commands
-    // For now, we'll just return a mock response
-    const response = await vscode.commands.executeCommand('ariana.generateRunCommands', context);
-    return response as RunCommands;
+    console.log('Generating run commands...');
+    try {
+      // Call the API endpoint to generate run commands
+      const response = await fetch(`${getConfig().apiUrl}/unauthenticated/codebase-intel/run-commands`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ context })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating run commands:', error);
+      throw error;
+    }
   }
 
   /**
@@ -363,7 +380,7 @@ export class RunCommandsService {
     try {
       // Create a terminal for running the command
       const terminal = vscode.window.createTerminal('Ariana Run Command');
-      
+
       // If we have a relative path, cd to it first
       if (command.working_directory && command.working_directory.length > 0) {
         const relativePath = command.working_directory.join(path.sep);
@@ -375,7 +392,7 @@ export class RunCommandsService {
           terminal.sendText(`cd "${relativePath}"`);
         }
       }
-      
+
       // Execute the command
       terminal.sendText(`ariana ${command.command}`);
       terminal.show();

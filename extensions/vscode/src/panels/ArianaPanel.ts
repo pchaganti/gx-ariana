@@ -121,16 +121,11 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         break;
       case 'updateArianaCli':
         await this.updateArianaCli();
-        // Clear run commands cache after updating CLI
-        this._runCommandsService.clearCache();
-        break;
-      case 'clearRunCommandsCache':
-        this._runCommandsService.clearCache();
-        if (this._view) {
-          this._view.webview.postMessage({ type: 'runCommandsCacheCleared' });
-        }
         break;
       case 'getRunCommands':
+        if (message.clearCache) {
+          this._runCommandsService.clearCache();
+        }
         if (this._view) {
           await this._runCommandsService.getRunCommands(this._view.webview);
         }

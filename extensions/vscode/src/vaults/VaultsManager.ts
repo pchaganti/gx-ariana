@@ -33,14 +33,15 @@ export class VaultsManager {
 
             const vaultKeyPath = path.join(arianaDir, '.ariana', '.vault_secret_key');
             try {
+                console.log("getting vault key");
                 const keyContent = await fs.readFile(vaultKeyPath, 'utf-8');
                 const secretKey = keyContent.split('\n')[0]?.trim(); // Get first line and trim whitespace
+                console.log("secret key: ", secretKey);
 
                 if (secretKey) {
                     // Get file stats to use file creation time as timestamp
                     const stats = await fs.stat(vaultKeyPath);
                     const createdAt = stats.birthtime.getTime();
-
                     this.addVaultToHistory(secretKey, createdAt);
 
                     return { key: secretKey, createdAt };
@@ -93,6 +94,10 @@ export class VaultsManager {
 
     private async findNearestDirContainingAriana(filePath: string): Promise<string | null> {
         let currentDir = path.dirname(filePath);
+        if (await fs.stat(currentDir).then(s => s.isDirectory())) {
+            currentDir = filePath;
+        }
+
         // Handle cases where filePath might be a directory itself or doesn't exist
         try {
             const stats = await fs.stat(currentDir);

@@ -27,6 +27,7 @@ class Extension {
         this.context = context;
 
         this.vaultsManager = new VaultsManager(context.globalState);
+        console.log("vm: ", this.vaultsManager);
         this.focusVaultManager = new FocusedVaultManager(this.vaultsManager);
         
         this.arianaPanel = new ArianaPanel(context.extensionUri, context);
@@ -37,7 +38,6 @@ class Extension {
         });
         this.executeCommand('openSidebar');
 
-        this.registerCommand('generateRunCommands', generateRunCommands);
         this.registerCommand('updateCLI', this.arianaPanel.updateArianaCli);
 
         this.highlightingToggle = new HighlightingToggle();
@@ -161,29 +161,6 @@ class Extension {
         if (this.arianaPanel) {
             this.arianaPanel.sendDataToWebView(this.focusVaultManager.getFocusedVaultTraces());
         }
-    }
-}
-
-async function generateRunCommands(context: ProjectContext): Promise<RunCommands> {
-    console.log('Generating run commands...');
-    try {
-        // Call the API endpoint to generate run commands
-        const response = await fetch(`${getConfig().apiUrl}/unauthenticated/codebase-intel/run-commands`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ context })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Server responded with status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Error generating run commands:', error);
-        throw error;
     }
 }
 
