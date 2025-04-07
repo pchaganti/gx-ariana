@@ -4,6 +4,7 @@ import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installAriana
 import { WebviewService } from '../services/WebviewService';
 import { RunCommandsService } from '../services/RunCommandsService';
 import { TraceService } from '../services/TraceService';
+import { VaultHistoryEntry } from '../vaults/manager';
 
 export class SidebarPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
@@ -85,6 +86,23 @@ export class SidebarPanel implements vscode.WebviewViewProvider {
       this._traceService.sendTracesToWebview(this._view.webview, traces);
     } else {
       console.log('Cannot send traces - webview not initialized');
+    }
+  }
+
+  /**
+   * Notify the webview about a new vault being detected
+   */
+  public notifyNewVaultDetected(entry: VaultHistoryEntry) {
+    if (this._view) {
+      try {
+        this._view.webview.postMessage({ 
+          type: 'newVaultDetected', 
+          vault: entry 
+        });
+        console.log(`Notified webview about new vault: ${entry.key}`);
+      } catch (error) {
+        console.error('Error notifying webview about new vault:', error);
+      }
     }
   }
 

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { formatUriForDB } from './urilHelpers';
 import type { Trace } from './bindings/Trace';
-import { VaultsManager } from './vaults/manager';
+import { VaultsManager, VaultHistoryEntry } from './vaults/manager';
 import { getConfig } from './config';
 import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
 import { HighlightedRegion, highlightRegions } from './highlighting';
@@ -28,8 +28,24 @@ export async function activate(context: vscode.ExtensionContext) {
     apiUrl = getConfig().apiUrl;
 
     console.log('Initializing VaultsManager...');
-    VaultsManager.initialize(context);
+    const vaultManager = VaultsManager.initialize(context);
     console.log('VaultsManager initialized successfully');
+
+    // A.2: Subscribe to new vaults added to the history
+    vaultManager.onDidAddVault(entry => {
+        console.log(`New vault detected: ${entry.key} (Created at: ${new Date(entry.createdAt).toLocaleString()})`);
+        // Notify the sidebar about the new vault if it exists
+        if (sidebarProvider) {
+            sidebarProvider.notifyNewVaultDetected(entry);
+        }
+    });
+    
+    // Log existing vault history to verify implementation
+    const vaultHistory = vaultManager.getVaultHistory();
+    console.log(`Found ${vaultHistory.length} vault entries in history:`);
+    vaultHistory.forEach((entry, index) => {
+        console.log(`${index + 1}. Vault key: ${entry.key}, Created: ${new Date(entry.createdAt).toLocaleString()}`);
+    });
 
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
@@ -328,6 +344,39 @@ async function connectToTraceWebSocket(vaultSecretKey: string) {
     });
 }
 
+function getTraces(): Trace[] {
+    return tracesData;
+}
+
+function getShowTraces(): boolean {
+    return showTraces;
+}
+
+function setShowTraces(show: boolean): void {
+    showTraces = show;
+    if (show) {
+        if (currentVaultSecretKey) {
+            connectToTraceWebSocket(currentVaultSecretKey);
+        }
+        highlightTraces();
+    } else {
+        unhighlightTraces();
+    }
+}
+
+
+function selectVault(vaultKey: string): void {
+    if (currentVaultSecretKey !== vaultKey) {
+        currentVaultSecretKey = vaultKey;
+        // Clear existing traces for the previous vault
+        tracesData = [];
+        // Connect to the new vault if traces should be shown
+        if (showTraces && vaultKey) {
+            connectToTraceWebSocket(vaultKey);
+        }
+    }
+}
+
 function startVaultKeyMonitoring() {
     console.log('Starting vault key monitoring...');
     // Stop existing monitoring if any
@@ -360,6 +409,9 @@ async function checkVaultKeyAndUpdateConnection() {
         if (!vault) {
             return;
         }
+
+        // A.1: Store vault key with creation time whenever found
+        await vaultManager.storeVaultKey(vault.key, vault.vaultKeyPath);
 
         // If vault key changed or we need to connect and don't have a connection
         if (currentVaultSecretKey !== vault.key || (showTraces && !wsConnection)) {
