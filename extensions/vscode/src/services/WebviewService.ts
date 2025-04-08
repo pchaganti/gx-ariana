@@ -16,21 +16,12 @@ export class WebviewService {
    * Get the HTML content for the webview
    */
   public getWebviewContent(webview: vscode.Webview): string {
-    console.log('Getting webview content');
-    
     // Generate new render nonce for timer cancellation
     this._currentNonce = this._generateUniqueNonce();
-    console.log('Generated new render nonce:', this._currentNonce);
-    
+
     // Get paths to the webview resources
-    const webviewUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist'));
-    console.log('Webview URI:', webviewUri.toString());
-    
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist', 'assets', 'index.css'));
-    console.log('Styles URI:', stylesUri.toString());
-    
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist', 'index.js'));
-    console.log('Script URI:', scriptUri.toString());
 
     // Get paths to logo resources
     const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'logo.png'));
@@ -54,8 +45,6 @@ export class WebviewService {
           <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
         </body>
       </html>`;
-
-    console.log('Generated HTML');
     return html;
   }
 
@@ -71,7 +60,6 @@ export class WebviewService {
    */
   public sendRenderNonce(webview: vscode.Webview): void {
     try {
-      console.log('Sending render nonce to webview:', this._currentNonce);
       webview.postMessage({ 
         type: 'renderNonce', 
         value: this._currentNonce
@@ -87,7 +75,6 @@ export class WebviewService {
   public sendThemeInfo(webview: vscode.Webview): void {
     const themeKind = vscode.window.activeColorTheme.kind;
     try {
-      console.log('Sending theme info to webview');
       webview.postMessage({ 
         type: 'theme', 
         value: themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast ? 'dark' : 'light',

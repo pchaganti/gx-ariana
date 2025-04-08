@@ -3,6 +3,7 @@ import JsonView from 'react-json-view';
 import type { Trace } from '../bindings/Trace';
 import stateManager from '../utils/stateManager';
 import { requestHighlight } from '../lib/highlight';
+import VaultSelector, { VaultHistoryEntry } from './VaultSelector';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -143,30 +144,14 @@ const TraceGroup = ({ key, traces }: { key: number, traces: Trace[] }) => {
 
 interface TracesTabProps {
   traces: Trace[];
+  focusableVaults: VaultHistoryEntry[];
+  focusedVault: string | null;
 }
 
-const TracesTab: React.FC<TracesTabProps> = ({ traces }) => {
-  const [renderKey, setRenderKey] = useState(0);
+const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
-  
-  // Force rerender when theme changes
-  useEffect(() => {
-    const handleThemeChange = () => {
-      setRenderKey(prev => prev + 1);
-    };
-    
-    window.addEventListener('message', (event) => {
-      const message = event.data;
-      if (message.type === 'themeChange') {
-        handleThemeChange();
-      }
-    });
-    
-    return () => {
-      window.removeEventListener('message', handleThemeChange);
-    };
-  }, []);
+
 
   // Restore scroll position when tab is shown
   useEffect(() => {
@@ -193,7 +178,11 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces }) => {
   traces.sort((a, b) => b.timestamp - a.timestamp);
 
   return (
-    <div key={renderKey} className="p-4" style={{ height: '100%', width: '100%' }}>
+    <div className="flex flex-col p-4" style={{ height: '100%', width: '100%' }}>
+      <VaultSelector 
+        focusableVaults={focusableVaults} 
+        focusedVault={focusedVault} 
+      />
       <div 
         ref={containerRef}
         className="flex flex-col gap-3 w-full max-w-full h-full overflow-y-auto"
@@ -202,7 +191,11 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces }) => {
         {traces.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-[var(--vscode-descriptionForeground)] p-4 text-center">
             <p className="mb-2">No traces available</p>
-            <p className="text-sm">Run your code with the Ariana CLI to generate traces</p>
+            {focusedVault ? (
+                <p className="text-sm">Waiting for traces...</p>
+            ) : (
+                <p className="text-sm">Run your code with the Ariana CLI to generate traces. Or select a previous run from the dropdown above.</p>
+            )}
           </div>
         ) : (
           traces.filter(t => t.trace_type === 'Enter').map((trace, i) => (

@@ -98,7 +98,7 @@ class Extension {
     }
 
     private handleRefreshTracesInTextEditorRequests() {
-        let requests = this.refreshTracesInTextEditorRequests;
+        let requests = this.refreshTracesInTextEditorRequests ?? [];
         const currentEditor = vscode.window.activeTextEditor;
         if (requests.length > 0) {
             while (requests.length > 0 && requests[requests.length - 1] !== currentEditor) {

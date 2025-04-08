@@ -6,6 +6,7 @@ import { getConfig } from "../config";
 
 export class FocusedVaultManager {
     private focusedVault: FocusedVault | null = null;
+    private lastVaultFoundTimestamp: number = 0;
     private vaultKeyPollingInterval: NodeJS.Timeout | null = null;
     private vaultsManager: VaultsManager | null = null;
     private focusedVaultSubscribers: Map<string, (vault: FocusedVault | null) => void> = new Map();
@@ -20,7 +21,11 @@ export class FocusedVaultManager {
     public getFocusedVaultTraces(): Trace[] {
         return this.focusedVault?.tracesData ?? [];
     }
-    
+
+    public getFocusedVault(): FocusedVault | null {
+        return this.focusedVault;
+    }
+
     public subscribeToFocusedVaultChange(onChange: (vault: FocusedVault | null) => void): () => void {
         const uuid = crypto.randomUUID();
         this.focusedVaultSubscribers.set(uuid, onChange);
@@ -71,10 +76,7 @@ export class FocusedVaultManager {
 
         // Get all workspace folder URIs
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders) {
-            // Map each workspace folder to its filesystem path
-            const topLevelDirs = workspaceFolders.map(folder => folder.uri.fsPath);
-        } else {
+        if (!workspaceFolders) {
             return;
         }
 
@@ -82,8 +84,6 @@ export class FocusedVaultManager {
             return this.vaultsManager?.getCurrentLocalVaultKey(folder.uri.fsPath) ?? null;
         }));
         vaults = vaults.filter((v) => v !== null);
-
-        console.log("found vaults: ", vaults);
 
         // sort by recency
         vaults.sort((a, b) => {
@@ -94,15 +94,18 @@ export class FocusedVaultManager {
         });
 
         const mostRecentVault = vaults[0];
-        if (mostRecentVault) {
+        if (mostRecentVault && mostRecentVault.createdAt > this.lastVaultFoundTimestamp) {
+            this.lastVaultFoundTimestamp = mostRecentVault.createdAt;
             this.switchFocusedVault(mostRecentVault.key);
         }
     }
 
     public switchFocusedVault(newFocusKey: string, retries: number = 0) {
-        if (this.focusedVault && this.focusedVault.key !== newFocusKey) {
-            this.focusedVault.wsConnection?.close();
-            this.focusedVault.wsConnection = null;
+        if (this.focusedVault?.key !== newFocusKey) {
+            if (this.focusedVault) {
+                this.focusedVault.wsConnection?.close();
+                this.focusedVault.wsConnection = null;
+            }
             this.focusedVault = new FocusedVault(newFocusKey, (trace) => {
                 this.singleTraceSubscribers.forEach(subscriber => subscriber(trace));
             }, (traces) => {

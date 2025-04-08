@@ -9,6 +9,7 @@ import Footer from './components/Footer';
 import stateManager from './utils/stateManager';
 import { ArianaCliStatus } from './lib/cli';
 import { setCurrentRenderNonce, setTimeoutCancelIfDifferentNonce } from './utils/timerManagement';
+import VaultSelector, { VaultHistoryEntry } from './components/VaultSelector';
 
 const App = () => {
     const [traces, setTraces] = useState<Trace[]>([]);
@@ -19,6 +20,8 @@ const App = () => {
     const [isInitialized, setIsInitialized] = useState(false);
     const [_, setLogoClicks] = useState<number[]>([]);
     const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
+    const [focusableVaults, setFocusableVaults] = stateManager.usePersistedState<VaultHistoryEntry[]>('focusableVaults', []);
+    const [focusedVault, setFocusedVault] = stateManager.usePersistedState<string | null>('focusedVault', null);
 
     // Initialize the app
     useEffect(() => {
@@ -122,6 +125,14 @@ const App = () => {
                 console.log('Received new render nonce:', message.value);
                 setCurrentRenderNonce(message.value);
                 break;
+            case 'focusableVaults':
+                console.log('Received focusable vaults:', message.value);
+                setFocusableVaults(message.value);
+                break;
+            case 'focusedVault':
+                console.log('Received focused vault:', message.value);
+                setFocusedVault(message.value);
+                break;
             default:
                 console.log('Unhandled message type:', message.type);
         }
@@ -173,7 +184,7 @@ const App = () => {
                         <div className="">
                             <TabsList className="w-full">
                                 <TabsTrigger value="main" className="flex-1">Run</TabsTrigger>
-                                <TabsTrigger value="traces" className="flex-1">Traces</TabsTrigger>
+                                <TabsTrigger value="traces" className="flex-1">Analyze</TabsTrigger>
                                 {showColorTab && (
                                     <TabsTrigger value="colors" className="flex-1">Colors</TabsTrigger>
                                 )}
@@ -185,7 +196,7 @@ const App = () => {
                         </TabsContent>
 
                         <TabsContent value="traces" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                            <TracesTab traces={traces} />
+                            <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} />
                         </TabsContent>
 
                         {showColorTab && (

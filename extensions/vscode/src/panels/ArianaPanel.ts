@@ -11,7 +11,6 @@ import { VaultHistoryEntry, VaultsManager } from '../vaults/VaultsManager';
 export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
   private _view?: vscode.WebviewView;
-  private _lastSentTraces?: Trace[];
   private _context: vscode.ExtensionContext;
   private _webviewService: WebviewService;
   private _runCommandsService: RunCommandsService;
@@ -40,6 +39,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     });
 
     this._vaultsManager.onDidAddVault((_) => {
+      console.log('Vault added');
       const entries = this._vaultsManager.getVaultHistory();
       this.sendFocusableVaults(entries);
     });
@@ -80,11 +80,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     // Register theme change listener
     this._webviewService.registerThemeChangeListener(webviewView.webview);
 
-    // If we have traces already, send them to the webview
-    if (this._lastSentTraces) {
-      this.sendTracesToWebView(this._lastSentTraces);
-    }
-
     // When the view becomes visible, notify the webview
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
@@ -94,8 +89,21 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
       }
     });
 
-    // Send initial CLI status
-    this.checkAndSendArianaCliStatus();
+    setTimeout(() => {
+      this.checkAndSendArianaCliStatus();
+
+      this.sendFocusableVaults(this._vaultsManager.getVaultHistory());
+      console.log('Sending focusable vaults: ', this._vaultsManager.getVaultHistory());
+      
+      const focusedVault = this._focusedVaultManager.getFocusedVault()?.key ?? null;
+      this.sendFocusedVault(focusedVault);
+      console.log('Sending focused vault: ', focusedVault);
+      
+      if (focusedVault) {
+        console.log('Sending traces for focused vault: ', focusedVault);
+        this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
+      }
+    }, 500);
   }
 
   /**
@@ -103,7 +111,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
    */
   private sendTracesToWebView(traces: Trace[]) {
     if (this._view) {
-      this._lastSentTraces = traces;
       this._traceService.sendTracesToWebview(this._view.webview, traces);
     } else {
       console.log('Cannot send traces - webview not initialized');

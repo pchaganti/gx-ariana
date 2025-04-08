@@ -21,21 +21,7 @@ export class HighlightingToggle {
     }
 
     public toggleUntoggle() {
-        console.log('Toggling highlighting...');
         this.toggled = !this.toggled;
-        
-        // if (this.toggled) {
-        //     console.log("showing traces now");
-        //     startVaultKeyMonitoring();
-        // } else {
-        //     console.log("hiding traces now");
-        //     stopVaultKeyMonitoring();
-        //     wsConnection?.close();
-        //     wsConnection = null;
-        //     tracesData = [];
-        //     unhighlightTraces();
-        //     clearHoverTraces();
-        // }
 
         this.onToggleSubscribers.forEach(subscriber => subscriber(this.toggled));
 

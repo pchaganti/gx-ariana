@@ -207,7 +207,7 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               active={cliStatus?.isInstalled || false}
             >
               <div className="space-y-4 text-[var(--fg-2)]">
-                <p className="">After running your code with Ariana, switch to the Traces tab to view execution traces.</p>
+                <p className="">After running your code with Ariana, switch to the <b>Analyze</b> tab to view execution traces.</p>
                 <p className="">Click on a trace to highlight the corresponding code in your editor.</p>
               </div>
             </OnboardingStep>
