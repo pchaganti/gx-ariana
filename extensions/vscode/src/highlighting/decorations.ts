@@ -107,7 +107,6 @@ export const hoverErrorRightDecorationType = vscode.window.createTextEditorDecor
 });
 
 export function clearDecorations(editor: vscode.TextEditor) {
-    console.log("clearing decorations now")
     editor.setDecorations(highlightDecorationType, []);
     editor.setDecorations(highlightInBetweenDecorationType, []);
     editor.setDecorations(highlightLeftDecorationType, []);

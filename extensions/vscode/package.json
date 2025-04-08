@@ -39,10 +39,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "ariana.highlightTraces",
-        "title": "Ariana: Toggle Traced Expressions Highlighting"
-      },
-      {
         "command": "ariana.openSidebar",
         "title": "Ariana: Open Sidebar",
         "icon": "$(debug-alt)"
