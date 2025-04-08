@@ -5,6 +5,7 @@ import { ChevronDown, Check } from 'lucide-react';
 export interface VaultHistoryEntry {
     key: string;
     createdAt: number;
+    dir: string;
 }
 
 interface VaultSelectorProps {
@@ -96,11 +97,16 @@ const VaultSelector = ({ focusableVaults, focusedVault }: VaultSelectorProps) =>
                 onClick={toggleDropdown}
                 className={`flex items-center justify-between p-2 cursor-pointer rounded-md bg-[var(--bg-0)] ${focusableVaults.length > 0 ? 'hover:bg-[var(--accent)]' : 'opacity-70'}`}
             >
-                <span className="text-sm font-semibold">
-                    {focusedVaultEntry 
-                        ? formatTimeAgo(focusedVaultEntry.createdAt)
-                        : (focusedVault ? 'No run selected' : 'No runs available')}
-                </span>
+                <div className="flex flex-col">
+                    <div className="text-sm font-semibold">
+                        {focusedVaultEntry 
+                            ? formatTimeAgo(focusedVaultEntry.createdAt)
+                            : (focusedVault ? 'No run selected' : 'No runs available')}
+                    </div>
+                    <div className="text-xs text-[var(--fg-1)]">
+                        in {focusedVaultEntry?.dir}
+                    </div>
+                </div>
                 {focusableVaults.length > 0 && (
                     <ChevronDown 
                         size={16} 
@@ -118,7 +124,14 @@ const VaultSelector = ({ focusableVaults, focusedVault }: VaultSelectorProps) =>
                                 onClick={() => handleVaultSelect(vault.key)}
                                 className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-[var(--bg-0)] ${vault.key === focusedVault ? 'bg-[var(--accent)]' : ''}`}
                             >
-                                <span>{formatTimeAgo(vault.createdAt)}</span>
+                                <div className="flex flex-col">
+                                    <div className="text-sm font-semibold">
+                                        {formatTimeAgo(vault.createdAt)}
+                                    </div>
+                                    <div className="text-xs text-[var(--fg-1)]">
+                                        in {vault.dir}
+                                    </div>
+                                </div>
                                 {vault.key === focusedVault && <Check size={16} />}
                             </li>
                         ))}

@@ -215,7 +215,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
               command: 'toggleHighlighting'
             });
           }}
-          className={"text-[var(--fg-0)] px-3 rounded-md cursor-pointer text-sm font-semibold " + (highlightingToggled ? 'bg-[var(--accent)]' : '')}
+          className={"text-[var(--fg-0)] px-3 rounded-md h-1/2 shrink-0 cursor-pointer text-sm font-semibold " + (highlightingToggled ? 'bg-[var(--accent)]' : '')}
         >
           Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
         </button>
