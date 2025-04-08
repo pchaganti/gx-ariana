@@ -188,7 +188,7 @@ const App = () => {
                     >
                         <div className="">
                             <TabsList className="w-full">
-                                <TabsTrigger value="main" className="flex-1">Run</TabsTrigger>
+                                <TabsTrigger value="main" className="flex-1">Home</TabsTrigger>
                                 <TabsTrigger value="traces" className="flex-1">Analyze</TabsTrigger>
                                 {showColorTab && (
                                     <TabsTrigger value="colors" className="flex-1">Colors</TabsTrigger>

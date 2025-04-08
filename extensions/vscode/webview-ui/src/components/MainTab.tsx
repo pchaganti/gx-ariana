@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
 import stateManager from '../utils/stateManager';
-import RunCommandsPanel from './RunCommandsPanel';
 import { ArianaCliStatus } from '../lib/cli';
 import OnboardingPanel from './OnboardingPanel';
 
@@ -43,7 +42,6 @@ const MainTab: React.FC<MainTabProps> = ({  }) => {
 		<div key={renderKey} className="flex flex-col px-4 pb-4 mt-4 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ maxHeight: 'calc(100% - 10px)' }}>
 			<div className="flex flex-col gap-2 h-full">
 				<OnboardingPanel cliStatus={cliStatus} />
-				<RunCommandsPanel isInstalled={cliStatus?.isInstalled || false} />
 			</div>
 		</div>
 	);

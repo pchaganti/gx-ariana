@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { Trace } from '../bindings/Trace';
 import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installArianaCli, updateArianaCli } from '../installation/cliManager';
 import { WebviewService } from '../services/WebviewService';
-import { RunCommandsService } from '../services/RunCommandsService';
 import { TraceService } from '../services/TraceService';
 import { HotReloadService } from '../services/HotReloadService';
 import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
@@ -14,7 +13,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _context: vscode.ExtensionContext;
   private _webviewService: WebviewService;
-  private _runCommandsService: RunCommandsService;
   private _traceService: TraceService;
   private _hotReloadService: HotReloadService;
   private _focusedVaultManager: FocusedVaultManager;
@@ -30,7 +28,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   ) {
     this._context = context;
     this._webviewService = new WebviewService(_extensionUri);
-    this._runCommandsService = new RunCommandsService(context);
     this._traceService = new TraceService();
     this._hotReloadService = new HotReloadService(_extensionUri, this._webviewService);
     this._focusedVaultManager = focusedVaultManager;
@@ -181,19 +178,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         break;
       case 'updateArianaCli':
         await this.updateArianaCli();
-        break;
-      case 'getRunCommands':
-        if (message.clearCache) {
-          this._runCommandsService.clearCache();
-        }
-        if (this._view) {
-          await this._runCommandsService.getRunCommands(this._view.webview);
-        }
-        break;
-      case 'runArianaCommand':
-        if (message.commandData) {
-          this._runCommandsService.executeRunCommand(message.commandData);
-        }
         break;
       case 'highlightCode':
         await this._traceService.highlightCode(

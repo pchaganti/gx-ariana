@@ -32,7 +32,7 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 }) => {
 	return (
 		<div className={cn(
-			"flex relative not-last:pb-12",
+			"flex relative not-last:pb-8",
 			active ? "opacity-100" : "opacity-60"
 		)}>
 			<div className={cn(
@@ -50,8 +50,8 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 					</div>
 				)}
 			</div>
-			{number < 3 && (
-				<div className="absolute left-5 top-10 w-0.5 bg-[var(--accent)] text-[var(--fg-3)]" style={{ height: 'calc(100% - 32px)' }} />
+			{number < 4 && (
+				<div className="absolute left-5 top-10 w-0.5 bg-[var(--accent)] text-[var(--fg-3)]" style={{ height: 'calc(100% - 29px)' }} />
 			)}
 		</div>
 	);
@@ -68,20 +68,20 @@ const InstallOption: React.FC<InstallOptionProps> = ({ method, command, availabl
 	return (
 		<div className="mt-2">
 			<div className={cn(
-				"p-3 rounded-md font-mono text-sm",
+				"p-3 rounded-t-md font-mono text-sm",
 				available ? "bg-[var(--bg-1)] text-[var(--fg-1)]" : "bg-[var(--bg-1)] text-[var(--fg-3)] opacity-50"
 			)}>
 				{command}
 			</div>
 			{available ? (
 				<button 
-					className="mt-2 w-full p-2 bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:bg-opacity-90 transition-colors cursor-pointer"
+					className="w-full p-2 bg-[var(--fg-3)] hover:bg-[var(--accent)] text-[var(--fg-3)] rounded-b-md hover:bg-opacity-90 transition-colors cursor-pointer"
 					onClick={() => onInstall(method)}
 				>
 					Run in Terminal
 				</button>
 			) : (
-				<div className="mt-2 w-full p-2 bg-[var(--bg-2)] text-[var(--fg-3)] rounded-md text-center">
+				<div className="w-full p-2 bg-[var(--bg-2)] text-[var(--fg-3)] rounded-b-md text-center">
 					{method} not available
 				</div>
 			)}
@@ -124,7 +124,7 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
       </div>
 
       {!isCollapsed && (
-        <div className="px-4 pt-2 pb-6 mt-2">
+        <div className="px-4 pt-2 pb-10 mt-2">
           <div className="space-y-2">
             <OnboardingStep
               number={1}
@@ -187,17 +187,35 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               active={cliStatus?.isInstalled || false}
             >
               <div className="flex flex-col gap-2 text-[var(--fg-2)]">
-                <p className="mt-2">Launch commands from the <span className="font-bold text-[var(--fg-1)]">Run your code with Ariana</span> panel below.</p>
-                <p className="">Or, add the ariana command before your usual run command in the terminal.</p>
+                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--accent)] font-mono">ariana</span> before the command.</p>
                 <div className="p-3 my-2 rounded-md font-mono bg-[var(--bg-1)] text-[var(--fg-1)]">
-                  ariana <span className="text-[var(--accent)]">{'<your usual run command>'}</span>
+                  ariana <span className="text-[var(--accent)]">{'<your build & run command>'}</span>
                 </div>
+                <p className="font-semibold italic text-[var(--fg-3)]">Ariana supports JS, TS & Python at the moment.</p>
                 <p className="text-[var(--fg-2)]">Examples:</p>
-                <div className="p-3 my-2 rounded-md font-mono bg-[var(--bg-1)] text-[var(--fg-1)]">
-                  ariana <span className="text-[var(--accent)]">python my_script.py</span>
-                  <br />
-                  ariana <span className="text-[var(--accent)]">npm run dev</span>
+                <div className="flex my-2 flex-col gap-2">
+                  <div className="p-3 rounded-md font-mono bg-[var(--bg-1)] text-[var(--fg-1)]">
+                    ariana <span className="text-[var(--accent)]">python my_script.py</span>
+                  </div>
+                  <div className="p-3 rounded-md font-mono bg-[var(--bg-1)] text-[var(--fg-1)]">
+                    ariana <span className="text-[var(--accent)]">npm run dev</span>
+                  </div>
                 </div>
+                <p className="">Do the above in multiple terminal windows for each module of your code you want to run.</p>
+                <p className="text-[var(--fg-2)]">Examples:</p>
+                <div className="flex my-2 flex-col gap-2">
+                  <div className="p-3 rounded-md font-mono bg-[var(--bg-1)] text-[var(--fg-1)]">
+                    <span className="text-[var(--fg-2)]">cd frontend/</span>
+                    <br />
+                    ariana <span className="text-[var(--accent)]">npm run dev</span>
+                  </div>
+                  <div className="p-3 rounded-md font-mono bg-[var(--bg-1)] text-[var(--fg-1)]">
+                    <span className="text-[var(--fg-2)]">cd backend/</span>
+                    <br />
+                    ariana <span className="text-[var(--accent)]">uv run server.py</span>
+                  </div>
+                </div>
+                <p className="">If building & running requires 2 or more commands, either create a script and run it with <div className="inline p-1 rounded-md font-mono bg-[var(--bg-1)] text-[var(--accent)]">ariana {'./<my_script>'}</div>, or open a new shell with <div className="inline p-1 rounded-md font-mono bg-[var(--bg-1)] text-[var(--accent)]">ariana bash</div> on linux/macOS or <div className="inline p-1 rounded-md font-mono bg-[var(--bg-1)] text-[var(--accent)]">ariana powershell.exe</div> on Windows, and run your commands there.</p>
               </div>
             </OnboardingStep>
 
@@ -209,6 +227,16 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               <div className="space-y-4 text-[var(--fg-2)]">
                 <p className="">After running your code with Ariana, switch to the <b>Analyze</b> tab to view execution traces.</p>
                 <p className="">Click on a trace to highlight the corresponding code in your editor.</p>
+              </div>
+            </OnboardingStep>
+
+            <OnboardingStep
+              number={4}
+              title="Any issue?"
+              active={cliStatus?.isInstalled || false}
+            >
+              <div className="space-y-4 text-[var(--fg-2)]">
+                <p className="">Join <a className="text-[var(--accent)] hover:underline" href="https://discord.gg/Y3TFTmE89g">our Discord community</a> to connect with other developers and get help with Ariana.</p>
               </div>
             </OnboardingStep>
           </div>
