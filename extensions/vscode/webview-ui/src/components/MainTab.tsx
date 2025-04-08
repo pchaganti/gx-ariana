@@ -6,11 +6,9 @@ import { ArianaCliStatus } from '../lib/cli';
 import OnboardingPanel from './OnboardingPanel';
 
 interface MainTabProps {
-	textLogoUrl: string;
-	onLogoClick?: () => void;
 }
 
-const MainTab: React.FC<MainTabProps> = ({ textLogoUrl, onLogoClick }) => {
+const MainTab: React.FC<MainTabProps> = ({  }) => {
 	const [renderKey, setRenderKey] = useState(0);
 	const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
 	
@@ -42,17 +40,8 @@ const MainTab: React.FC<MainTabProps> = ({ textLogoUrl, onLogoClick }) => {
 	}, []);
 
 	return (
-		<div key={renderKey} className="flex flex-col px-4 mt-2 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ maxHeight: 'calc(100% - 10px)' }}>
-			<div className="flex flex-col items-center my-6">
-				<img
-					src={textLogoUrl}
-					alt="Ariana"
-					className="h-10 my-6 cursor-pointer"
-					onClick={onLogoClick}
-				/>
-			</div>
-
-			<div className="flex flex-col gap-4 h-full">
+		<div key={renderKey} className="flex flex-col px-4 py-4 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ maxHeight: 'calc(100% - 10px)' }}>
+			<div className="flex flex-col gap-2 h-full">
 				<OnboardingPanel cliStatus={cliStatus} />
 				<RunCommandsPanel isInstalled={cliStatus?.isInstalled || false} />
 			</div>

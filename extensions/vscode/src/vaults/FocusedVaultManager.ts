@@ -99,7 +99,7 @@ export class FocusedVaultManager {
         }
     }
 
-    private switchFocusedVault(newFocusKey: string, retries: number = 0) {
+    public switchFocusedVault(newFocusKey: string, retries: number = 0) {
         if (this.focusedVault && this.focusedVault.key !== newFocusKey) {
             this.focusedVault.wsConnection?.close();
             this.focusedVault.wsConnection = null;
@@ -114,6 +114,7 @@ export class FocusedVaultManager {
                     }
                 }, Math.pow(2, (retries + 1)) + 100);
             });
+            this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
         }
     }
 }

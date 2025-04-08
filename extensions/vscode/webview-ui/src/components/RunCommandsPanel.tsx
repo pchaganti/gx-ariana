@@ -109,7 +109,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
         setIsLoading(false);
         setTimeoutCancelIfDifferentNonce(() => {
           fetchRunCommands(false);
-        }, 2000);
+        }, 2000, 'fetchRunCommands');
       } else if (message.type === 'runCommandsError') {
         setError(message.error);
         setIsLoading(false);
@@ -128,7 +128,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
   }
 
   return (
-    <div className="mb-4 rounded-sm bg-[var(--bg-0)] shadow-sm">
+    <div className="mb-4 rounded-sm bg-[var(--bg-0)]">
       <div
         className={cn(
           "group sticky top-0 z-20 flex items-center justify-between px-4 py-4 bg-[var(--bg-0)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors rounded-sm",

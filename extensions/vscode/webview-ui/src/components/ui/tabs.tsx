@@ -12,7 +12,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center rounded-md",
+      "inline-flex items-center justify-center",
       "bg-[var(--bg-0)]",
       className
     )}
@@ -28,7 +28,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap first:rounded-l-sm last:rounded-r-sm px-3 py-1 text-sm font-medium transition-all cursor-pointer",
+      "inline-flex items-center justify-center whitespace-nowrap px-3 py-1 text-sm font-medium transition-all cursor-pointer",
       "text-[var(--fg-3)]",
       "data-[state=active]:bg-[var(--bg-2)] data-[state=active]:text-[var(--fg-0)]",
       "data-[state=inactive]:hover:bg-[var(--accent)] data-[state=inactive]:hover:text-[var(--fg-0)]",

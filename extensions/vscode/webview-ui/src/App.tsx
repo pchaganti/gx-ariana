@@ -107,7 +107,7 @@ const App = () => {
             case 'theme':
                 break;
             case 'themeChange':
-                setTimeoutCancelIfDifferentNonce(() => detectTheme(), 1000);
+                setTimeoutCancelIfDifferentNonce(() => detectTheme(), 1000, 'themeChange');
                 break;
             case 'arianaCliStatus':
                 setCliStatus(message.value);
@@ -170,9 +170,9 @@ const App = () => {
                         onValueChange={handleTabChange}
                         className="flex-1 flex flex-col h-full max-h-full"
                     >
-                        <div className="pl-1 pr-1.5">
+                        <div className="">
                             <TabsList className="w-full">
-                                <TabsTrigger value="main" className="flex-1">Main</TabsTrigger>
+                                <TabsTrigger value="main" className="flex-1">Run</TabsTrigger>
                                 <TabsTrigger value="traces" className="flex-1">Traces</TabsTrigger>
                                 {showColorTab && (
                                     <TabsTrigger value="colors" className="flex-1">Colors</TabsTrigger>
@@ -181,7 +181,7 @@ const App = () => {
                         </div>
 
                         <TabsContent value="main" className="flex-1 h-[calc(100%-30px)] max-h-[calc(100%-30px)] mt-0">
-                            <MainTab textLogoUrl={textLogoUrl} onLogoClick={handleLogoClick} />
+                            <MainTab />
                         </TabsContent>
 
                         <TabsContent value="traces" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
@@ -198,7 +198,7 @@ const App = () => {
                 </div>
             ) : (
                 <div className="flex flex-col h-full">
-                    <MainTab textLogoUrl={textLogoUrl} onLogoClick={handleLogoClick} />
+                    <MainTab />
                     <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </div>
             )}

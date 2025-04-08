@@ -5,6 +5,8 @@ import { WebviewService } from '../services/WebviewService';
 import { RunCommandsService } from '../services/RunCommandsService';
 import { TraceService } from '../services/TraceService';
 import { HotReloadService } from '../services/HotReloadService';
+import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
+import { VaultHistoryEntry, VaultsManager } from '../vaults/VaultsManager';
 
 export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
@@ -15,13 +17,33 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   private _runCommandsService: RunCommandsService;
   private _traceService: TraceService;
   private _hotReloadService: HotReloadService;
+  private _focusedVaultManager: FocusedVaultManager;
+  private _vaultsManager: VaultsManager;
 
-  constructor(private readonly _extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
+  constructor(private readonly _extensionUri: vscode.Uri, context: vscode.ExtensionContext, focusedVaultManager: FocusedVaultManager, vaultsManager: VaultsManager) {
     this._context = context;
     this._webviewService = new WebviewService(_extensionUri);
     this._runCommandsService = new RunCommandsService(context);
     this._traceService = new TraceService();
     this._hotReloadService = new HotReloadService(_extensionUri, this._webviewService);
+    this._focusedVaultManager = focusedVaultManager;
+    this._vaultsManager = vaultsManager;
+
+    this._focusedVaultManager.subscribeToFocusedVaultChange((vault) => {
+      this.sendFocusedVault(vault?.key ?? null);
+    });
+    this._focusedVaultManager.subscribeToBatchTrace((_) => {
+      this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
+    });
+    this._focusedVaultManager.subscribeToSingleTrace((_) => {
+      this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
+    });
+
+    this._vaultsManager.onDidAddVault((_) => {
+      const entries = this._vaultsManager.getVaultHistory();
+      this.sendFocusableVaults(entries);
+    });
+
     console.log('ArianaPanel constructor called with extension URI:', _extensionUri.toString());
   }
 
@@ -60,7 +82,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
 
     // If we have traces already, send them to the webview
     if (this._lastSentTraces) {
-      this.sendDataToWebView(this._lastSentTraces);
+      this.sendTracesToWebView(this._lastSentTraces);
     }
 
     // When the view becomes visible, notify the webview
@@ -79,7 +101,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   /**
    * Send trace data to the webview
    */
-  public sendDataToWebView(traces: Trace[]) {
+  private sendTracesToWebView(traces: Trace[]) {
     if (this._view) {
       this._lastSentTraces = traces;
       this._traceService.sendTracesToWebview(this._view.webview, traces);
@@ -124,6 +146,10 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
           this._webviewService.sendThemeInfo(this._view.webview);
         }
         break;
+      case 'focusVault':
+        console.log('Asking to focus vault: ' + message.vaultSecretKey);
+        this._focusedVaultManager.switchFocusedVault(message.vaultSecretKey);
+        break;
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
         break;
@@ -162,6 +188,26 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         break;
       default:
         console.log(`Unknown command: ${message.command}`);
+    }
+  }
+
+  private sendFocusableVaults(focusableVaults: VaultHistoryEntry[]) {
+    if (this._view) {
+      try {
+        this._view.webview.postMessage({ type: 'focusableVaults', value: focusableVaults });
+      } catch (error) {
+        console.error('Error sending focusable vaults to webview:', error);
+      }
+    }
+  }
+
+  private sendFocusedVault(vaultSecretKey: string | null) {
+    if (this._view) {
+      try {
+        this._view.webview.postMessage({ type: 'focusedVault', value: vaultSecretKey });
+      } catch (error) {
+        console.error('Error sending focused vault to webview:', error);
+      }
     }
   }
 

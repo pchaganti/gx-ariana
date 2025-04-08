@@ -1,17 +1,10 @@
 import * as vscode from 'vscode';
 import { formatUriForDB } from './urilHelpers';
-import type { Trace } from './bindings/Trace';
 import { VaultsManager } from './vaults/VaultsManager';
-import { getConfig } from './config';
-import { TracesUnderPathRequest } from './bindings/TracesUnderPathRequest';
-import { HighlightedRegion, highlightRegions, tracesToRegions } from './highlighting/regions';
+import { highlightRegions, tracesToRegions } from './highlighting/regions';
 import { clearDecorations } from './highlighting/decorations';
-import { WebSocket } from 'ws';
 import { ArianaPanel } from './panels/ArianaPanel';
 import { HighlightingToggle } from './highlighting/HighlightingToggle';
-import { ProjectContext } from './bindings/ProjectContext';
-import { GenerateRunCommandsRequest } from './bindings/GenerateRunCommandsRequest';
-import { RunCommands } from './bindings/RunCommands';
 import { FocusedVaultManager } from './vaults/FocusedVaultManager';
 
 class Extension {
@@ -22,15 +15,14 @@ class Extension {
     private tracesHoverDisposable: vscode.Disposable | undefined;
     private vaultsManager: VaultsManager;
     private focusVaultManager: FocusedVaultManager;
-    
+
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
 
         this.vaultsManager = new VaultsManager(context.globalState);
-        console.log("vm: ", this.vaultsManager);
         this.focusVaultManager = new FocusedVaultManager(this.vaultsManager);
-        
-        this.arianaPanel = new ArianaPanel(context.extensionUri, context);
+
+        this.arianaPanel = new ArianaPanel(context.extensionUri, context, this.focusVaultManager, this.vaultsManager);
         this.registerWebviewViewProvider(ArianaPanel.viewType, this.arianaPanel);
 
         this.registerCommand('openSidebar', () => {
@@ -104,7 +96,7 @@ class Extension {
     private requestRefreshTracesInTextEditor(editor: vscode.TextEditor) {
         this.refreshTracesInTextEditorRequests.push(editor);
     }
-    
+
     private handleRefreshTracesInTextEditorRequests() {
         let requests = this.refreshTracesInTextEditorRequests;
         const currentEditor = vscode.window.activeTextEditor;
@@ -120,20 +112,20 @@ class Extension {
             }
         }
     }
-    
+
     private async highlightTraces() {
         if (!vscode.window.activeTextEditor) {
             return;
         }
         let editor = vscode.window.activeTextEditor;
         console.log("highlight requested of " + this.focusVaultManager.getFocusedVaultTraces().length + " traces");
-        const regions = tracesToRegions(this.focusVaultManager.getFocusedVaultTraces().filter(trace => 
+        const regions = tracesToRegions(this.focusVaultManager.getFocusedVaultTraces().filter(trace =>
             formatUriForDB(editor.document.uri) === trace.start_pos.filepath
         ));
         this.clearHoverTraces(editor);
         this.tracesHoverDisposable = highlightRegions(editor, regions);
     }
-    
+
     private unhighlightTraces() {
         if (!vscode.window.activeTextEditor) {
             return;
@@ -141,7 +133,7 @@ class Extension {
         console.log("unhighlighting traces now");
         clearDecorations(vscode.window.activeTextEditor);
     }
-    
+
     private clearHoverTraces(editor: vscode.TextEditor | undefined = undefined) {
         editor = editor ?? vscode.window.activeTextEditor;
         if (!editor) {
@@ -153,13 +145,10 @@ class Extension {
             this.tracesHoverDisposable = undefined;
         }
     }
-    
+
     private handleReceivedTraces() {
         if (this.highlightingToggle.isToggled() && vscode.window.activeTextEditor) {
             this.requestRefreshTracesInTextEditor(vscode.window.activeTextEditor);
-        }
-        if (this.arianaPanel) {
-            this.arianaPanel.sendDataToWebView(this.focusVaultManager.getFocusedVaultTraces());
         }
     }
 }
@@ -168,4 +157,4 @@ export async function activate(context: vscode.ExtensionContext) {
     new Extension(context);
 }
 
-export function deactivate() {}
+export function deactivate() { }
