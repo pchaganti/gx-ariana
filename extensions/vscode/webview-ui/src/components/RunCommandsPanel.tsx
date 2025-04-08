@@ -137,7 +137,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
         onClick={handleToggleCollapse}
       >
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-medium text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">
+          <h2 className="text-lg font-semibold text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">
             🧵 Run your code with Ariana
           </h2>
         </div>
@@ -163,7 +163,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
               {/* File Commands Section */}
               {runCommands.file && runCommands.file.length > 0 && (
                 <div>
-                  <h3 className="text-md font-medium mb-2 text-[var(--fg-1)]">
+                  <h3 className="text-md font-semibold mb-2 text-[var(--fg-1)]">
                     Current File Commands <span className="opacity-50">({runCommands.file.length})</span>
                   </h3>
                   
@@ -172,7 +172,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
                     <div key={`file-group-${path}`} className="mb-3">
                       {/* Only show path heading if it's not the root path */}
                       {path !== '.' && (
-                        <h4 className="text-sm font-medium mb-1 text-[var(--fg-2)] pl-2">
+                        <h4 className="text-sm font-semibold mb-1 text-[var(--fg-2)] pl-2">
                           {path}
                         </h4>
                       )}
@@ -195,7 +195,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
               {/* Project Commands Section */}
               {runCommands.project && runCommands.project.length > 0 && (
                 <div>
-                  <h3 className="text-md font-medium mb-2 text-[var(--fg-1)]">
+                  <h3 className="text-md font-semibold mb-2 text-[var(--fg-1)]">
                     Project Commands <span className="opacity-50">({runCommands.project.length})</span>
                   </h3>
                   
@@ -204,7 +204,7 @@ const RunCommandsPanel: React.FC<RunCommandsPanelProps> = ({ isInstalled }) => {
                     <div key={`project-group-${path}`} className="mb-3">
                       {/* Only show path heading if it's not the root path */}
                       {path !== '.' && (
-                        <h4 className="text-sm font-medium mb-1 text-[var(--fg-2)] pl-2">
+                        <h4 className="text-sm font-semibold mb-1 text-[var(--fg-2)] pl-2">
                           {path}
                         </h4>
                       )}

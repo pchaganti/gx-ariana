@@ -12,7 +12,7 @@ import { setCurrentRenderNonce, setTimeoutCancelIfDifferentNonce } from './utils
 import VaultSelector, { VaultHistoryEntry } from './components/VaultSelector';
 
 const App = () => {
-    const [traces, setTraces] = useState<Trace[]>([]);
+    const [traces, setTraces] = stateManager.usePersistedState<Trace[]>('traces', []);
     const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
     const [textLogoUrl, setTextLogoUrl] = useState('');
     const [isSidebar, setIsSidebar] = useState(false);
@@ -22,6 +22,7 @@ const App = () => {
     const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
     const [focusableVaults, setFocusableVaults] = stateManager.usePersistedState<VaultHistoryEntry[]>('focusableVaults', []);
     const [focusedVault, setFocusedVault] = stateManager.usePersistedState<string | null>('focusedVault', null);
+    const [highlightingToggled, setHighlightingToggled] = stateManager.usePersistedState<boolean>('highlightingToggle', false);
 
     // Initialize the app
     useEffect(() => {
@@ -133,6 +134,10 @@ const App = () => {
                 console.log('Received focused vault:', message.value);
                 setFocusedVault(message.value);
                 break;
+            case 'setHighlightingToggle':
+                console.log('Setting highlighting toggle state:', message.value);
+                setHighlightingToggled(message.value);
+                break;
             default:
                 console.log('Unhandled message type:', message.type);
         }
@@ -196,7 +201,7 @@ const App = () => {
                         </TabsContent>
 
                         <TabsContent value="traces" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                            <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} />
+                            <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} />
                         </TabsContent>
 
                         {showColorTab && (

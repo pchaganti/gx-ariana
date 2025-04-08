@@ -17,7 +17,7 @@ import React from 'react';
 const ColorVisualizerTab: React.FC = () => {
   return (
     <div className="p-4">
-      <h2 className="text-lg font-medium mb-4">VSCode Color Variables</h2>
+      <h2 className="text-lg font-semibold mb-4">VSCode Color Variables</h2>
       <div className="flex flex-wrap gap-4 justify-start">
 """
     

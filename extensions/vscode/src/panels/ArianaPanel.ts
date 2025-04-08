@@ -7,6 +7,7 @@ import { TraceService } from '../services/TraceService';
 import { HotReloadService } from '../services/HotReloadService';
 import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
 import { VaultHistoryEntry, VaultsManager } from '../vaults/VaultsManager';
+import { HighlightingToggle } from '../highlighting/HighlightingToggle';
 
 export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
@@ -18,8 +19,15 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   private _hotReloadService: HotReloadService;
   private _focusedVaultManager: FocusedVaultManager;
   private _vaultsManager: VaultsManager;
+  private _highlightToggle: HighlightingToggle;
 
-  constructor(private readonly _extensionUri: vscode.Uri, context: vscode.ExtensionContext, focusedVaultManager: FocusedVaultManager, vaultsManager: VaultsManager) {
+  constructor(
+    private readonly _extensionUri: vscode.Uri, 
+    context: vscode.ExtensionContext, 
+    focusedVaultManager: FocusedVaultManager, 
+    vaultsManager: VaultsManager,
+    highlightToggle: HighlightingToggle
+  ) {
     this._context = context;
     this._webviewService = new WebviewService(_extensionUri);
     this._runCommandsService = new RunCommandsService(context);
@@ -27,8 +35,10 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     this._hotReloadService = new HotReloadService(_extensionUri, this._webviewService);
     this._focusedVaultManager = focusedVaultManager;
     this._vaultsManager = vaultsManager;
+    this._highlightToggle = highlightToggle;
 
     this._focusedVaultManager.subscribeToFocusedVaultChange((vault) => {
+      this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
       this.sendFocusedVault(vault?.key ?? null);
     });
     this._focusedVaultManager.subscribeToBatchTrace((_) => {
@@ -37,6 +47,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     this._focusedVaultManager.subscribeToSingleTrace((_) => {
       this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
     });
+    this._highlightToggle.subscribe(() => this.sendHighlightingToggleState());
 
     this._vaultsManager.onDidAddVault((_) => {
       console.log('Vault added');
@@ -103,6 +114,8 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         console.log('Sending traces for focused vault: ', focusedVault);
         this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
       }
+
+      this.sendHighlightingToggleState();
     }, 500);
   }
 
@@ -160,6 +173,9 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
         break;
+      case 'toggleHighlighting':
+        this._highlightToggle.toggleUntoggle();
+        break;
       case 'installArianaCli':
         await this.installArianaCli(message.method);
         break;
@@ -214,6 +230,16 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         this._view.webview.postMessage({ type: 'focusedVault', value: vaultSecretKey });
       } catch (error) {
         console.error('Error sending focused vault to webview:', error);
+      }
+    }
+  }
+
+  private sendHighlightingToggleState() {
+    if (this._view) {
+      try {
+        this._view.webview.postMessage({ type: 'setHighlightingToggle', value: this._highlightToggle.isToggled() });
+      } catch (error) {
+        console.error('Error sending highlighting toggle state to webview:', error);
       }
     }
   }

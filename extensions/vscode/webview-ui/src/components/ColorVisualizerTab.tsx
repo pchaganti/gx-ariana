@@ -14,7 +14,7 @@ const ColorCategory: React.FC<ColorCategoryProps> = ({ title, colors }) => {
         className="flex items-center justify-between p-2 bg-[var(--muted-1)] cursor-pointer hover:bg-[var(--accent)] transition-colors rounded-sm group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <h3 className="text-md font-medium text-[var(--foreground)] group-hover:text-[var(--accent-foreground)]">{title}</h3>
+        <h3 className="text-md font-semibold text-[var(--foreground)] group-hover:text-[var(--accent-foreground)]">{title}</h3>
         <div className="text-[var(--foreground)] group-hover:text-[var(--accent-foreground)]">
           {isExpanded ? '◉' : '◎'}
         </div>
@@ -380,7 +380,7 @@ const ColorVisualizerTab: React.FC = () => {
 
   return (
     <div className="p-4 overflow-auto h-full">
-      <h2 className="text-lg font-medium mb-4">VSCode Color Variables</h2>
+      <h2 className="text-lg font-semibold mb-4">VSCode Color Variables</h2>
       <p className="mb-6 text-sm">Click on a category to expand and see all color variables in that group.</p>
       
       {colorCategories.map((category, index) => (

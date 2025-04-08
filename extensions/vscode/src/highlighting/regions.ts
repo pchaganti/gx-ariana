@@ -320,7 +320,10 @@ export function highlightRegions(
                 ]))}`);
 
 
-                let markdownSring = new vscode.MarkdownString("### 🕵️ Ariana traces\n\n" + `#### [Explore in side panel](${showDropdownCommandUri})\n\n` + top3Recent.join('\n\n') + (howManyAfter > 0 ? `\n\n...and [${howManyAfter} more traces](${showDropdownCommandUri})` : ''));
+                let markdownSring = new vscode.MarkdownString(
+                    "### 🕵️ Ariana traces\n\n" 
+                    // + `#### [Explore in side panel](${showDropdownCommandUri})\n\n` 
+                    + top3Recent.join('\n\n') + (howManyAfter > 0 ? `\n\n...and [${howManyAfter} more traces](${showDropdownCommandUri})` : ''));
                 markdownSring.isTrusted = true;
                 return new vscode.Hover(
                     markdownSring

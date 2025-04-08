@@ -4,6 +4,7 @@ import type { Trace } from '../bindings/Trace';
 import stateManager from '../utils/stateManager';
 import { requestHighlight } from '../lib/highlight';
 import VaultSelector, { VaultHistoryEntry } from './VaultSelector';
+import { postMessageToExtension } from '../utils/vscode';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -16,10 +17,27 @@ const formatTimestamp = (timestamp: number) => {
     }) + ` + ${ms.toString().padStart(3, '0')}ms`;
 };
 
+const formatDuration = (nanoseconds: number) => {
+    if (nanoseconds === 0) return "0 ms";
+    
+    if (nanoseconds < 1000) {
+        return `${nanoseconds.toFixed(3)} ns`;
+    } else if (nanoseconds < 1000000) {
+        return `${(nanoseconds / 1000).toFixed(3)} µs`;
+    } else if (nanoseconds < 1000000000) {
+        return `${(nanoseconds / 1000000).toFixed(3)} ms`;
+    } else {
+        return `${(nanoseconds / 1000000000).toFixed(3)} s`;
+    }
+};
+
 const TraceGroup = ({ key, traces }: { key: number, traces: Trace[] }) => {
     let enterTrace = findEnterTrace(traces, traces[0].trace_id);
     let exitTrace = findExitTrace(traces, traces[0].trace_id);
     let errorTrace = findErrorTrace(traces, traces[0].trace_id);
+
+    let parts = (enterTrace ?? exitTrace ?? errorTrace)?.start_pos.filepath.split('\\') ?? [];
+    const fileName = parts.slice(-2).join('\\');
 
     function Header({ enterTrace, exitOrErrorTrace }: { enterTrace: Trace, exitOrErrorTrace: Trace | undefined }) {
         let duration_ns = 0;
@@ -32,35 +50,38 @@ const TraceGroup = ({ key, traces }: { key: number, traces: Trace[] }) => {
         }
         
         return (
-            <div
+            <button
                 onClick={() => {
                     requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
-                }}
-                className={`w-full text-sm flex gap-3 items-start`}
+                }} 
+                className={`w-full text-left text-sm flex-col hover:bg-[var(--bg-2)] rounded-md p-3 pb-1.5 cursor-pointer`}
             >
-                <button
-                onClick={() => {
-                    requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
-                }} className="font-mono opacity-60 w-[14ch] text-left hover:bg-accent cursor-pointer">
-                    {enterTrace.start_pos.line === enterTrace.end_pos.line 
-                        ? `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to :${enterTrace.end_pos.column}`
-                        : `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`
-                    }
-                </button>
-                <div className="flex flex-col gap-1 text-xs items-start">
-                    <div className="font-mono opacity-30">
-                        Tracing started at: {formatTimestamp(enterTrace.timestamp)}
+                <div className="font-mono opacity-30 mb-0.5">
+                    in {fileName}
+                </div>
+                <div className={`w-full text-sm flex gap-3 items-start`}>
+                    <div
+                    className="font-mono opacity-60 w-[14ch] text-left">
+                        {enterTrace.start_pos.line === enterTrace.end_pos.line 
+                            ? `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to :${enterTrace.end_pos.column}`
+                            : `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`
+                        }
                     </div>
-                    {(exitOrErrorTrace && (
-                        <div className={`font-mono opacity-30 ${traceIsError(exitOrErrorTrace) ? 'text-destructive' : ''}`}>
-                            ... and {(traceIsError(exitOrErrorTrace) ? "threw Error" : "finished")} at: {formatTimestamp(exitOrErrorTrace.timestamp)}
+                    <div className="flex flex-col text-xs items-start mt-1">
+                        <div className="font-mono opacity-30">
+                            Tracing started at: {formatTimestamp(enterTrace.timestamp)}
                         </div>
-                    ))}
-                    <div className="font-mono opacity-50">
-                        Execution took: {duration_ns * 10e-11} ms
+                        {(exitOrErrorTrace && (
+                            <div className={`font-mono opacity-30 ${traceIsError(exitOrErrorTrace) ? 'text-red-500' : ''}`}>
+                                ... and {(traceIsError(exitOrErrorTrace) ? "threw Error" : "finished")} at: {formatTimestamp(exitOrErrorTrace.timestamp)}
+                            </div>
+                        ))}
+                        <div className="font-mono opacity-50">
+                            Execution took: {formatDuration(duration_ns)}
+                        </div>
                     </div>
                 </div>
-            </div>
+            </button>
         );
     }
 
@@ -82,9 +103,9 @@ const TraceGroup = ({ key, traces }: { key: number, traces: Trace[] }) => {
         }
         
         return (
-            <div className="w-full flex flex-col gap-1 p-3 border-b border-border">
+            <div className="w-full flex flex-col gap-1.5 rounded-md bg-[var(--bg-0)]">
                 <Header enterTrace={enterTrace} exitOrErrorTrace={exitTrace ? exitTrace : errorTrace} />
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto p-3 pt-0">
                     <div className="flex gap-2 items-start">
                         <div>
                             =
@@ -146,12 +167,12 @@ interface TracesTabProps {
   traces: Trace[];
   focusableVaults: VaultHistoryEntry[];
   focusedVault: string | null;
+  highlightingToggled: boolean;
 }
 
-const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault }) => {
+const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault, highlightingToggled }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
-
 
   // Restore scroll position when tab is shown
   useEffect(() => {
@@ -178,18 +199,32 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
   traces.sort((a, b) => b.timestamp - a.timestamp);
 
   return (
-    <div className="flex flex-col p-4" style={{ height: '100%', width: '100%' }}>
-      <VaultSelector 
-        focusableVaults={focusableVaults} 
-        focusedVault={focusedVault} 
-      />
+    <div className="flex flex-col gap-3 p-4 pr-0" style={{ height: '100%', width: '100%' }}>
+      <div className="flex justify-between gap-3 pr-4">
+        <div className="flex-grow">
+          <VaultSelector 
+            focusableVaults={focusableVaults} 
+            focusedVault={focusedVault} 
+          />
+        </div>
+        <button
+          onClick={() => {
+            postMessageToExtension({
+              command: 'toggleHighlighting'
+            });
+          }}
+          className={"text-[var(--fg-0)] px-3 rounded-md cursor-pointer text-sm font-semibold " + (highlightingToggled ? 'bg-[var(--accent)]' : '')}
+        >
+          Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
+        </button>
+      </div>
       <div 
         ref={containerRef}
-        className="flex flex-col gap-3 w-full max-w-full h-full overflow-y-auto"
+        className="flex flex-col gap-3 w-full max-w-full h-full overflow-y-auto pr-4 text-[var(--fg-0)]"
         onScroll={handleScroll}
       >
         {traces.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-[var(--vscode-descriptionForeground)] p-4 text-center">
+          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
             <p className="mb-2">No traces available</p>
             {focusedVault ? (
                 <p className="text-sm">Waiting for traces...</p>

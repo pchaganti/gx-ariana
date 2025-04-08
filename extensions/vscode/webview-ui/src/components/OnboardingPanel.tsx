@@ -42,7 +42,7 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 				{completed ? "✓" : number}
 			</div>
 			<div className="flex-grow pl-4 w-full">
-				<h3 className="text-lg font-medium mb-1 text-[var(--fg-0)]">{title}</h3>
+				<h3 className="text-lg font-semibold mb-1 text-[var(--fg-0)]">{title}</h3>
 				{description && <p className="text-[var(--fg-2)]">{description}</p>}
 				{children && (
 					<div className="mt-2 w-full">
@@ -118,7 +118,7 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
         className={"group sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[var(--bg-0)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--bg-1)] rounded-b-none')}
         onClick={handleToggleCollapse}
       >
-        <h2 className="text-lg font-medium text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">👋 Getting Started</h2>
+        <h2 className="text-lg font-semibold text-[var(--fg-3)] group-hover:text-[var(--fg-0)]">👋 Getting Started</h2>
         <div className={"h-3 w-3 group-hover:bg-[var(--bg-3)] " + (isCollapsed ? 'rounded-full bg-[var(--bg-1)]' : 'rounded-xs bg-[var(--bg-2)]')}>
         </div>
       </div>

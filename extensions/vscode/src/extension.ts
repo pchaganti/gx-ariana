@@ -21,8 +21,18 @@ class Extension {
 
         this.vaultsManager = new VaultsManager(context.globalState);
         this.focusVaultManager = new FocusedVaultManager(this.vaultsManager);
+        
+        this.highlightingToggle = new HighlightingToggle();
+        this.registerCommand('highlightTraces', this.highlightingToggle.toggleUntoggle);
+        this.highlightingToggle.subscribe((toggled) => this.onHighlightingToggle(toggled));
 
-        this.arianaPanel = new ArianaPanel(context.extensionUri, context, this.focusVaultManager, this.vaultsManager);
+        this.arianaPanel = new ArianaPanel(
+            context.extensionUri, 
+            context, 
+            this.focusVaultManager, 
+            this.vaultsManager,
+            this.highlightingToggle
+        );
         this.registerWebviewViewProvider(ArianaPanel.viewType, this.arianaPanel);
 
         this.registerCommand('openSidebar', () => {
@@ -30,27 +40,24 @@ class Extension {
         });
         this.executeCommand('openSidebar');
 
-        this.registerCommand('updateCLI', this.arianaPanel.updateArianaCli);
+        this.registerCommand('updateCLI', () => this.arianaPanel.updateArianaCli());
 
-        this.highlightingToggle = new HighlightingToggle();
-        this.registerCommand('highlightTraces', this.highlightingToggle.toggleUntoggle);
-        this.highlightingToggle.subscribe(this.onHighlightingToggle);
-
-        vscode.window.onDidChangeActiveTextEditor(this.handleEditorChange);
+        vscode.window.onDidChangeActiveTextEditor(() => this.handleEditorChange());
 
         if (vscode.window.activeTextEditor) {
             this.requestRefreshTracesInTextEditor(vscode.window.activeTextEditor);
         }
-        setInterval(this.handleRefreshTracesInTextEditorRequests, 500);
+        setInterval(() => this.handleRefreshTracesInTextEditorRequests(), 500);
 
         this.focusVaultManager.subscribeToFocusedVaultChange((vault) => {
-            console.log('Focused vault changed:', vault);
+            this.handleEditorChange();
         });
-        this.focusVaultManager.subscribeToSingleTrace(this.handleReceivedTraces);
-        this.focusVaultManager.subscribeToBatchTrace(this.handleReceivedTraces);
+        this.focusVaultManager.subscribeToSingleTrace(() => this.handleReceivedTraces());
+        this.focusVaultManager.subscribeToBatchTrace(() => this.handleReceivedTraces());
 
         context.subscriptions.push({
             dispose: () => {
+                console.log('Disposing extension...');
                 this.focusVaultManager.dispose();
                 this.tracesHoverDisposable?.dispose();
                 this.unhighlightTraces();
@@ -80,12 +87,14 @@ class Extension {
             this.highlightTraces();
         }
         if (!toggled) {
+            console.log('Unhighlighting traces');
             this.unhighlightTraces();
             this.clearHoverTraces();
         }
     }
 
     private handleEditorChange() {
+        console.log('Editor changed');
         this.unhighlightTraces();
         this.clearHoverTraces();
         if (this.highlightingToggle.isToggled() && vscode.window.activeTextEditor) {
@@ -118,7 +127,6 @@ class Extension {
             return;
         }
         let editor = vscode.window.activeTextEditor;
-        console.log("highlight requested of " + this.focusVaultManager.getFocusedVaultTraces().length + " traces");
         const regions = tracesToRegions(this.focusVaultManager.getFocusedVaultTraces().filter(trace =>
             formatUriForDB(editor.document.uri) === trace.start_pos.filepath
         ));
@@ -130,7 +138,6 @@ class Extension {
         if (!vscode.window.activeTextEditor) {
             return;
         }
-        console.log("unhighlighting traces now");
         clearDecorations(vscode.window.activeTextEditor);
     }
 
@@ -140,7 +147,6 @@ class Extension {
             return;
         }
         if (this.tracesHoverDisposable) {
-            console.log("clearing hovers");
             this.tracesHoverDisposable.dispose();
             this.tracesHoverDisposable = undefined;
         }
