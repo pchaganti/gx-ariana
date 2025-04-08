@@ -25,26 +25,27 @@ Use Ariana VSCode extension to :
 - ⏱️ See **how long** it took for any expression in your code to run.
 - 🧵 *Provide runtime history to* **coding agent** *for context-aware debugging* (WIP)
 
-
-
 ## 💾 How to install
 
-#### 1) Install the `extension` on your IDE 
+| IDE | Command |
+|-----|---------|
+| **VSCode** | [Click here to install](vscode:extension/dedale-dev.ariana) |
+| **Cursor / Windsurf (VSCode Forks)** | [Download from open-vsix](https://open-vsx.org/extension/ariana/ariana) then drag the `.vsix` file into your extensions panel in Cursor/Windsurf... |
 
-Install the extension on the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana), or by searching for `Ariana` in the extensions tab in VSCode or Cursor.
+## 🧵 How to use
 
-#### 2) Install the `ariana` CLI
+Follow the **Getting started** instructions in the Ariana extension panel. Below is a summary of the process:
+
+#### 1) - REQUIRED - Install the `ariana` CLI
+
+The extension will install the required `ariana` CLI for you. In case it doesn't:
 
 | Package Manager | Command                        |
 |-----------------|--------------------------------|
 | **npm**         | `npm install -g ariana`        |
 | **pip**         | `pip install ariana`           |
 
-
-
-## 📖 How to use
-
-#### 1) ✨ - REQUIRED - Add `ariana` just in front of your command. It will collect runtime information
+#### 2) ✨ - REQUIRED - Add `ariana` just in front of your command. It will collect runtime information
 
 ```bash
 ariana <run command>
@@ -58,9 +59,9 @@ For example:
 | **Python**      | `ariana python myscript.py --some-options-maybe` |
 
 
-#### 2) 👾 View runtime insights directly in your code.
+#### 3) 👾 Debug your code
 
-Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggle Traced Expressions Highlighting` command.
+Open the Ariana panel by clicking on the icon in the Activity Bar. Go to the **Analyze** tab and explore traces produced by Ariana.
 
 - 🗺️ **Identify which sections of your code ran**
 
@@ -77,7 +78,7 @@ Open a code file, press **`ctrl + shift + p`** and search for the `Ariana: Toggl
   ![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
 
 
-#### 3) 🤖 Use AI to recap what your code did & identify error root causes (WIP)
+#### 4) 🤖 Use AI to recap what your code did & identify error root causes (WIP)
 
 Run:
 
