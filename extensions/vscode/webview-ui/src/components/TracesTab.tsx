@@ -37,7 +37,9 @@ const TraceGroup = ({ key, traces }: { key: number, traces: Trace[] }) => {
     let errorTrace = findErrorTrace(traces, traces[0].trace_id);
 
     let parts = (enterTrace ?? exitTrace ?? errorTrace)?.start_pos.filepath.split('\\') ?? [];
-    const fileName = parts.slice(-2).join('\\');
+    let fileName = parts.slice(-2).join('\\');
+    parts = fileName.split('/');
+    fileName = parts.slice(-2).join('/');
 
     function Header({ enterTrace, exitOrErrorTrace }: { enterTrace: Trace, exitOrErrorTrace: Trace | undefined }) {
         let duration_ns = 0;
