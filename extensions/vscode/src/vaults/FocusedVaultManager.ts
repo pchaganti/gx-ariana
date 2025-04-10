@@ -170,7 +170,7 @@ class FocusedVault {
                     this.onBatchTrace(parsedData);
                 } else {
                     // Single new trace
-                    console.log('Received exactly one new trace from WebSocket');
+                    console.log('Received exactly one new trace from WebSocket: ', parsedData);
                     this.tracesData.push(parsedData);
                     this.onSingleTrace(parsedData);
                 }
