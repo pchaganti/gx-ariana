@@ -117,7 +117,7 @@ const VaultSelector = ({ focusableVaults, focusedVault }: VaultSelectorProps) =>
 
             {isOpen && focusableVaults.length > 0 && (
                 <div className="absolute w-full bg-[var(--bg-2)] rounded-b-md shadow-lg z-30">
-                    <ul className="py-1">
+                    <ul className="py-1 max-h-[40vh] overflow-y-auto">
                         {focusableVaults.map((vault) => (
                             <li 
                                 key={vault.key}

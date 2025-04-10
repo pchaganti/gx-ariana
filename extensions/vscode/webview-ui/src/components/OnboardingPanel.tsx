@@ -75,7 +75,7 @@ const InstallOption: React.FC<InstallOptionProps> = ({ method, command, availabl
 			</div>
 			{available ? (
 				<button 
-					className="w-full p-2 bg-[var(--fg-3)] hover:bg-[var(--accent)] text-[var(--fg-3)] rounded-b-md hover:bg-opacity-90 transition-colors cursor-pointer"
+					className="w-full p-2 bg-[var(--bg-3)] hover:bg-[var(--accent)] text-[var(--fg-3)] rounded-b-md hover:bg-opacity-90 transition-colors cursor-pointer"
 					onClick={() => onInstall(method)}
 				>
 					Run in Terminal
