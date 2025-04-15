@@ -52,7 +52,6 @@ class Extension {
         this.focusVaultManager.subscribeToFocusedVaultChange((vault) => {
             this.handleEditorChange();
         });
-        this.focusVaultManager.subscribeToSingleTrace(() => this.handleReceivedTraces());
         this.focusVaultManager.subscribeToBatchTrace(() => this.handleReceivedTraces());
 
         context.subscriptions.push({

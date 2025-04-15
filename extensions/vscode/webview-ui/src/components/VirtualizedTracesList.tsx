@@ -94,7 +94,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
                             Tracing started at: {formatTimestamp(enterTrace.timestamp)}
                         </div>
                         {(exitOrErrorTrace && (
-                            <div className={`font-mono opacity-30 ${traceIsError(exitOrErrorTrace) ? 'text-red-500' : ''}`}>
+                            <div className={`font-mono opacity-30`}>
                                 ... and {(traceIsError(exitOrErrorTrace) ? "threw Error" : "finished")} at: {formatTimestamp(exitOrErrorTrace.timestamp)}
                             </div>
                         ))}
@@ -125,7 +125,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
         }
         
         return (
-            <div className="w-full flex flex-col gap-1.5 rounded-md bg-[var(--bg-0)]">
+            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-red-700/20' : ' bg-[var(--bg-0)]')}>
                 <Header enterTrace={enterTrace} exitOrErrorTrace={exitTrace ? exitTrace : errorTrace} />
                 <div className="overflow-x-auto p-3 pt-0">
                     <div className="flex gap-2 items-start">
@@ -243,7 +243,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
-                padding: '1.5px 0',
+                padding: '0px 0',
                 maxHeight: '100%',
               }}
             >

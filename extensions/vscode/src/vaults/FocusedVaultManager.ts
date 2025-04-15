@@ -10,7 +10,6 @@ export class FocusedVaultManager {
     private vaultKeyPollingInterval: NodeJS.Timeout | null = null;
     private vaultsManager: VaultsManager | null = null;
     private focusedVaultSubscribers: Map<string, (vault: FocusedVault | null) => void> = new Map();
-    private singleTraceSubscribers: Map<string, (trace: Trace) => void> = new Map();
     private batchTraceSubscribers: Map<string, (trace: Trace[]) => void> = new Map();
 
     constructor(vaultsManager: VaultsManager) {
@@ -31,14 +30,6 @@ export class FocusedVaultManager {
         this.focusedVaultSubscribers.set(uuid, onChange);
         return () => {
             this.focusedVaultSubscribers.delete(uuid);
-        };
-    }
-
-    public subscribeToSingleTrace(onChange: (trace: Trace) => void): () => void {
-        const uuid = crypto.randomUUID();
-        this.singleTraceSubscribers.set(uuid, onChange);
-        return () => {
-            this.singleTraceSubscribers.delete(uuid);
         };
     }
 
@@ -106,9 +97,7 @@ export class FocusedVaultManager {
                 this.focusedVault.wsConnection?.close();
                 this.focusedVault.wsConnection = null;
             }
-            this.focusedVault = new FocusedVault(newFocusKey, (trace) => {
-                this.singleTraceSubscribers.forEach(subscriber => subscriber(trace));
-            }, (traces) => {
+            this.focusedVault = new FocusedVault(newFocusKey, (traces) => {
                 this.batchTraceSubscribers.forEach(subscriber => subscriber(traces));
             }, () => {
                 setTimeout(() => {
@@ -126,13 +115,14 @@ class FocusedVault {
     public key: string;
     public tracesData: Trace[] = [];
     public wsConnection: WebSocket | null = null;
-    private onSingleTrace: (trace: Trace) => void;
     private onBatchTrace: (trace: Trace[]) => void;
     private onClose: () => void;
+    private pendingTraces: Trace[] = [];
+    private throttleTimeout: NodeJS.Timeout | null = null;
+    private throttleInterval: number = 800; // 800ms throttle interval
 
-    constructor(key: string, onSingleTrace: (trace: Trace) => void, onBatchTrace: (trace: Trace[]) => void, onClose: () => void) {
+    constructor(key: string, onBatchTrace: (trace: Trace[]) => void, onClose: () => void) {
         this.key = key;
-        this.onSingleTrace = onSingleTrace;
         this.onBatchTrace = onBatchTrace;
         this.onClose = onClose;
         this.connectToTraceWebSocket(key);
@@ -162,17 +152,18 @@ class FocusedVault {
                     // Initial batch of traces
                     if (isFirst) {
                         console.log(`Received ${parsedData.length} initial traces from WebSocket`);
-                        this.tracesData = parsedData;
+                        this.tracesData = parsedData; // HERE
+                        this.sendTracesImmediately(parsedData); // Send initial traces immediately
                     } else {
                         console.log(`Received ${parsedData.length} new traces from WebSocket`);
-                        parsedData.forEach(pd => this.tracesData.push(pd));
+                        parsedData.forEach(pd => this.tracesData.push(pd)); // HERE
+                        this.queueTracesForSending(parsedData);
                     }
-                    this.onBatchTrace(parsedData);
                 } else {
                     // Single new trace
                     console.log('Received exactly one new trace from WebSocket: ', parsedData);
-                    this.tracesData.push(parsedData);
-                    this.onSingleTrace(parsedData);
+                    this.tracesData.push(parsedData); // HERE
+                    this.queueTracesForSending([parsedData]);
                 }
                 isFirst = false;
             } catch (error) {
@@ -192,5 +183,49 @@ class FocusedVault {
     
     
         return this.wsConnection;
+    }
+
+    /**
+     * Queues traces for throttled sending
+     * @param traces The traces to queue
+     */
+    private queueTracesForSending(traces: Trace[]): void {
+        // Add the new traces to the pending traces
+        this.pendingTraces.push(...traces);
+        
+        // If there's no timeout active, schedule one
+        if (!this.throttleTimeout) {
+            this.throttleTimeout = setTimeout(() => {
+                this.sendPendingTraces();
+            }, this.throttleInterval);
+        }
+        // If there is already a timeout, we'll just wait for it
+    }
+
+    /**
+     * Sends traces immediately without throttling
+     * Used for initial batch of traces
+     */
+    private sendTracesImmediately(traces: Trace[]): void {
+        if (traces.length > 0) {
+            this.onBatchTrace(traces);
+        }
+    }
+
+    /**
+     * Sends any pending traces and resets the throttle timeout
+     */
+    private sendPendingTraces(): void {
+        if (this.pendingTraces.length > 0) {
+            // Create a copy of the pending traces
+            const tracesToSend = [...this.pendingTraces];
+            // Clear the pending traces
+            this.pendingTraces = [];
+            // Send the traces
+            this.onBatchTrace(tracesToSend);
+        }
+
+        // Reset the timeout
+        this.throttleTimeout = null;
     }
 }

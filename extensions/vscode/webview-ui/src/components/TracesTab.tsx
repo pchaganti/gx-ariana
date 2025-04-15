@@ -34,44 +34,44 @@ function findEnterTrace(traces: Trace[], traceId: string): Trace | undefined {
 }
 
 const formatTimestamp = (timestamp: number) => {
-    const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
-    const ms = Math.trunc((timestamp * 10e-4) % 1000);
-    return date.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    }) + ` + ${ms.toString().padStart(3, '0')}ms`;
+  const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
+  const ms = Math.trunc((timestamp * 10e-4) % 1000);
+  return date.toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }) + ` + ${ms.toString().padStart(3, '0')}ms`;
 };
 
 const formatDuration = (nanoseconds: number) => {
-    if (nanoseconds === 0) {
-        return "0 ms";
-    }
-    
-    if (nanoseconds < 1000) {
-        return `${nanoseconds.toFixed(3)} ns`;
-    } else if (nanoseconds < 1000000) {
-        return `${(nanoseconds / 1000).toFixed(3)} µs`;
-    } else if (nanoseconds < 1000000000) {
-        return `${(nanoseconds / 1000000).toFixed(3)} ms`;
-    } else {
-        return `${(nanoseconds / 1000000000).toFixed(3)} s`;
-    }
+  if (nanoseconds === 0) {
+    return "0 ms";
+  }
+
+  if (nanoseconds < 1000) {
+    return `${nanoseconds.toFixed(3)} ns`;
+  } else if (nanoseconds < 1000000) {
+    return `${(nanoseconds / 1000).toFixed(3)} µs`;
+  } else if (nanoseconds < 1000000000) {
+    return `${(nanoseconds / 1000000).toFixed(3)} ms`;
+  } else {
+    return `${(nanoseconds / 1000000000).toFixed(3)} s`;
+  }
 };
 
 const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault, highlightingToggled }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
   const [copied, setCopied] = useState(false);
-  
+
   // Initialize tracesById
   let tracesById: Record<string, Trace[]> = {};
   traces.forEach(trace => {
-      if (!(trace.trace_id in tracesById)) {
-          tracesById[trace.trace_id] = [];
-      }
-      tracesById[trace.trace_id].push(trace);
+    if (!(trace.trace_id in tracesById)) {
+      tracesById[trace.trace_id] = [];
+    }
+    tracesById[trace.trace_id].push(trace);
   });
 
   // Sort traces by timestamp (newest first)
@@ -80,7 +80,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
   // Restore scroll position when tab is shown
   useEffect(() => {
     if (containerRef.current) {
-        containerRef.current.scrollTop = scrollPosition;
+      containerRef.current.scrollTop = scrollPosition;
     }
   }, []);
 
@@ -97,33 +97,33 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
     if (!enterTrace) {
       return '';
     }
-    
+
     const exitTrace = findExitTrace(traces, trace.trace_id);
     const errorTrace = findErrorTrace(traces, trace.trace_id);
     const exitOrErrorTrace = exitTrace || errorTrace;
-    
+
     const lines: string[] = [];
-    
+
     // Add filepath if different from previous trace
     if (prevTrace) {
-        if (enterTrace.start_pos.filepath !== findEnterTrace(traces, prevTrace.trace_id)?.start_pos.filepath) {
-            lines.push(`in ${enterTrace.start_pos.filepath}`);
-        }
-    } else {
+      if (enterTrace.start_pos.filepath !== findEnterTrace(traces, prevTrace.trace_id)?.start_pos.filepath) {
         lines.push(`in ${enterTrace.start_pos.filepath}`);
+      }
+    } else {
+      lines.push(`in ${enterTrace.start_pos.filepath}`);
     }
-    
+
     // Add line and column info
     const posInfo = `from L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`;
     lines.push(posInfo);
-    
+
     // Add timestamp info
     let timeInfo = `from ${formatTimestamp(enterTrace.timestamp)}`;
     if (exitOrErrorTrace) {
       timeInfo += ` to ${formatTimestamp(exitOrErrorTrace.timestamp)}`;
     }
     lines.push(timeInfo);
-    
+
     // Add duration if available
     let duration_ns = 0;
     if (exitOrErrorTrace) {
@@ -134,7 +134,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
       }
       lines.push(`took ${formatDuration(duration_ns)}`);
     }
-    
+
     // Add error/return value info
     if (errorTrace && typeof errorTrace.trace_type === 'object' && 'Error' in errorTrace.trace_type) {
       lines.push(`error: ${errorTrace.trace_type.Error.error_message}`);
@@ -143,10 +143,10 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
     } else {
       lines.push('did not finish');
     }
-    
+
     return lines.join('\n');
   };
-  
+
   const handleCopyAllTraces = useCallback(() => {
     // First, group traces by ID and filter to only include those with enter traces
     let validTraceGroups: Trace[][] = [];
@@ -156,7 +156,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
         validTraceGroups.push(traceGroup);
       }
     });
-    
+
     // Sort groups by enter trace timestamp
     validTraceGroups.sort((a, b) => {
       const aEnter = findEnterTrace(a, a[0].trace_id);
@@ -166,17 +166,17 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
       }
       return aEnter.timestamp - bEnter.timestamp;
     });
-    
+
     // Format each group and join with newlines
     let textOutput = '';
     let prevTrace: Trace | undefined;
-    
+
     validTraceGroups.forEach((traceGroup) => {
       const trace = traceGroup[0];
       textOutput += traceToText(trace, traceGroup, prevTrace) + '\n';
       prevTrace = trace;
     });
-    
+
     // Copy to clipboard
     navigator.clipboard.writeText(textOutput)
       .then(() => {
@@ -189,46 +189,44 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
   }, [traces, tracesById]);
 
   return (
-    <div className="flex flex-col max-h-full gap-3 p-4 pr-0">
-      <div className="flex justify-between gap-3 pr-4 items-end">
+    <div className="flex flex-col max-h-full p-4 pr-0">
+      <div className="flex justify-between gap-3 pr-4 items-end mb-2">
         <div className="flex-grow">
-          <VaultSelector 
-            focusableVaults={focusableVaults} 
-            focusedVault={focusedVault} 
+          <VaultSelector
+            focusableVaults={focusableVaults}
+            focusedVault={focusedVault}
           />
         </div>
-        <div className="flex flex-col gap-1 shrink-0 h-16 justify-end">
-            <button
-              onClick={() => {
-                postMessageToExtension({
-                  command: 'toggleHighlighting'
-                });
-              }}
-              className={"text-[var(--fg-0)] px-3 rounded-md max-h-1/2 grow cursor-pointer text-sm font-semibold " + (highlightingToggled ? 'bg-[var(--accent)]' : '')}
-            >
-              Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
-            </button>
-            {traces.length > 0 && (
-              <button
-                onClick={handleCopyAllTraces}
-                className={`text-[var(--fg-0)] px-3 rounded-md grow cursor-pointer text-sm font-semibold ${copied ? 'bg-green-600' : ' bg-[var(--bg-0)]'}`}
-              >
-                {copied ? 'Copied' : '📋 Copy All'}
-              </button>
-            )}
-        </div>
       </div>
-      
-      {/* Container for virtualized list */}
-      <div 
+      <div className="flex gap-2 pr-4 h-10">
+        <button
+          onClick={() => {
+            postMessageToExtension({
+              command: 'toggleHighlighting'
+            });
+          }}
+          className={"text-[var(--fg-0)] px-3 rounded-md h-[80%] w-[20ch] cursor-pointer text-sm font-semibold " + (highlightingToggled ? 'bg-[var(--accent)]' : 'bg-[var(--bg-0)]')}
+        >
+          Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
+        </button>
+        {traces.length > 0 && (
+          <button
+            onClick={handleCopyAllTraces}
+            className={`text-[var(--fg-0)] px-3 rounded-t-md h-full w-[15ch] cursor-pointer text-sm font-semibold ${copied ? 'bg-green-600' : ' bg-[var(--bg-0)]'}`}
+          >
+            {copied ? 'Copied' : '📋 Copy All'}
+          </button>
+        )}
+      </div>
+      <div
         ref={containerRef}
         className="w-full max-w-full h-[83vh]"
         onScroll={handleScroll}
       >
-        <VirtualizedTracesList 
-          traces={traces} 
-          tracesById={tracesById} 
-          
+        <VirtualizedTracesList
+          traces={traces}
+          tracesById={tracesById}
+
         />
       </div>
     </div>

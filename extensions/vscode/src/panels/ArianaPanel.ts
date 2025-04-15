@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { Trace } from '../bindings/Trace';
 import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installArianaCli, updateArianaCli } from '../installation/cliManager';
 import { WebviewService } from '../services/WebviewService';
-import { TraceService } from '../services/TraceService';
 import { HotReloadService } from '../services/HotReloadService';
 import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
 import { VaultHistoryEntry, VaultsManager } from '../vaults/VaultsManager';
@@ -13,7 +12,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _context: vscode.ExtensionContext;
   private _webviewService: WebviewService;
-  private _traceService: TraceService;
   private _hotReloadService: HotReloadService;
   private _focusedVaultManager: FocusedVaultManager;
   private _vaultsManager: VaultsManager;
@@ -28,21 +26,17 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   ) {
     this._context = context;
     this._webviewService = new WebviewService(_extensionUri);
-    this._traceService = new TraceService();
     this._hotReloadService = new HotReloadService(_extensionUri, this._webviewService);
     this._focusedVaultManager = focusedVaultManager;
     this._vaultsManager = vaultsManager;
     this._highlightToggle = highlightToggle;
 
     this._focusedVaultManager.subscribeToFocusedVaultChange((vault) => {
-      this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
+      this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
       this.sendFocusedVault(vault?.key ?? null);
     });
     this._focusedVaultManager.subscribeToBatchTrace((_) => {
-      this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
-    });
-    this._focusedVaultManager.subscribeToSingleTrace((_) => {
-      this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
+      this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
     });
     this._highlightToggle.subscribe(() => this.sendHighlightingToggleState());
 
@@ -109,22 +103,11 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
       
       if (focusedVault) {
         console.log('Sending traces for focused vault: ', focusedVault);
-        this.sendTracesToWebView(this._focusedVaultManager.getFocusedVaultTraces());
+        this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
       }
 
       this.sendHighlightingToggleState();
     }, 500);
-  }
-
-  /**
-   * Send trace data to the webview
-   */
-  private sendTracesToWebView(traces: Trace[]) {
-    if (this._view) {
-      this._traceService.sendTracesToWebview(this._view.webview, traces);
-    } else {
-      console.log('Cannot send traces - webview not initialized');
-    }
   }
 
   /**
@@ -180,7 +163,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         await this.updateArianaCli();
         break;
       case 'highlightCode':
-        await this._traceService.highlightCode(
+        await this.highlightCode(
           message.file,
           message.startLine,
           message.startCol,
@@ -272,6 +255,33 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     } catch (error) {
       console.error('Error updating Ariana CLI:', error);
       vscode.window.showErrorMessage(`Failed to update Ariana CLI: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private sendTracesToWebview(traces: Trace[]): void {
+    try {
+      this._view?.webview.postMessage({ type: 'traces', value: traces });
+    } catch (error) {
+      console.error('Error sending traces to webview:', error);
+    }
+  }
+
+  public async highlightCode(file: string, startLine: number, startCol: number, endLine: number, endCol: number): Promise<void> {
+    try {
+      const document = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(document);
+
+      // Convert to zero-based positions
+      const startPosition = new vscode.Position(startLine - 1, startCol - 1);
+      const endPosition = new vscode.Position(endLine - 1, endCol - 1);
+      const range = new vscode.Range(startPosition, endPosition);
+
+      // Highlight the range
+      editor.selection = new vscode.Selection(startPosition, endPosition);
+      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+    } catch (error) {
+      console.error('Failed to highlight code:', error);
+      vscode.window.showErrorMessage(`Failed to highlight code: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }
