@@ -175,16 +175,16 @@ const App = () => {
     }
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden text-base" style={{
+        <div className="flex flex-col h-screen w-screen max-w-screen overflow-hidden text-base" style={{
             color: 'var(--foreground)',
         }}>
             {isSidebar ? (
-                <div className="flex flex-col h-full max-h-full">
+                <div className="flex flex-col h-full max-h-full w-full max-w-full">
                     <Tabs
                         defaultValue="main"
                         value={activeTab}
                         onValueChange={handleTabChange}
-                        className="flex-1 flex flex-col h-full max-h-full"
+                        className="flex-1 flex flex-col h-full max-h-full w-full max-w-full"
                     >
                         <div className="">
                             <TabsList className="w-full">
@@ -200,7 +200,7 @@ const App = () => {
                             <MainTab />
                         </TabsContent>
 
-                        <TabsContent value="traces" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
+                        <TabsContent value="traces" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
                             <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} />
                         </TabsContent>
 

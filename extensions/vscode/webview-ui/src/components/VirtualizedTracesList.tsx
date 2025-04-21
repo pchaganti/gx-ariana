@@ -72,38 +72,29 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
         }
         
         return (
-            <button
-                onClick={() => {
-                    requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
-                }} 
-                className={`w-full text-left text-sm flex-col hover:bg-[var(--bg-2)] rounded-md p-3 pb-1.5 cursor-pointer`}
-            >
-                <div className="font-mono opacity-30 mb-0.5">
-                    in {fileName}
-                </div>
-                <div className={`w-full text-sm flex gap-3 items-start`}>
-                    <div
-                    className="font-mono opacity-60 w-[14ch] text-left">
-                        {enterTrace.start_pos.line === enterTrace.end_pos.line 
+            <div className="flex flex-col">
+                <button
+                    onClick={() => {
+                        requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
+                    }} 
+                    className={`w-full text-left text-sm flex-col hover:bg-[var(--bg-2)] rounded-md px-3 pb-1 pt-1.5 cursor-pointer`}
+                >
+                    <div className="font-mono opacity-30">
+                        in {fileName} {enterTrace.start_pos.line === enterTrace.end_pos.line 
                             ? `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to :${enterTrace.end_pos.column}`
                             : `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`
                         }
                     </div>
-                    <div className="flex flex-col text-xs items-start mt-1">
-                        <div className="font-mono opacity-30">
-                            Tracing started at: {formatTimestamp(enterTrace.timestamp)}
-                        </div>
-                        {(exitOrErrorTrace && (
-                            <div className={`font-mono opacity-30`}>
-                                ... and {(traceIsError(exitOrErrorTrace) ? "threw Error" : "finished")} at: {formatTimestamp(exitOrErrorTrace.timestamp)}
-                            </div>
-                        ))}
-                        <div className="font-mono opacity-50">
-                            Execution took: {formatDuration(duration_ns)}
-                        </div>
+                </button>
+                <div className={`w-full text-xs flex gap-3 pb-1 px-3 items-start`}>
+                    <div className="font-mono opacity-30">
+                        At: {formatTimestamp(enterTrace.timestamp)}
+                    </div>
+                    <div className="font-mono opacity-30">
+                        Ran for: {formatDuration(duration_ns)}
                     </div>
                 </div>
-            </button>
+            </div>
         );
     }
 
@@ -207,7 +198,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
 
   if (traces.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+      <div className="flex flex-col text-[var(--fg-0)] items-center justify-center h-full p-4 text-center">
         <p className="mb-2">No traces available</p>
         <p className="text-sm">Run your code with the Ariana CLI to generate traces, or select a previous run from the dropdown above.</p>
       </div>
@@ -243,7 +234,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
-                padding: '0px 0',
+                padding: '0.1em 0',
                 maxHeight: '100%',
               }}
             >

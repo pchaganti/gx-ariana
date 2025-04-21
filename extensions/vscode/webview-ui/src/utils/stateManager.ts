@@ -37,6 +37,8 @@ import { getVSCodeAPI } from './vscode';
  */
 class StateManager {
   private state: Record<string, any>;
+  private readonly MAX_STATE_SIZE = 8 * 1024 * 1024; // 8MB in bytes
+  private readonly TARGET_STATE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
   
   constructor() {
     // Initialize state from VS Code API or use defaults
@@ -45,6 +47,9 @@ class StateManager {
     
     this.state = savedState || {};
     
+    // Clean state on initialization
+    this.cleanStateIfNeeded();
+    
     // Save initial state if none exists
     if (!savedState) {
       this.saveState();
@@ -52,11 +57,56 @@ class StateManager {
     
     console.log('StateManager initialized with state:', this.state);
   }
+
+  /**
+   * Calculate the size of a value in bytes
+   */
+  private calculateSize(value: any): number {
+    const str = JSON.stringify(value);
+    return new Blob([str]).size;
+  }
+
+  /**
+   * Calculate total state size in bytes
+   */
+  private calculateTotalStateSize(): number {
+    return this.calculateSize(this.state);
+  }
+
+  /**
+   * Clean state by removing largest entries until target size is reached
+   */
+  private cleanStateIfNeeded(): void {
+    const currentSize = this.calculateTotalStateSize();
+    
+    if (currentSize > this.MAX_STATE_SIZE) {
+      console.log(`State size (${currentSize} bytes) exceeds maximum. Cleaning...`);
+      
+      // Calculate size of each entry
+      const entrySizes = Object.entries(this.state).map(([key, value]) => ({
+        key,
+        size: this.calculateSize(value)
+      }));
+      
+      // Sort by size in descending order
+      entrySizes.sort((a, b) => b.size - a.size);
+      
+      // Remove largest entries until we're under target size
+      while (this.calculateTotalStateSize() > this.TARGET_STATE_SIZE && entrySizes.length > 0) {
+        const largest = entrySizes.shift();
+        if (largest) {
+          console.log(`Removing state entry: ${largest.key} (${largest.size} bytes)`);
+          delete this.state[largest.key];
+        }
+      }
+    }
+  }
   
   /**
    * Save the current state to VS Code's state storage
    */
   private saveState(): void {
+    this.cleanStateIfNeeded();
     const vscodeApi = getVSCodeAPI();
     vscodeApi.setState(this.state);
     console.log('State saved:', this.state);
@@ -75,6 +125,9 @@ class StateManager {
     key: string,
     initialValue?: T
   ): [T, React.Dispatch<React.SetStateAction<T>>] {
+    // Clean state before reading
+    this.cleanStateIfNeeded();
+    
     // Initialize from the state manager, or use initialValue if state doesn't exist
     const [value, setValue] = useState<T>(() => {
       const storedValue = this.state[key];

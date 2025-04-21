@@ -4,6 +4,8 @@ import stateManager from '../utils/stateManager';
 import VaultSelector, { VaultHistoryEntry } from './VaultSelector';
 import { postMessageToExtension } from '../utils/vscode';
 import VirtualizedTracesList from './VirtualizedTracesList';
+import SortDropdown from './SortDropdown';
+import OnlyErrorsToggle from './OnlyErrorsToggle';
 
 interface TracesTabProps {
   traces: Trace[];
@@ -64,6 +66,8 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
   const [copied, setCopied] = useState(false);
+  const [sortOrder, setSortOrder] = stateManager.usePersistedState<'asc' | 'desc'>('tracesSortOrder', 'desc');
+  const [onlyErrors, setOnlyErrors] = stateManager.usePersistedState<boolean>('tracesOnlyErrors', false);
 
   // Initialize tracesById
   let tracesById: Record<string, Trace[]> = {};
@@ -74,8 +78,18 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
     tracesById[trace.trace_id].push(trace);
   });
 
-  // Sort traces by timestamp (newest first)
-  traces.sort((a, b) => b.timestamp - a.timestamp);
+  // Apply filtering and sorting
+  let filteredTraces = traces;
+  if (onlyErrors) {
+    // Filter to only include traces from groups that have an error
+    const traceIdsWithErrors = new Set(
+      traces
+        .filter(traceIsError)
+        .map(trace => trace.trace_id)
+    );
+    filteredTraces = traces.filter(trace => traceIdsWithErrors.has(trace.trace_id));
+  }
+  filteredTraces = [...filteredTraces].sort((a, b) => sortOrder === 'asc' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp);
 
   // Restore scroll position when tab is shown
   useEffect(() => {
@@ -189,7 +203,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
   }, [traces, tracesById]);
 
   return (
-    <div className="flex flex-col max-h-full p-4 pr-0">
+    <div className="flex flex-col max-w-full w-full p-4 pr-0 gap-3">
       <div className="flex justify-between gap-3 pr-4 items-end mb-2">
         <div className="flex-grow">
           <VaultSelector
@@ -198,21 +212,21 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
           />
         </div>
       </div>
-      <div className="flex gap-2 pr-4 h-10">
+      <div className="flex flex-row flex-wrap gap-2 pr-4 items-center">
         <button
           onClick={() => {
-            postMessageToExtension({
-              command: 'toggleHighlighting'
-            });
+            postMessageToExtension({ command: 'toggleHighlighting' });
           }}
-          className={"text-[var(--fg-0)] px-3 rounded-md h-[80%] w-[20ch] cursor-pointer text-sm font-semibold " + (highlightingToggled ? 'bg-[var(--accent)]' : 'bg-[var(--bg-0)]')}
+          className={"text-[var(--fg-0)] px-3 rounded-md h-8 w-[20ch] cursor-pointer text-sm font-semibold flex-shrink-0 " + (highlightingToggled ? 'bg-[var(--accent)]' : 'bg-[var(--bg-0)]')}
         >
           Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
         </button>
+        <OnlyErrorsToggle enabled={onlyErrors} onToggle={() => setOnlyErrors(v => !v)} />
+        <SortDropdown value={sortOrder} onChange={setSortOrder} />
         {traces.length > 0 && (
           <button
             onClick={handleCopyAllTraces}
-            className={`text-[var(--fg-0)] px-3 rounded-t-md h-full w-[15ch] cursor-pointer text-sm font-semibold ${copied ? 'bg-green-600' : ' bg-[var(--bg-0)]'}`}
+            className={`text-[var(--fg-0)] px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-green-600' : ' bg-[var(--bg-0)]'}`}
           >
             {copied ? 'Copied' : '📋 Copy All'}
           </button>
@@ -220,13 +234,12 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
       </div>
       <div
         ref={containerRef}
-        className="w-full max-w-full h-[83vh]"
+        className="w-full max-w-full h-[76vh]"
         onScroll={handleScroll}
       >
         <VirtualizedTracesList
-          traces={traces}
+          traces={filteredTraces}
           tracesById={tracesById}
-
         />
       </div>
     </div>
