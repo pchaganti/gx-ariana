@@ -29,7 +29,7 @@ Use Ariana VSCode extension to :
 
 | IDE | Command |
 |-----|---------|
-| **VSCode** | [Click here to install](vscode:extension/dedale-dev.ariana) |
+| **VSCode** | [Click here to install](vscode:extension/dedale-dev.ariana) or [get it from the marketplace](https://marketplace.visualstudio.com/items?itemName=dedale-dev.ariana) |
 | **Cursor / Windsurf (VSCode Forks)** | [Download from open-vsix](https://open-vsx.org/extension/ariana/ariana) then drag the `.vsix` file into your extensions panel in Cursor/Windsurf... |
 
 ## 🧵 How to use
