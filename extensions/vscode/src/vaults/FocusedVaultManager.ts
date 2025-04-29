@@ -93,6 +93,7 @@ export class FocusedVaultManager {
 
     public switchFocusedVault(newFocusKey: string, retries: number = 0) {
         if (this.focusedVault?.key !== newFocusKey) {
+            console.log('Actually switching focused vault to: ' + newFocusKey);
             if (this.focusedVault) {
                 this.focusedVault.wsConnection?.close();
                 this.focusedVault.wsConnection = null;
@@ -100,14 +101,15 @@ export class FocusedVaultManager {
             this.focusedVault = new FocusedVault(newFocusKey, (traces) => {
                 this.batchTraceSubscribers.forEach(subscriber => subscriber(traces));
             }, () => {
+                console.log('Failed to connect to WebSocket, retrying...');
                 setTimeout(() => {
                     if (this.focusedVault?.key === newFocusKey) {
                         this.switchFocusedVault(newFocusKey, retries + 1);
                     }
                 }, Math.pow(2, (retries + 1)) + 100);
             });
-            this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
         }
+        this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
     }
 }
 

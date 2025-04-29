@@ -32,6 +32,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     this._highlightToggle = highlightToggle;
 
     this._focusedVaultManager.subscribeToFocusedVaultChange((vault) => {
+      console.log('Focused vault changed to: ' + vault?.key);
       this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
       this.sendFocusedVault(vault?.key ?? null);
     });
@@ -152,6 +153,10 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         break;
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
+        break;
+      case 'refreshFocusableVaults':
+        console.log('Refreshing focusable vaults');
+        this.sendFocusableVaults(this._vaultsManager.getVaultHistory());
         break;
       case 'toggleHighlighting':
         this._highlightToggle.toggleUntoggle();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, RefreshCw } from 'lucide-react';
 
 export interface VaultHistoryEntry {
     key: string;
@@ -11,9 +11,11 @@ export interface VaultHistoryEntry {
 interface VaultSelectorProps {
     focusableVaults: VaultHistoryEntry[];
     focusedVault: string | null;
+    isRefreshing?: boolean;
+    onRefresh?: () => void;
 }
 
-const VaultSelector = ({ focusableVaults, focusedVault }: VaultSelectorProps) => {
+const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, onRefresh }: VaultSelectorProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const selectorRef = useRef<HTMLDivElement>(null);
     
@@ -93,26 +95,39 @@ const VaultSelector = ({ focusableVaults, focusedVault }: VaultSelectorProps) =>
             ref={selectorRef}
             className="relative text-[var(--fg-0)]"
         >
-            <div 
-                onClick={toggleDropdown}
-                className={`flex items-center justify-between p-2 cursor-pointer rounded-md bg-[var(--bg-0)] ${focusableVaults.length > 0 ? 'hover:bg-[var(--accent)]' : 'opacity-70'}`}
-            >
-                <div className="flex flex-col">
-                    <div className="text-sm font-semibold">
-                        {focusedVaultEntry 
-                            ? formatTimeAgo(focusedVaultEntry.createdAt)
-                            : (focusedVault ? 'No run selected' : 'No runs available')}
+            <div className="flex items-center justify-between gap-2">
+                <div 
+                    onClick={toggleDropdown}
+                    className={`flex flex-1 items-center justify-between p-2 cursor-pointer rounded-md bg-[var(--bg-0)] ${focusableVaults.length > 0 ? 'hover:bg-[var(--accent)]' : 'opacity-70'}`}
+                >
+                    <div className="flex flex-col">
+                        <div className="text-sm font-semibold">
+                            {focusedVaultEntry 
+                                ? formatTimeAgo(focusedVaultEntry.createdAt)
+                                : (focusedVault ? 'No run selected' : 'No runs available')}
+                        </div>
+                        <div className="text-xs text-[var(--fg-1)]">
+                            in {focusedVaultEntry?.dir}
+                        </div>
                     </div>
-                    <div className="text-xs text-[var(--fg-1)]">
-                        in {focusedVaultEntry?.dir}
-                    </div>
+                    {focusableVaults.length > 0 && (
+                        <ChevronDown 
+                            size={16} 
+                            className={`transition-transform ${isOpen ? 'transform rotate-180' : ''}`} 
+                        />
+                    )}
                 </div>
-                {focusableVaults.length > 0 && (
-                    <ChevronDown 
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRefresh && onRefresh();
+                    }}
+                    className="p-2 h-full flex items-center justify-center rounded-md hover:bg-[var(--bg-0)]">
+                    <RefreshCw 
                         size={16} 
-                        className={`transition-transform ${isOpen ? 'transform rotate-180' : ''}`} 
+                        className={`${isRefreshing ? 'animate-spin' : ''}`} 
                     />
-                )}
+                </button>
             </div>
 
             {isOpen && focusableVaults.length > 0 && (

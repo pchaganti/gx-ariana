@@ -12,6 +12,7 @@ interface TracesTabProps {
   focusableVaults: VaultHistoryEntry[];
   focusedVault: string | null;
   highlightingToggled: boolean;
+  isRefreshingVaults?: boolean;
 }
 
 // Helper functions
@@ -62,7 +63,7 @@ const formatDuration = (nanoseconds: number) => {
   }
 };
 
-const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault, highlightingToggled }) => {
+const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault, highlightingToggled, isRefreshingVaults = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
   const [copied, setCopied] = useState(false);
@@ -209,6 +210,8 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
           <VaultSelector
             focusableVaults={focusableVaults}
             focusedVault={focusedVault}
+            isRefreshing={isRefreshingVaults}
+            onRefresh={() => postMessageToExtension({ command: 'refreshFocusableVaults' })}
           />
         </div>
       </div>

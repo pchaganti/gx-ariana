@@ -23,6 +23,7 @@ const App = () => {
     const [focusableVaults, setFocusableVaults] = stateManager.usePersistedState<VaultHistoryEntry[]>('focusableVaults', []);
     const [focusedVault, setFocusedVault] = stateManager.usePersistedState<string | null>('focusedVault', null);
     const [highlightingToggled, setHighlightingToggled] = stateManager.usePersistedState<boolean>('highlightingToggle', false);
+    const [isRefreshingVaults, setIsRefreshingVaults] = useState(false);
 
     // Initialize the app
     useEffect(() => {
@@ -77,6 +78,10 @@ const App = () => {
             command: 'getArianaCliStatus'
         });
 
+        // Request focusable vaults on mount
+        console.log('Requesting focusable vaults');
+        refreshFocusableVaults();
+
         // Clean up
         return () => {
             console.log('App component unmounting, removing event listener');
@@ -94,6 +99,11 @@ const App = () => {
         const isDark = document.body.classList.contains('vscode-dark') ||
             window.matchMedia('(prefers-color-scheme: dark)').matches;
         console.log('Detected theme from CSS:', isDark ? 'dark' : 'light');
+    };
+
+    const refreshFocusableVaults = () => {
+        setIsRefreshingVaults(true);
+        postMessageToExtension({ command: 'refreshFocusableVaults' });
     };
 
     const handleMessage = (event: MessageEvent) => {
@@ -129,6 +139,7 @@ const App = () => {
             case 'focusableVaults':
                 console.log('Received focusable vaults:', message.value);
                 setFocusableVaults(message.value);
+                setIsRefreshingVaults(false); // Stop refreshing animation when we get vaults
                 break;
             case 'focusedVault':
                 console.log('Received focused vault:', message.value);
@@ -201,7 +212,7 @@ const App = () => {
                         </TabsContent>
 
                         <TabsContent value="traces" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                            <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} />
+                            <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} isRefreshingVaults={isRefreshingVaults} />
                         </TabsContent>
 
                         {showColorTab && (
