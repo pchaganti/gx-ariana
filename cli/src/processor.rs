@@ -2,7 +2,7 @@ use crate::collector::CollectedItems;
 use crate::instrumentation::instrument_files_batch;
 use crate::utils::create_link_or_copy;
 use anyhow::{anyhow, Result};
-use ariana_server::traces::instrumentalization::ecma::EcmaImportStyle;
+use ariana_server::traces::instrumentation::ecma::EcmaImportStyle;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;

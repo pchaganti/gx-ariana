@@ -13,7 +13,8 @@ BINARY_DIR = "binaries"  # Directory containing your prebuilt Rust binaries
 NPM_DIR = "ariana-npm"
 PIP_DIR = "ariana-py"
 BINARIES = {
-    "linux": "ariana-linux-x64",
+    "linux-x64": "ariana-linux-x64",
+    "linux-arm64": "ariana-linux-arm64",
     "macos-x64": "ariana-macos-x64",
     "macos-arm64": "ariana-macos-arm64",
     "windows": "ariana-windows-x64.exe",
@@ -147,6 +148,7 @@ def create_npm_package():
   "files": [
     "bin",
     "bin/ariana-linux-x64",
+    "bin/ariana-linux-arm64",
     "bin/ariana-macos-x64",
     "bin/ariana-macos-arm64",
     "bin/ariana-windows-x64.exe",
@@ -222,8 +224,15 @@ async function checkVersionAndWarn() {{
 }}
 
 let binaryName;
-if (platform === 'linux' && arch === 'x64') {{
-  binaryName = 'ariana-linux-x64';
+if (platform === 'linux') {{
+  if (arch === 'arm64') {{
+    binaryName = 'ariana-linux-arm64';
+  }} else if (arch === 'x64') {{
+    binaryName = 'ariana-linux-x64';
+  }} else {{
+    console.error('Unsupported Linux architecture');
+    process.exit(1);
+  }}
 }} else if (platform === 'darwin') {{
   if (arch === 'arm64') {{
     binaryName = 'ariana-macos-arm64';

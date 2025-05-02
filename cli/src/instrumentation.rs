@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use ariana_server::traces::instrumentalization::ecma::EcmaImportStyle;
+use ariana_server::traces::instrumentation::ecma::EcmaImportStyle;
 use ariana_server::web::traces::{
     CodeInstrumentationBatchRequest, CodeInstrumentationBatchResponse
 };
