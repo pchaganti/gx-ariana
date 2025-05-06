@@ -414,8 +414,14 @@ def main():
     system = platform.system().lower()
     machine = platform.machine().lower()
 
-    if system == 'linux' and 'x86_64' in machine:
-        binary = os.path.join(binary_dir, 'ariana-linux-x64')
+    if system == 'linux':
+        if 'aarch64' in machine or 'arm64' in machine:
+            binary = os.path.join(binary_dir, 'ariana-linux-arm64')
+        elif 'x86_64' in machine:
+            binary = os.path.join(binary_dir, 'ariana-linux-x64')
+        else:
+            print("Unsupported Linux architecture")
+            sys.exit(1)
     elif system == 'darwin':
         if 'x86_64' in machine:
             binary = os.path.join(binary_dir, 'ariana-macos-x64')
@@ -475,7 +481,7 @@ setup(
     description='Debug your JS/TS/Python code in development way faster than with a traditional debugger',
     packages=['ariana'],
     package_data={{
-        'ariana': ['bin/ariana-linux-x64', 'bin/ariana-macos-x64', 'bin/ariana-macos-arm64', 'bin/ariana-windows-x64.exe'],
+        'ariana': ['bin/ariana-linux-x64', 'bin/ariana-linux-arm64', 'bin/ariana-macos-x64', 'bin/ariana-macos-arm64', 'bin/ariana-windows-x64.exe'],
     }},
     entry_points={{
         'console_scripts': [

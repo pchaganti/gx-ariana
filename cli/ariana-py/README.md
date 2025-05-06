@@ -65,6 +65,7 @@ Open the Ariana panel by clicking on the icon in the Activity Bar. Go to the **A
 
 - 🗺️ **Identify which sections of your code ran**
 
+
     | Highlight Color | Meaning                        |
     |----------------|--------------------------------|
     | 🟢 **Green**   | Code segment ran successfully. |

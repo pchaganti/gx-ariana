@@ -4,11 +4,11 @@ import platform
 
 setup(
     name='ariana',
-    version='0.4.6',
+    version='0.4.7',
     description='Debug your JS/TS/Python code in development way faster than with a traditional debugger',
     packages=['ariana'],
     package_data={
-        'ariana': ['bin/ariana-linux-x64', 'bin/ariana-macos-x64', 'bin/ariana-macos-arm64', 'bin/ariana-windows-x64.exe'],
+        'ariana': ['bin/ariana-linux-x64', 'bin/ariana-linux-arm64', 'bin/ariana-macos-x64', 'bin/ariana-macos-arm64', 'bin/ariana-windows-x64.exe'],
     },
     entry_points={
         'console_scripts': [

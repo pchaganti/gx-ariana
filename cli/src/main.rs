@@ -16,12 +16,14 @@ use tokio::sync::mpsc;
 mod collector;
 mod instrumentation;
 mod processor;
+mod subprocess_stdout_watcher;
 mod trace_watcher;
 mod utils;
 
 use collector::collect_items;
 use instrumentation::{create_vault, detect_project_import_style};
 use processor::process_items;
+use subprocess_stdout_watcher::{watch_subprocess_output, OutputSource};
 use trace_watcher::watch_traces;
 use utils::{add_to_gitignore, can_create_symlinks};
 
@@ -123,10 +125,21 @@ async fn main() -> Result<()> {
         )?;
 
         let (trace_tx, mut trace_rx) = mpsc::channel::<Trace>(1);
+        let (output_tx, output_rx) = mpsc::channel::<(String, OutputSource)>(100);
         let (stop_tx, mut stop_rx) = mpsc::channel::<()>(1);
+        let (subprocess_stop_tx, subprocess_stop_rx) = mpsc::channel::<()>(1);
+
         let api_url = cli.api_url.clone();
+        let trace_watcher_vault_key = vault_key.clone();
         let trace_watcher = spawn(async move {
-            let _ = watch_traces(&mut trace_rx, &api_url, &vault_key, &mut stop_rx).await;
+            let _ = watch_traces(&mut trace_rx, &api_url, &trace_watcher_vault_key, &mut stop_rx).await;
+        });
+        
+        // Start the subprocess output watcher
+        let subprocess_api_url = cli.api_url.clone();
+        let subprocess_vault_key = vault_key.clone();
+        let subprocess_watcher = spawn(async move {
+            watch_subprocess_output(output_rx, &subprocess_api_url, &subprocess_vault_key, subprocess_stop_rx).await
         });
         // Prepare the command to run
         let mut command_args = cli.command.clone();
@@ -148,12 +161,14 @@ async fn main() -> Result<()> {
                 .args(&command_args)
                 .current_dir(&working_dir)
                 .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
                 .spawn()?
         } else {
             tokio::process::Command::new(&command)
                 .args(&command_args)
                 .current_dir(&working_dir)
                 .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
                 .spawn()?
         };
 
@@ -166,91 +181,164 @@ async fn main() -> Result<()> {
             r.store(false, Ordering::SeqCst);
         });
 
+        // Set up performance tracking
+        let perf_now = std::time::Instant::now();
+
+        // Process stderr in a separate task
+        let stderr = child.stderr.take().expect("Failed to capture stderr");
+        let mut stderr_reader = tokio::io::BufReader::new(stderr).lines();
+        let stderr_output_tx = output_tx.clone();
+        let stderr_task = spawn(async move {
+            loop {
+                match stderr_reader.next_line().await {
+                    Ok(Some(line)) => {
+                        eprintln!("{}", line); // Print to console
+                        if stderr_output_tx.send((line, OutputSource::Stderr)).await.is_err() {
+                            eprintln!("[Ariana] Stderr channel closed. Stopping stderr processing.");
+                            break;
+                        }
+                    }
+                    Ok(None) => { // EOF
+                        break;
+                    }
+                    Err(e) => { // IO error reading stderr
+                        eprintln!("[Ariana] Error reading stderr from subprocess: {}", e);
+                        break;
+                    }
+                }
+            }
+        });
+
         // Process stdout as it's produced
         let stdout = child.stdout.take().expect("Failed to capture stdout");
         let mut reader = tokio::io::BufReader::new(stdout).lines();
 
-        let perf_now = std::time::Instant::now();
+        loop {
+            match reader.next_line().await {
+                Ok(Some(line)) => {
+                    let mut processed_line = String::new();
+                    let mut current_pos = 0;
 
-        // let mut sent_traces_futures = Vec::new();
-        while let Some(line) = reader
-            .next_line()
-            .await
-            .unwrap_or_else(|_| Some(String::new()))
-        {
-            let mut processed_line = String::new();
-            let mut current_pos = 0;
+                    // Find all trace tags in the line
+                    while let Some(start_idx) = line[current_pos..].find("<trace id=") {
+                        let absolute_start = current_pos + start_idx;
 
-            // Find all trace tags in the line
-            while let Some(start_idx) = line[current_pos..].find("<trace id=") {
-                let absolute_start = current_pos + start_idx;
+                        // Add text before the trace tag to the processed line
+                        processed_line.push_str(&line[current_pos..absolute_start]);
 
-                // Add text before the trace tag to the processed line
-                processed_line.push_str(&line[current_pos..absolute_start]);
+                        // Find the end of this trace tag
+                        if let Some(end_idx) = line[absolute_start..].find("</trace>") {
+                            let absolute_end = absolute_start + end_idx + 8; // 8 is the length of "</trace>"
 
-                // Find the end of this trace tag
-                if let Some(end_idx) = line[absolute_start..].find("</trace>") {
-                    let absolute_end = absolute_start + end_idx + 8; // 8 is the length of "</trace>"
+                            // Extract trace id and content for logging
+                            if let Some(id_start) = line[absolute_start..absolute_start + 20].find('"') {
+                                if let Some(_) =
+                                    line[absolute_start + id_start + 1..absolute_start + 50].find('"')
+                                {
+                                    // Extract just the content between the tags
+                                    let id_end = line[absolute_start + id_start + 1..absolute_start + 50]
+                                        .find('"')
+                                        .unwrap();
+                                    let content_start = absolute_start + id_start + id_end + 3; // +3 for the closing " and the >
+                                    let content_end = absolute_start + end_idx;
+                                    let trace_content = &line[content_start..content_end];
+                                    let trace: Trace = serde_json::from_str(trace_content).unwrap();
 
-                    // Extract trace id and content for logging
-                    if let Some(id_start) = line[absolute_start..absolute_start + 20].find('\"') {
-                        if let Some(_) =
-                            line[absolute_start + id_start + 1..absolute_start + 50].find('\"')
-                        {
-                            // Extract just the content between the tags
-                            let id_end = line[absolute_start + id_start + 1..absolute_start + 50]
-                                .find('\"')
-                                .unwrap();
-                            let content_start = absolute_start + id_start + id_end + 3; // +3 for the closing " and the >
-                            let content_end = absolute_start + end_idx;
-                            let trace_content = &line[content_start..content_end];
-                            let trace: Trace = serde_json::from_str(trace_content).unwrap();
+                                    if trace_tx.send(trace).await.is_err() {
+                                        eprintln!("[Ariana] Trace channel closed. Cannot send more traces.");
+                                        // Decide if we should break the outer loop or just stop sending traces
+                                    }
+                                }
+                            }
 
-                            trace_tx.send(trace).await?;
+                            // Update position to after this trace tag
+                            current_pos = absolute_end;
+                        } else {
+                            // If no closing tag found, add the rest and break
+                            processed_line.push_str(&line[absolute_start..]);
+                            current_pos = line.len();
+                            break;
                         }
                     }
 
-                    // Update position to after this trace tag
-                    current_pos = absolute_end;
-                } else {
-                    // If no closing tag found, add the rest and break
-                    processed_line.push_str(&line[absolute_start..]);
-                    current_pos = line.len();
+                    // Add any remaining text after the last trace tag
+                    if current_pos < line.len() {
+                        processed_line.push_str(&line[current_pos..]);
+                    }
+
+                    // Only print if the line contains non-whitespace characters
+                    if !processed_line
+                        .trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08')
+                        .is_empty()
+                    {
+                        println!("{}", processed_line);
+                        
+                        // Send the processed line to the subprocess output watcher
+                        if output_tx.send((processed_line.clone(), OutputSource::Stdout)).await.is_err() {
+                            eprintln!("[Ariana] Stdout channel closed. Stopping stdout processing.");
+                            break;
+                        }
+                    }
+                }
+                Ok(None) => { // EOF
+                    break;
+                }
+                Err(e) => { // IO error reading stdout
+                    eprintln!("[Ariana] Error reading stdout from subprocess: {}", e);
                     break;
                 }
             }
+        }
 
-            // Add any remaining text after the last trace tag
-            if current_pos < line.len() {
-                processed_line.push_str(&line[current_pos..]);
-            }
+        // Wait for the stderr processing to complete
+        if let Err(e) = stderr_task.await {
+            eprintln!("[Ariana] Error joining stderr_task: {:?}", e);
+        }
 
-            // Only print if the line contains non-whitespace characters
-            if !processed_line
-                .trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08')
-                .is_empty()
-            {
-                println!("{}", processed_line);
-            }
+        // Ensure the child process has exited
+        let status = child.wait().await?;
+        if !status.success() {
+            eprintln!("[Ariana] Subprocess exited with status: {}", status);
         }
 
         let perf_end = std::time::Instant::now();
-
         println!(
-            "[Ariana] Command finished, took {} ms. Waiting to finish sending collected traces...",
+            "[Ariana] Command finished, took {} ms. Waiting to finish sending collected traces and output...",
             perf_end.duration_since(perf_now).as_millis()
         );
 
-        // let _ = futures::future::join_all(sent_traces_futures).await;
+        // Drop output_tx to signal to watch_subprocess_output that no more lines are coming.
+        // This allows its forwarder to exit gracefully after processing all messages.
+        drop(output_tx);
+        // stderr_output_tx (the clone) will be dropped automatically when stderr_task scope ends.
 
-        // Wait for the process to finish
-        let status = child.wait().await?;
+        // Wait for the subprocess output watcher to finish processing all messages and shut down.
+        match subprocess_watcher.await {
+            Ok(Ok(_)) => { println!("[Ariana CLI Main] Subprocess_watcher completed successfully."); }
+            Ok(Err(e)) => {
+                eprintln!("[Ariana CLI Main] Subprocess_watcher completed with error: {}", e);
+            }
+            Err(e) => {
+                eprintln!("[Ariana CLI Main] Failed to join subprocess_watcher task: {:?}", e);
+            }
+        }
 
-        // Stop the trace watcher
-        let _ = stop_tx.send(()).await;
+        // Now, explicitly stop the trace watcher (if it hasn't already stopped from its own logic).
+        // And send a final stop to subprocess_watcher (might be redundant if drop(output_tx) caused clean exit).
+        if stop_tx.send(()).await.is_err() {
+            eprintln!("[Ariana CLI Main] Failed to send stop signal to trace_watcher (already closed?).");
+        }
+        if subprocess_stop_tx.send(()).await.is_err() {
+            eprintln!("[Ariana CLI Main] Failed to send stop signal to subprocess_watcher (already closed?).");
+        }
 
-        // Wait for the trace watcher to complete
-        let _ = trace_watcher.await;
+        if let Err(e) = trace_watcher.await {
+            eprintln!("[Ariana CLI Main] Failed to join trace_watcher task: {:?}", e);
+        }
+
+        if !running.load(Ordering::SeqCst) {
+            exit(1);
+        }
 
         // If running in-place, restore original files
         if cli.inplace {

@@ -22,8 +22,14 @@ def main():
     system = platform.system().lower()
     machine = platform.machine().lower()
 
-    if system == 'linux' and 'x86_64' in machine:
-        binary = os.path.join(binary_dir, 'ariana-linux-x64')
+    if system == 'linux':
+        if 'aarch64' in machine or 'arm64' in machine:
+            binary = os.path.join(binary_dir, 'ariana-linux-arm64')
+        elif 'x86_64' in machine:
+            binary = os.path.join(binary_dir, 'ariana-linux-x64')
+        else:
+            print("Unsupported Linux architecture")
+            sys.exit(1)
     elif system == 'darwin':
         if 'x86_64' in machine:
             binary = os.path.join(binary_dir, 'ariana-macos-x64')
@@ -53,9 +59,9 @@ def main():
 
     try:
         latest_version = check_latest_version()
-        if latest_version and latest_version != '0.4.6':
+        if latest_version and latest_version != '0.4.7':
             print('\033[33m\u26A0  WARNING: You are using an outdated version of Ariana CLI\033[0m')
-            print(f'\033[33mYour version: 0.4.6\033[0m')
+            print(f'\033[33mYour version: 0.4.7\033[0m')
             print(f'\033[33mLatest version: {latest_version}\033[0m')
             print('\033[33mPlease update to the latest version using: pip install --upgrade ariana\033[0m')
     except Exception:
