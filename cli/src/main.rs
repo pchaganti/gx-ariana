@@ -314,7 +314,7 @@ async fn main() -> Result<()> {
 
         // Wait for the subprocess output watcher to finish processing all messages and shut down.
         match subprocess_watcher.await {
-            Ok(Ok(_)) => { println!("[Ariana CLI Main] Subprocess_watcher completed successfully."); }
+            Ok(Ok(_)) => {}
             Ok(Err(e)) => {
                 eprintln!("[Ariana CLI Main] Subprocess_watcher completed with error: {}", e);
             }
@@ -328,9 +328,7 @@ async fn main() -> Result<()> {
         if stop_tx.send(()).await.is_err() {
             eprintln!("[Ariana CLI Main] Failed to send stop signal to trace_watcher (already closed?).");
         }
-        if subprocess_stop_tx.send(()).await.is_err() {
-            eprintln!("[Ariana CLI Main] Failed to send stop signal to subprocess_watcher (already closed?).");
-        }
+        let _ = subprocess_stop_tx.send(()).await;
 
         if let Err(e) = trace_watcher.await {
             eprintln!("[Ariana CLI Main] Failed to join trace_watcher task: {:?}", e);

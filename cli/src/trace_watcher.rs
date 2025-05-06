@@ -47,7 +47,7 @@ pub async fn watch_traces(
                         process_traces(chunk, api_url, vault_key).await?;
                     }
                 }
-                println!("[Ariana] ❓ Use the Ariana IDE extension to view the traces. See: https://github.com/dedale-dev/ariana?tab=readme-ov-file");
+                println!("[Ariana] ❓ Use the Ariana IDE extension to view the traces.");
                 println!("[Ariana] 🙏 Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
                 println!("[Ariana] ➡️  Join the Discord: https://discord.gg/Y3TFTmE89g");
                 break;
