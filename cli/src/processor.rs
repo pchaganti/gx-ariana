@@ -14,7 +14,7 @@ use zip::write::FileOptions;
 use zip::{ZipArchive, ZipWriter};
 
 /// Processes files_to_instrument in batches of up to 100 files in parallel.
-fn process_instrument_files_in_batches(
+async fn process_instrument_files_in_batches(
     mut files: Vec<(PathBuf, PathBuf)>,
     api_url: &str,
     vault_key: &str,
@@ -56,7 +56,8 @@ fn process_instrument_files_in_batches(
             api_url.to_string(),
             vault_key.to_string(),
             import_style,
-        );
+        )
+        .await;
         let maybe_instrumented_contents = match result {
             Ok(maybe_instrumented_contents) => maybe_instrumented_contents,
             Err(e) => {
@@ -100,7 +101,7 @@ fn process_instrument_files_in_batches(
     }
 }
 
-pub fn process_items(
+pub async fn process_items(
     items: &CollectedItems,
     api_url: &str,
     vault_key: &str,
@@ -139,7 +140,8 @@ pub fn process_items(
             pb.clone(),
             true,
             Some(zip_writer),
-        );
+        )
+        .await;
     } else {
         rayon::scope(|s| {
             // Process directories to link or copy
@@ -199,7 +201,7 @@ pub fn process_items(
     Ok(())
 }
 
-pub fn restore_backup(items: &CollectedItems) -> Result<()> {
+pub fn restore_backup() -> Result<()> {
     let zip_path = Path::new(".ariana/__ariana_backups.zip");
     if !zip_path.exists() {
         return Err(anyhow!("Backup not found, could not restore."));
@@ -208,7 +210,7 @@ pub fn restore_backup(items: &CollectedItems) -> Result<()> {
     let zip_file = File::open(zip_path)?;
     let mut archive = ZipArchive::new(zip_file)?;
 
-    let total = items.files_to_instrument.len() as u64;
+    let total = archive.len() as u64;
     let pb = ProgressBar::new(total);
     pb.set_style(
         ProgressStyle::default_bar()
@@ -217,18 +219,24 @@ pub fn restore_backup(items: &CollectedItems) -> Result<()> {
             .progress_chars("##-"),
     );
 
-    for (src, _) in &items.files_to_instrument {
-        let path_str = src.to_string_lossy().to_string();
-        if let Ok(mut file) = archive.by_name(&path_str) {
-            let mut content = Vec::new();
-            file.read_to_end(&mut content)?;
-            std::fs::write(src, content)?;
-            pb.inc(1);
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let filename = file.name().to_string();
+        let outpath = Path::new(&filename);
+
+        if let Some(parent) = outpath.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)?;
+            }
         }
+
+        let mut content = Vec::new();
+        file.read_to_end(&mut content)?;
+        std::fs::write(outpath, content)?;
+        pb.inc(1);
     }
 
-    drop(archive); // Close the archive
-    // let _ = std::fs::remove_dir_all(".ariana"); // Clean up if empty
+    drop(archive);
 
     pb.finish_with_message("Backup restoration complete");
     Ok(())
