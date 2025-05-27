@@ -79,7 +79,7 @@ async fn main_command(cli: Cli) -> Result<()> {
     let ariana_dir = current_dir.join(ARIANA_DIR);
 
     // Check symlink capability on Windows
-    if cfg!(windows) && !can_create_symlinks() {
+    if cfg!(windows) && !can_create_symlinks().await {
         println!("[Ariana] Warning: Unable to create symlinks. Ariana will fall back to copying files, which may be slow for large directories like node_modules.");
         println!("To enable symlinks on Windows:");
         println!("1. Enable Developer Mode in Windows Settings (Settings > Update & Security > For developers).");
@@ -97,7 +97,7 @@ async fn main_command(cli: Cli) -> Result<()> {
     }
 
     // Add .ariana to .gitignore
-    add_to_gitignore(&current_dir)?;
+    add_to_gitignore(&current_dir).await?;
 
     // Create vault
     println!("[Ariana] Creating a new vault for your traces");
@@ -379,7 +379,7 @@ async fn run_recap(api_url: &str) -> Result<()> {
     println!("[Ariana] Fetching recap from server...");
     
     // Generate a machine hash for the request
-    let machine_hash = generate_machine_id()?;
+    let machine_hash = generate_machine_id().await?;
     
     // Call the server API to get the trace tree
     let client = reqwest::Client::new();

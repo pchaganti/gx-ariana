@@ -5,11 +5,12 @@ use anyhow::{anyhow, Result};
 use ariana_server::traces::instrumentation::ecma::EcmaImportStyle;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use futures_util::future;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use zip::write::FileOptions;
 use zip::{ZipArchive, ZipWriter};
 
@@ -19,10 +20,11 @@ async fn process_instrument_files_in_batches(
     api_url: &str,
     vault_key: &str,
     import_style: &EcmaImportStyle,
-    pb: Arc<ProgressBar>,
+    pb: Arc<Mutex<ProgressBar>>,
     is_inplace: bool,
     zip_writer: Option<Arc<std::sync::Mutex<ZipWriter<File>>>>,
 ) {
+    println!("Processing {:?}", files);
     let mut paths_sizes = HashMap::new();
     files.sort_by(|a, b| {
         let a_size = fs::metadata(&a.0).unwrap().len();
@@ -96,7 +98,7 @@ async fn process_instrument_files_in_batches(
                 }
                 fs::write(dest_path, instrumented_content).unwrap();
             }
-            pb.inc(1);
+            pb.lock().unwrap().inc(1);
         }
     }
 }
@@ -118,8 +120,8 @@ pub async fn process_items(
     };
 
     // Initialize progress bar
-    let pb = Arc::new(ProgressBar::new(total));
-    pb.set_style(
+    let pb = Arc::new(Mutex::new(ProgressBar::new(total)));
+    pb.lock().unwrap().set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
             .unwrap()
@@ -143,60 +145,70 @@ pub async fn process_items(
         )
         .await;
     } else {
-        rayon::scope(|s| {
-            // Process directories to link or copy
-            for (src, dest) in &items.directories_to_link_or_copy {
-                let pb = pb.clone();
-                let src = src.clone();
-                let dest = dest.clone();
-                s.spawn(move |_| {
-                    if let Some(parent) = dest.parent() {
-                        if let Err(e) = fs::create_dir_all(parent) {
-                            eprintln!("Could not create {:?}: {}", parent, e);
-                        }
-                    }
-                    if let Err(e) = create_link_or_copy(&src, &dest) {
-                        eprintln!("Could not copy or link {:?}: {}", src, e);
-                    }
-                    pb.inc(1);
-                });
-            }
+        // Create futures for all tasks
+        let mut tasks = Vec::new();
 
-            // Process files to link or copy
-            for (src, dest) in &items.files_to_link_or_copy {
-                let pb = pb.clone();
-                let src = src.clone();
-                let dest = dest.clone();
-                s.spawn(move |_| {
-                    if let Some(parent) = dest.parent() {
-                        if let Err(e) = fs::create_dir_all(parent) {
-                            eprintln!("Could not create {:?}: {}", parent, e);
-                        }
+        // Process directories to link or copy
+        for (src, dest) in &items.directories_to_link_or_copy {
+            let pb = pb.clone();
+            let src = src.clone();
+            let dest = dest.clone();
+            tasks.push(tokio::spawn(async move {
+                if let Some(parent) = dest.parent() {
+                    if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                        eprintln!("Could not create {:?}: {}", parent, e);
                     }
-                    if let Err(e) = create_link_or_copy(&src, &dest) {
-                        eprintln!("Could not copy or link {:?}: {}", src, e);
-                    }
-                    pb.inc(1);
-                });
-            }
+                }
+                if let Err(e) = create_link_or_copy(&src, &dest).await {
+                    eprintln!("Could not copy or link {:?}: {}", src, e);
+                }
+                pb.lock().unwrap().inc(1);
+            }));
+        }
 
-            // Process files_to_instrument in batches within a separate task
-            s.spawn(|_| {
-                process_instrument_files_in_batches(
-                    items.files_to_instrument.to_vec(),
-                    api_url,
-                    vault_key,
-                    import_style,
-                    pb.clone(),
-                    false,
-                    None,
-                );
-            });
-        });
+        // Process files to link or copy
+        for (src, dest) in &items.files_to_link_or_copy {
+            let pb = pb.clone();
+            let src = src.clone();
+            let dest = dest.clone();
+            tasks.push(tokio::spawn(async move {
+                if let Some(parent) = dest.parent() {
+                    if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                        eprintln!("Could not create {:?}: {}", parent, e);
+                    }
+                }
+                if let Err(e) = create_link_or_copy(&src, &dest).await {
+                    eprintln!("Could not copy or link {:?}: {}", src, e);
+                }
+                pb.lock().unwrap().inc(1);
+            }));
+        }
+
+        // Process files_to_instrument in batches
+        let files_to_process = items.files_to_instrument.to_vec();
+        let api_url = api_url.to_string();
+        let vault_key = vault_key.to_string();
+        let import_style = import_style.clone();
+        
+        let pb_clone = pb.clone();
+        tasks.push(tokio::spawn(async move {
+            process_instrument_files_in_batches(
+                files_to_process,
+                &api_url,
+                &vault_key,
+                &import_style,
+                pb_clone.clone(),
+                false,
+                None
+            ).await
+        }));
+
+        // Wait for all tasks to complete
+        future::join_all(tasks).await;
     }
 
     // Finalize progress bar and message thread
-    pb.finish();
+    pb.lock().unwrap().finish();
 
     Ok(())
 }

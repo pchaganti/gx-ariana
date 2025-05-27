@@ -99,7 +99,7 @@ pub async fn instrument_files_batch(
 
 pub async fn create_vault(api_url: &str) -> Result<String> {
     // Generate a machine hash (just a random ID in this case)
-    let machine_hash = generate_machine_id()?;
+    let machine_hash = generate_machine_id().await?;
 
     // Call the server API to create a vault
     let client = reqwest::Client::new();

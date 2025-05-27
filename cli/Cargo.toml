@@ -22,6 +22,7 @@ ariana-server = { path = "./server" }
 zip = "2.5.0"
 tokio-tungstenite = { version = "0.26.2", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3.31"
+async-recursion = "1.1.1"
 
 # [target.x86_64-unknown-linux-gnu.dependencies]
 # openssl = { version = "0.10.59", features = ["vendored"] }
