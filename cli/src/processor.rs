@@ -24,7 +24,6 @@ async fn process_instrument_files_in_batches(
     is_inplace: bool,
     zip_writer: Option<Arc<std::sync::Mutex<ZipWriter<File>>>>,
 ) {
-    println!("Processing {:?}", files);
     let mut paths_sizes = HashMap::new();
     files.sort_by(|a, b| {
         let a_size = fs::metadata(&a.0).unwrap().len();

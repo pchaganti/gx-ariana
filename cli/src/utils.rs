@@ -40,7 +40,6 @@ pub fn should_explore_directory(dir_name: &str) -> bool {
 pub async fn should_copy_not_link(path: &Path) -> bool {
     // if file is less than 1mb copy it
     let metadata = fs::metadata(path).await.unwrap();
-    println!("{} {}", path.display(), metadata.len());
     if metadata.len() < 1024 * 1024 {
         return true;
     }
