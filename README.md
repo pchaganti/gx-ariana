@@ -1,6 +1,6 @@
 <div align="center">
   <div align="center">
-  <h1>Ariana: Debug your code effortlessly with AI</h1>
+  <h1>Ariana: Effortless AI-ready observability right in your IDE</h1>
   <div align="center">
     <img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800">
   </div>
@@ -80,14 +80,17 @@ Open the Ariana panel by clicking on the icon in the Activity Bar. Go to the **A
 
 #### 4) 🤖 Use AI to recap what your code did & identify error root causes (WIP)
 
-Run:
+In the Ariana panel of your IDE go to Analyze and click "copy". You can then feed the traces to your AI coding agent in a little prompt like that:
 
 ```
-ariana --recap
-```
-It will tell you what might have gone wrong with your code.
+<paste traces>
 
-*Coming soon: A coding agent that answers questions and directly impacts your codebase*
+Using the debugging traces above and your knowledge of the codebase please do <xyz>
+```
+
+Tip: use an agent with a lot of contexts as traces are quite heavy for now.
+
+*Coming soon: 10x smaller traces + an integrated coding agent for runtime questions / fixes*
 
 
 ----------------------------------------
