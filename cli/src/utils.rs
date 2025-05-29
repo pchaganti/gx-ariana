@@ -163,14 +163,19 @@ pub async fn can_create_symlinks() -> bool {
         let src = temp_dir.join("ariana_test_src");
         let dest = temp_dir.join("ariana_test_dest");
         if fs::write(&src, "test").await.is_err() {
+            println!("Failed to create test file");
             return false;
         }
-        let result = tokio::fs::symlink_file(&src, &dest).await;
-        let _ = fs::remove_file(&src);
+        if fs::metadata(&dest).await.is_ok() {
+            let _ = fs::remove_file(&dest).await;
+        }
+        let result = fs::symlink_file(&src, &dest).await;
+        let _ = fs::remove_file(&src).await;
         if result.is_ok() {
-            let _ = fs::remove_file(&dest);
+            let _ = fs::remove_file(&dest).await;
             true
         } else {
+            println!("Failed to create symlink: {:?}", result);
             false
         }
     }
@@ -273,11 +278,11 @@ async fn get_stable_machine_id() -> Option<String> {
 
     #[cfg(unix)]
     {
-        if let Ok(id) = fs::read_to_string("/etc/machine-id") {
+        if let Ok(id) = fs::read_to_string("/etc/machine-id").await {
             return Some(id.trim().to_string());
         }
 
-        if let Ok(id) = fs::read_to_string("/var/lib/dbus/machine-id") {
+        if let Ok(id) = fs::read_to_string("/var/lib/dbus/machine-id").await {
             return Some(id.trim().to_string());
         }
     }

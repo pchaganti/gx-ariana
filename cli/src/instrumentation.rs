@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use ariana_server::traces::instrumentation::ecma::EcmaImportStyle;
-use ariana_server::web::traces::{
+use ariana_server::web::traces::instrument::{
     CodeInstrumentationBatchRequest, CodeInstrumentationBatchResponse,
 };
 use ariana_server::web::vaults::VaultPublicData;
@@ -18,13 +18,6 @@ pub async fn instrument_files_batch(
     vault_key: String,
     import_style: &EcmaImportStyle,
 ) -> Result<Vec<Option<String>>> {
-    println!(
-        "Instrumenting batch of {} files. API: {}, Vault Key: {}",
-        files_paths.len(),
-        api_url,
-        vault_key
-    );
-
     if files_paths.is_empty() {
         // If files_paths is empty, there's nothing to instrument.
         // The original code would panic on files_paths[0] if it were empty.
@@ -64,7 +57,7 @@ pub async fn instrument_files_batch(
         let client = Client::new(); 
         let response_result = client
             .post(&format!(
-                "{}/vaults/traces/{}/instrumentalize-batched",
+                "{}/vaults/traces/{}/instrument-batched",
                 api_url, vault_key
             ))
             .header("Content-Type", "application/json")

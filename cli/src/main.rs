@@ -13,6 +13,9 @@ use tokio::io::AsyncBufReadExt;
 use tokio::spawn;
 use tokio::sync::mpsc;
 
+mod auth;
+mod config;
+
 mod collector;
 mod instrumentation;
 mod processor;
@@ -38,6 +41,10 @@ struct Cli {
     #[arg(long)]
     restore: bool,
 
+    /// Ignores normal behavior and just logs in to your Ariana account
+    #[arg(long)]
+    login: bool,
+
     /// API URL for Ariana server
     #[arg(long, default_value_t = if cfg!(debug_assertions) { "http://localhost:8080/".to_string() } else { "https://api.ariana.dev/".to_string() })]
     api_url: String,
@@ -46,7 +53,7 @@ struct Cli {
     #[arg(long)]
     inplace: bool,
 
-    /// The command to execute in the instrumented code directory (not required if --recap or --restore is used)
+    /// The command to execute in the instrumented code directory (not required if --recap, --restore, or --login is used)
     #[arg(trailing_var_arg = true)]
     command: Vec<String>,
 }
@@ -58,17 +65,21 @@ async fn main() -> Result<()> {
     env::set_var("RUST_BACKTRACE", "1");
     let cli = Cli::parse();
 
-    if cli.recap {
+    if cli.login {
+        auth::ensure_authenticated(&cli.api_url).await
+    } else if cli.recap {
         run_recap(&cli.api_url).await
     } else if cli.restore {
         restore_backup()
     } else {
+        // // Ensure authenticated before running any command
+        // auth::ensure_authenticated(&cli.api_url).await?;
         main_command(cli).await
-    } 
+    }
 }
 
 async fn main_command(cli: Cli) -> Result<()> {
-    if cli.command.is_empty() {
+    if cli.command.is_empty() && !cli.login {
         eprintln!("Error: A command is required when not using --recap");
         eprintln!("Usage: ariana [args...] <command>");
         eprintln!("       ariana --recap");
