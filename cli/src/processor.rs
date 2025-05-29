@@ -3,9 +3,9 @@ use crate::instrumentation::instrument_files_batch;
 use crate::utils::create_link_or_copy;
 use anyhow::{anyhow, Result};
 use ariana_server::traces::instrumentation::ecma::EcmaImportStyle;
+use futures_util::future;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use futures_util::future;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -37,7 +37,11 @@ async fn process_instrument_files_in_batches(
     for (i, batch) in files.chunks(300).enumerate() {
         let mut total_size = 0;
         for (src, _) in batch {
-            total_size += paths_sizes.get(src).unwrap();
+            if let Some(size) = paths_sizes.get(src) {
+                total_size += size;
+            } else {
+                println!("Unable to find size for source: {:?}", src);
+            }
         }
 
         let files_contents: Vec<String> = batch
@@ -188,7 +192,7 @@ pub async fn process_items(
         let api_url = api_url.to_string();
         let vault_key = vault_key.to_string();
         let import_style = import_style.clone();
-        
+
         let pb_clone = pb.clone();
         tasks.push(tokio::spawn(async move {
             process_instrument_files_in_batches(
@@ -198,8 +202,9 @@ pub async fn process_items(
                 &import_style,
                 pb_clone.clone(),
                 false,
-                None
-            ).await
+                None,
+            )
+            .await
         }));
 
         // Wait for all tasks to complete
