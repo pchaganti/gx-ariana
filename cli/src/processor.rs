@@ -35,15 +35,6 @@ async fn process_instrument_files_in_batches(
     });
 
     for (i, batch) in files.chunks(300).enumerate() {
-        let mut total_size = 0;
-        for (src, _) in batch {
-            if let Some(size) = paths_sizes.get(src) {
-                total_size += size;
-            } else {
-                println!("Unable to find size for source: {:?}", src);
-            }
-        }
-
         let files_contents: Vec<String> = batch
             .par_iter()
             .map(|(src, _)| fs::read_to_string(&src).unwrap())
