@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import TracesTab from './components/TracesTab';
 import ColorVisualizerTab from './components/ColorVisualizerTab';
+import ThemeColorsTab from './components/ThemeColorsTab';
 import type { Trace } from './bindings/Trace';
 import MainTab from './components/MainTab';
 import { postMessageToExtension } from './utils/vscode';
@@ -18,6 +19,7 @@ const App = () => {
     const [isSidebar, setIsSidebar] = useState(false);
     const [showColorTab, setShowColorTab] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [theme, setTheme] = useState('vscode-light');
     const [_, setLogoClicks] = useState<number[]>([]);
     const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
     const [focusableVaults, setFocusableVaults] = stateManager.usePersistedState<VaultHistoryEntry[]>('focusableVaults', []);
@@ -98,6 +100,7 @@ const App = () => {
         // Also try to detect from CSS variables as a fallback
         const isDark = document.body.classList.contains('vscode-dark') ||
             window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setTheme(isDark ? 'vscode-dark' : 'vscode-light');
         console.log('Detected theme from CSS:', isDark ? 'dark' : 'light');
     };
 
@@ -119,6 +122,7 @@ const App = () => {
                 }
                 break;
             case 'theme':
+                setTheme(message.value === 'dark' ? 'vscode-dark' : 'vscode-light');
                 break;
             case 'themeChange':
                 setTimeoutCancelIfDifferentNonce(() => detectTheme(), 1000, 'themeChange');
@@ -186,10 +190,7 @@ const App = () => {
     }
 
     return (
-        <div className="flex flex-col h-screen w-screen max-w-screen overflow-hidden text-base" style={{
-            color: 'var(--vscode-foreground)',
-            backgroundColor: 'var(--vscode-background)'
-        }}>
+        <div className={`${theme} flex flex-col h-screen w-screen max-w-screen overflow-hidden text-base`}>
             {isSidebar ? (
                 <div className="flex flex-col h-full max-h-full w-full max-w-full">
                     <Tabs
@@ -205,6 +206,7 @@ const App = () => {
                                 {showColorTab && (
                                     <TabsTrigger value="colors" className="flex-1">Colors</TabsTrigger>
                                 )}
+                                <TabsTrigger value="theme" className="flex-1">Theme</TabsTrigger>
                             </TabsList>
                         </div>
 
@@ -221,6 +223,9 @@ const App = () => {
                                 <ColorVisualizerTab />
                             </TabsContent>
                         )}
+                        <TabsContent value="theme" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
+                            <ThemeColorsTab />
+                        </TabsContent>
                     </Tabs>
                     <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </div>
