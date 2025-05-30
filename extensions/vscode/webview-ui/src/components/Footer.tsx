@@ -27,14 +27,14 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
     };
 
     return (
-        <div className="h-[30px] px-4 py-1 bg-[var(--bg-2)] flex justify-between items-center text-xs text-[var(--fg-2)]">
+        <div className="h-[30px] px-4 py-1 bg-[var(--vscode-secondary-500)] flex justify-between items-center text-xs text-[var(--vscode-foreground)] opacity-70">
             <div>
                 {cliStatus?.isInstalled && cliStatus.version && (
                     <span>
                         ariana - {cliStatus.version.split('ariana ')[1]}
                         {cliStatus.needsUpdate && (
                             <button 
-                                className="ml-2 px-2 py-0.5 text-xs bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:bg-opacity-90 transition-colors"
+                                className="ml-2 px-2 py-0.5 text-xs bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)] rounded-md hover:bg-opacity-90 transition-colors"
                                 onClick={handleUpdate}
                             >
                                 Update
@@ -47,7 +47,7 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
                 href="https://discord.gg/Y3TFTmE89g" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-[var(--accent)] hover:underline"
+                className="text-[var(--vscode-accent-500)] hover:underline"
                 onClick={(e) => {
                     e.preventDefault();
                     postMessageToExtension({ 

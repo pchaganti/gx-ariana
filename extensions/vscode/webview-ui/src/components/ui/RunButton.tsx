@@ -1,31 +1,24 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { Button } from './button';
 
-interface RunButtonProps {
-    onClick: () => void;
+interface RunButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     className?: string;
-    disabled?: boolean;
-    children?: React.ReactNode;
 }
 
-const RunButton: React.FC<RunButtonProps> = ({ 
-    onClick, 
-    className, 
-    disabled = false,
-    children = 'Run in Terminal'
+const RunButton: React.FC<RunButtonProps> = ({
+    className,
+    ...props
 }) => {
     return (
-        <Button
+        <button 
             className={cn(
-                "mt-2 w-full p-2 bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:bg-opacity-90 transition-colors",
+                "px-2 py-1 bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)] rounded-md hover:opacity-90 transition-colors",
                 className
             )}
-            onClick={onClick}
-            disabled={disabled}
+            {...props}
         >
-            {children}
-        </Button>
+            Run
+        </button>
     );
 };
 

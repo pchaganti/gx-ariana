@@ -13,7 +13,7 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex items-center justify-center",
-      "bg-[var(--bg-0)]",
+      "bg-[var(--vscode-background)]",
       className
     )}
     {...props}
@@ -29,9 +29,9 @@ const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex items-center justify-center whitespace-nowrap px-3 py-1 text-sm font-semibold transition-all cursor-pointer",
-      "text-[var(--fg-3)]",
-      "data-[state=active]:bg-[var(--bg-2)] data-[state=active]:text-[var(--fg-0)]",
-      "data-[state=inactive]:hover:bg-[var(--accent)] data-[state=inactive]:hover:text-[var(--fg-0)]",
+      "text-[var(--vscode-foreground)]",
+      "data-[state=active]:bg-[var(--vscode-primary-500)] data-[state=active]:bg-opacity-20 data-[state=active]:text-[var(--vscode-foreground)]",
+      "data-[state=inactive]:hover:bg-[var(--vscode-accent-500)] data-[state=inactive]:hover:bg-opacity-20 data-[state=inactive]:hover:text-[var(--vscode-foreground)]",
       className
     )}
     {...props}

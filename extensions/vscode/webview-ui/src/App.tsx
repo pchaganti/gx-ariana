@@ -187,7 +187,8 @@ const App = () => {
 
     return (
         <div className="flex flex-col h-screen w-screen max-w-screen overflow-hidden text-base" style={{
-            color: 'var(--foreground)',
+            color: 'var(--vscode-foreground)',
+            backgroundColor: 'var(--vscode-background)'
         }}>
             {isSidebar ? (
                 <div className="flex flex-col h-full max-h-full w-full max-w-full">

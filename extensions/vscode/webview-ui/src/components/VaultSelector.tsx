@@ -93,12 +93,12 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
     return (
         <div 
             ref={selectorRef}
-            className="relative text-[var(--fg-0)]"
+            className="relative text-[var(--vscode-foreground)]"
         >
             <div className="flex items-center justify-between gap-2">
                 <div 
                     onClick={toggleDropdown}
-                    className={`flex flex-1 items-center justify-between p-2 cursor-pointer rounded-md bg-[var(--bg-0)] ${focusableVaults.length > 0 ? 'hover:bg-[var(--accent)]' : 'opacity-70'}`}
+                    className={`flex flex-1 items-center justify-between p-2 cursor-pointer rounded-md bg-[var(--vscode-background)] ${focusableVaults.length > 0 ? 'hover:bg-[var(--vscode-accent-500)]' : 'opacity-70'}`}
                 >
                     <div className="flex flex-col">
                         <div className="text-sm font-semibold">
@@ -106,7 +106,7 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
                                 ? formatTimeAgo(focusedVaultEntry.createdAt)
                                 : (focusedVault ? 'No run selected' : 'No runs available')}
                         </div>
-                        <div className="text-xs text-[var(--fg-1)]">
+                        <div className="text-xs text-[var(--vscode-foreground)]">
                             in {focusedVaultEntry?.dir}
                         </div>
                     </div>
@@ -122,7 +122,7 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
                         e.stopPropagation();
                         onRefresh && onRefresh();
                     }}
-                    className="p-2 h-full flex items-center justify-center rounded-md hover:bg-[var(--bg-0)]">
+                    className="p-2 h-full flex items-center justify-center rounded-md hover:bg-[var(--vscode-background)]">
                     <RefreshCw 
                         size={16} 
                         className={`${isRefreshing ? 'animate-spin' : ''}`} 
@@ -131,19 +131,19 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
             </div>
 
             {isOpen && focusableVaults.length > 0 && (
-                <div className="absolute w-full bg-[var(--bg-2)] rounded-b-md shadow-lg z-30">
+                <div className="absolute w-full bg-[var(--vscode-secondary-500)] rounded-b-md shadow-lg z-30">
                     <ul className="py-1 max-h-[40vh] overflow-y-auto">
                         {focusableVaults.map((vault) => (
                             <li 
                                 key={vault.key}
                                 onClick={() => handleVaultSelect(vault.key)}
-                                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-[var(--bg-0)] ${vault.key === focusedVault ? 'bg-[var(--accent)]' : ''}`}
+                                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-[var(--vscode-background)] ${vault.key === focusedVault ? 'bg-[var(--vscode-accent-500)]' : ''}`}
                             >
                                 <div className="flex flex-col">
                                     <div className="text-sm font-semibold">
                                         {formatTimeAgo(vault.createdAt)}
                                     </div>
-                                    <div className="text-xs text-[var(--fg-1)]">
+                                    <div className="text-xs text-[var(--vscode-foreground)] opacity-70">
                                         in {vault.dir}
                                     </div>
                                 </div>

@@ -17,7 +17,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
     return (
         <div className={cn(
             "p-3 rounded-md font-mono text-sm",
-            disabled ? "bg-[var(--bg-1)] text-[var(--fg-3)] opacity-50" : "bg-[var(--bg-1)] text-[var(--fg-1)]",
+            disabled ? "bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)] opacity-50" : "bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)]",
             className
         )}>
             {children}

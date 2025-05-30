@@ -77,7 +77,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
                     onClick={() => {
                         requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
                     }} 
-                    className={`w-full text-left text-sm flex-col hover:bg-[var(--bg-2)] rounded-md px-3 pb-1 pt-1.5 cursor-pointer`}
+                    className={`w-full text-left text-sm flex-col hover:bg-[var(--vscode-secondary-500)] rounded-md px-3 pb-1 pt-1.5 cursor-pointer`}
                 >
                     <div className="font-mono opacity-30">
                         in {fileName} {enterTrace.start_pos.line === enterTrace.end_pos.line 
@@ -116,7 +116,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
         }
         
         return (
-            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-red-700/20' : ' bg-[var(--bg-0)]')}>
+            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-[var(--vscode-error-500)] bg-opacity-20' : ' bg-[var(--vscode-background)]')}>
                 <Header enterTrace={enterTrace} exitOrErrorTrace={exitTrace ? exitTrace : errorTrace} />
                 <div className="overflow-x-auto p-3 pt-0">
                     <div className="flex gap-2 items-start">
@@ -137,15 +137,15 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
                                 case 'boolean':
                                     return <span className="font-mono">{String(parsedValue)}</span>;
                                 case 'undefined':
-                                    return <span className="font-mono text-muted-foreground">undefined</span>;
+                                    return <span className="font-mono text-[var(--vscode-foreground)] opacity-50">undefined</span>;
                                 case 'function':
-                                    return <span className="font-mono text-blue-400">[Function]</span>;
+                                    return <span className="font-mono text-[var(--vscode-accent-500)]">[Function]</span>;
                                 case 'symbol':
-                                    return <span className="font-mono text-green-400">{parsedValue.toString()}</span>;
+                                    return <span className="font-mono text-[var(--vscode-warning-500)]">{parsedValue.toString()}</span>;
                                 case 'object':
                                     if (parsedValue === null) {
                                         return (
-                                            <span className="font-mono text-destructive">
+                                            <span className="font-mono text-[var(--vscode-error-500)]">
                                                 null/None
                                             </span>
                                         );
@@ -198,7 +198,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
 
   if (traces.length === 0) {
     return (
-      <div className="flex flex-col text-[var(--fg-0)] items-center justify-center h-full p-4 text-center">
+      <div className="flex flex-col text-[var(--vscode-foreground)] items-center justify-center h-full p-4 text-center">
         <p className="mb-2">No traces available</p>
         <p className="text-sm">Run your code with the Ariana CLI to generate traces, or select a previous run from the dropdown above.</p>
       </div>
@@ -208,7 +208,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
   return (
     <div
       ref={parentRef}
-      className="flex flex-col gap-3 w-full h-full overflow-y-auto max-h-full pr-4 text-[var(--fg-0)]"
+      className="flex flex-col gap-3 w-full h-full overflow-y-auto max-h-full pr-4 text-[var(--vscode-foreground)]"
       style={{ overflowY: 'auto' }}
     >
       <div

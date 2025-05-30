@@ -1,5 +1,4 @@
 import React from 'react';
-import RunButton from './RunButton';
 
 interface CodeBlockWithRunButtonProps {
     code: string;
@@ -19,13 +18,13 @@ const CodeBlockWithRunButton: React.FC<CodeBlockWithRunButtonProps> = ({
     className
 }) => {
     return (
-        <div className="group bg-[var(--bg-1)] rounded-xl overflow-hidden p-1">
+        <div className="group bg-[var(--vscode-secondary-500)] rounded-xl overflow-hidden p-1">
             <div className="relative">
-                <div className="px-2 py-1 font-mono text-[var(--fg-1)]">
+                <div className="px-2 py-1 font-mono text-[var(--vscode-foreground)]">
                     {code}
                 </div>
                 <button 
-                    className="group-hover:block text-sm hidden absolute top-0 right-0 px-2 h-full bg-[var(--accent)] text-[var(--fg-3)] rounded-md hover:opacity-100 opacity-50 transition-colors cursor-pointer"
+                    className="group-hover:block text-sm hidden absolute top-0 right-0 px-2 h-full bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)] rounded-md hover:opacity-100 opacity-50 transition-colors cursor-pointer"
                     onClick={onRun}
                     disabled={disabled}
                 >

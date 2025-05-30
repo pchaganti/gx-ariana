@@ -220,7 +220,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
           onClick={() => {
             postMessageToExtension({ command: 'toggleHighlighting' });
           }}
-          className={"text-[var(--fg-0)] px-3 rounded-md h-8 w-[20ch] cursor-pointer text-sm font-semibold flex-shrink-0 " + (highlightingToggled ? 'bg-[var(--accent)]' : 'bg-[var(--bg-0)]')}
+          className={"text-[var(--vscode-foreground)] px-3 rounded-md h-8 w-[20ch] cursor-pointer text-sm font-semibold flex-shrink-0 " + (highlightingToggled ? 'bg-[var(--vscode-accent-500)]' : 'bg-[var(--vscode-background)]')}
         >
           Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
         </button>
@@ -229,7 +229,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
         {traces.length > 0 && (
           <button
             onClick={handleCopyAllTraces}
-            className={`text-[var(--fg-0)] px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-green-600' : ' bg-[var(--bg-0)]'}`}
+            className={`text-[var(--vscode-foreground)] px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-[var(--vscode-warning-500)]' : ' bg-[var(--vscode-background)]'}`}
           >
             {copied ? 'Copied' : '📋 Copy All'}
           </button>
