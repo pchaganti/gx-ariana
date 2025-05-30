@@ -136,11 +136,11 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               completed={cliStatus?.isInstalled}
             >
               {cliStatus?.isInstalled ? (
-                <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Ariana CLI is not installed.</p>
+                <p style={{ color: 'var(--text-default)' }}>Ariana CLI is not installed.</p>
               ) : (
                 <div className="space-y-4">
-                  <p style={{ color: getThemeAwareColor(colors.text.default, isDark) }}>Install the Ariana CLI to allow Ariana to run with your code. (Ariana will create a copy of your JS, TS or Python code, rewritten with instrumentation, will run that copy and spy on its execution.)</p>
-                  <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Choose your preferred installation method:</p>
+                  <p style={{ color: 'var(--text-default)' }}>Install the Ariana CLI to allow Ariana to run with your code. (Ariana will create a copy of your JS, TS or Python code, rewritten with instrumentation, will run that copy and spy on its execution.)</p>
+                  <p style={{ color: 'var(--text-default)' }}>Choose your preferred installation method:</p>
                   {cliStatus && (
                     <div className="space-y-4">
                       {cliStatus.npmAvailable && (
@@ -189,36 +189,36 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               title="Run your code with Ariana"
               active={cliStatus?.isInstalled || false}
             >
-              <div className="flex flex-col gap-2" style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>
-                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--vscode-accent-500)] font-mono">ariana</span> before the command.</p>
-                <div className="p-3 my-2 rounded-md font-mono" style={{ backgroundColor: getThemeAwareColor(colors.background.secondary, isDark), color: getThemeAwareColor(colors.text.default, isDark) }}>
-                  <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>{'<your build & run command>'}</span>
+              <div className="flex flex-col gap-2" style={{ color: 'var(--text-default)' }}>
+                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--interactive-default)] font-mono font-bold">ariana</span> before the command.</p>
+                <div className="p-3 my-2 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
+                  <span className="font-bold" style={{ color: 'var(--text-default)' }}>{'<your build & run command>'}</span>
                 </div>
-                <p className="font-semibold italic" style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Ariana supports JS, TS & Python at the moment.</p>
-                <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Run the command:</p>
+                <p className="font-semibold italic" style={{ color: 'var(--text-default)' }}>Ariana supports JS, TS & Python at the moment.</p>
+                <p style={{ color: 'var(--text-default)' }}>Run the command:</p>
                 <div className="flex my-2 flex-col gap-2">
-                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
-                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>python my_script.py</span>
+                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
+                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>python my_script.py</span>
                   </div>
-                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
-                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>npm run dev</span>
+                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
+                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>npm run dev</span>
                   </div>
                 </div>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Do the above in multiple terminal windows for each module of your code you want to run.</p>
-                <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Run the command:</p>
+                <p style={{ color: 'var(--text-default)' }}>Do the above in multiple terminal windows for each module of your code you want to run.</p>
+                <p style={{ color: 'var(--text-default)' }}>Run the command:</p>
                 <div className="flex my-2 flex-col gap-2">
-                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
-                    <span style={{ color: getThemeAwareColor(colors.text.subtle, isDark) }}>cd frontend/</span>
+                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>cd frontend/</span>
                     <br />
-                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>npm run dev</span>
+                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>npm run dev</span>
                   </div>
-                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
-                    <span style={{ color: getThemeAwareColor(colors.text.subtle, isDark) }}>cd backend/</span>
+                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>cd backend/</span>
                     <br />
-                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>uv run server.py</span>
+                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>uv run server.py</span>
                   </div>
                 </div>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>If building & running requires 2 or more commands, either create a script and run it with <span className="inline p-1 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>ariana ./my_script</span>, or open a new shell with <span className="inline p-1 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>ariana bash</span> on linux/macOS or <span className="inline p-1 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>ariana powershell.exe</span> on Windows, and run your commands there.</p>
+                <p style={{ color: 'var(--text-default)' }}>If building & running requires 2 or more commands, either create a script and run it with <span className="inline p-1 rounded-md font-mono font-bold bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>ariana ./my_script</span>, or open a new shell with <span className="inline p-1 rounded-md font-mono font-bold bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>ariana bash</span> on linux/macOS or <span className="inline p-1 rounded-md font-mono font-bold bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>ariana powershell.exe</span> on Windows, and run your commands there.</p>
               </div>
             </OnboardingStep>
 
@@ -227,9 +227,9 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               title="View and analyze traces"
               active={cliStatus?.isInstalled || false}
             >
-              <div className="space-y-4" style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>After running your code with Ariana, switch to the <b>Analyze</b> tab to view execution traces.</p>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Click on a trace to highlight the corresponding code in your editor.</p>
+              <div className="space-y-4" style={{ color: 'var(--text-default)' }}>
+                <p style={{ color: 'var(--text-default)' }}>After running your code with Ariana, switch to the <b>Analyze</b> tab to view execution traces.</p>
+                <p style={{ color: 'var(--text-default)' }}>Click on a trace to highlight the corresponding code in your editor.</p>
               </div>
             </OnboardingStep>
 
@@ -238,8 +238,8 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               title="Any issue?"
               active={cliStatus?.isInstalled || false}
             >
-              <div className="space-y-4" style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Join <a className="text-[var(--vscode-accent-500)] hover:underline" href="https://discord.gg/Y3TFTmE89g">our Discord community</a> to connect with other developers and get help with Ariana.</p>
+              <div className="space-y-4" style={{ color: 'var(--text-default)' }}>
+                <p style={{ color: 'var(--text-default)' }}>Join <a className="text-[var(--interactive-default)] hover:underline" href="https://discord.gg/Y3TFTmE89g">our Discord community</a> to connect with other developers and get help with Ariana.</p>
               </div>
             </OnboardingStep>
           </div>

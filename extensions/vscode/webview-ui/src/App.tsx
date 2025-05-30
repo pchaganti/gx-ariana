@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import TracesTab from './components/TracesTab';
-import ColorVisualizerTab from './components/ColorVisualizerTab';
 import ThemeColorsTab from './components/ThemeColorsTab';
 import type { Trace } from './bindings/Trace';
 import MainTab from './components/MainTab';
@@ -15,12 +14,9 @@ import VaultSelector, { VaultHistoryEntry } from './components/VaultSelector';
 const App = () => {
     const [traces, setTraces] = stateManager.usePersistedState<Trace[]>('traces', []);
     const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
-    const [textLogoUrl, setTextLogoUrl] = useState('');
     const [isSidebar, setIsSidebar] = useState(false);
-    const [showColorTab, setShowColorTab] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [theme, setTheme] = useState('vscode-light');
-    const [_, setLogoClicks] = useState<number[]>([]);
     const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
     const [focusableVaults, setFocusableVaults] = stateManager.usePersistedState<VaultHistoryEntry[]>('focusableVaults', []);
     const [focusedVault, setFocusedVault] = stateManager.usePersistedState<string | null>('focusedVault', null);
@@ -48,11 +44,6 @@ const App = () => {
             } catch (error) {
                 console.error('Failed to parse VSCode context', error);
             }
-        }
-
-        console.log('Text logo URL from data attribute:', rootElement?.dataset.arianaTextLogo);
-        if (rootElement?.dataset.arianaTextLogo) {
-            setTextLogoUrl(rootElement.dataset.arianaTextLogo);
         }
 
         setIsInitialized(true);
@@ -158,21 +149,6 @@ const App = () => {
         }
     };
 
-    const handleLogoClick = () => {
-        const now = Date.now();
-        setLogoClicks(prev => {
-            // Filter clicks that happened in the last second
-            const recentClicks = [...prev.filter(time => now - time < 1000), now];
-
-            if (recentClicks.length >= 5) {
-                setShowColorTab(true);
-                return [];
-            }
-
-            return recentClicks;
-        });
-    };
-
     const handleUpdate = () => {
         postMessageToExtension({ command: 'updateArianaCli' });
     };
@@ -203,9 +179,6 @@ const App = () => {
                             <TabsList className="w-full">
                                 <TabsTrigger value="main" className="flex-1">Home</TabsTrigger>
                                 <TabsTrigger value="traces" className="flex-1">Analyze</TabsTrigger>
-                                {showColorTab && (
-                                    <TabsTrigger value="colors" className="flex-1">Colors</TabsTrigger>
-                                )}
                                 <TabsTrigger value="theme" className="flex-1">Theme</TabsTrigger>
                             </TabsList>
                         </div>
@@ -216,15 +189,6 @@ const App = () => {
 
                         <TabsContent value="traces" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
                             <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} isRefreshingVaults={isRefreshingVaults} />
-                        </TabsContent>
-
-                        {showColorTab && (
-                            <TabsContent value="colors" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                                <ColorVisualizerTab />
-                            </TabsContent>
-                        )}
-                        <TabsContent value="theme" className="flex-1 overflow-auto mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                            <ThemeColorsTab />
                         </TabsContent>
                     </Tabs>
                     <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
