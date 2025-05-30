@@ -44,8 +44,8 @@ const MainTab: React.FC<MainTabProps> = ({  }) => {
 	return (
 		<div key={renderKey} className="flex flex-col px-4 pb-4 mt-4 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ 
 			maxHeight: 'calc(100% - 10px)',
-			backgroundColor: getThemeAwareColor(colors.background.primary, isDark),
-			color: getThemeAwareColor(colors.text.primary, isDark)
+			backgroundColor: 'var(--surface-default)',
+			color: 'var(--text-default)'
 		}}>
 			<div className="flex flex-col gap-2 h-full">
 				<OnboardingPanel cliStatus={cliStatus} />

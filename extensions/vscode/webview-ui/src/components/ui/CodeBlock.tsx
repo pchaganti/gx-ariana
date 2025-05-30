@@ -15,8 +15,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
     className
 }) => {
     const { isDark } = useTheme();
-    const bgColor = getThemeAwareColor(colors.background.secondary, isDark);
-    const textColor = getThemeAwareColor(colors.text.primary, isDark);
+    const textColor = getThemeAwareColor(colors.text.default, isDark);
 
     return (
         <div 
@@ -25,7 +24,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
                 className
             )}
             style={{
-                backgroundColor: bgColor,
+                backgroundColor: 'var(--surface-code)',
                 color: textColor,
                 opacity: disabled ? 0.5 : 1
             }}

@@ -24,8 +24,8 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
         <div 
             className="h-[30px] px-4 py-1 flex justify-between items-center text-xs" 
             style={{ 
-                backgroundColor: getThemeAwareColor(colors.background.secondary, isDark),
-                color: getThemeAwareColor(colors.text.muted, isDark)
+                backgroundColor: 'var(--surface-code)',
+                color: 'var(--text-muted)'
             }}
         >
             <div>
@@ -36,8 +36,8 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
                             <button 
                                 className="ml-2 px-2 py-0.5 text-xs rounded-md hover:opacity-90 transition-colors"
                                 style={{
-                                    backgroundColor: getThemeAwareColor(colors.background.accent, isDark),
-                                    color: getThemeAwareColor(colors.text.primary, isDark)
+                                    backgroundColor: 'var(--interactive-default)',
+                                    color: 'var(--text-on-emphasis)'
                                 }}
                                 onClick={handleUpdate}
                             >
@@ -52,7 +52,7 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="hover:underline"
-                style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}
+                style={{ color: 'var(--interactive-default)' }}
                 onClick={(e) => {
                     e.preventDefault();
                     postMessageToExtension({ 

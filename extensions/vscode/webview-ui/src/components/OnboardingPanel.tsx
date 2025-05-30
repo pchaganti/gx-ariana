@@ -136,11 +136,11 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               completed={cliStatus?.isInstalled}
             >
               {cliStatus?.isInstalled ? (
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Ariana CLI is installed. {cliStatus.version && `Version: ${cliStatus.version.split('ariana ')[1]}`}</p>
+                <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Ariana CLI is not installed.</p>
               ) : (
                 <div className="space-y-4">
-                  <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Install the Ariana CLI to allow Ariana to run with your code. (Ariana will create a copy of your JS, TS or Python code, rewritten with instrumentation, will run that copy and spy on its execution.)</p>
-                  
+                  <p style={{ color: getThemeAwareColor(colors.text.default, isDark) }}>Install the Ariana CLI to allow Ariana to run with your code. (Ariana will create a copy of your JS, TS or Python code, rewritten with instrumentation, will run that copy and spy on its execution.)</p>
+                  <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Choose your preferred installation method:</p>
                   {cliStatus && (
                     <div className="space-y-4">
                       {cliStatus.npmAvailable && (
@@ -191,34 +191,34 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
             >
               <div className="flex flex-col gap-2" style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>
                 <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--vscode-accent-500)] font-mono">ariana</span> before the command.</p>
-                <div className="p-3 my-2 rounded-md font-mono" style={{ backgroundColor: getThemeAwareColor(colors.background.secondary, isDark), color: getThemeAwareColor(colors.text.primary, isDark) }}>
-                  <span style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}>{'<your build & run command>'}</span>
+                <div className="p-3 my-2 rounded-md font-mono" style={{ backgroundColor: getThemeAwareColor(colors.background.secondary, isDark), color: getThemeAwareColor(colors.text.default, isDark) }}>
+                  <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>{'<your build & run command>'}</span>
                 </div>
                 <p className="font-semibold italic" style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Ariana supports JS, TS & Python at the moment.</p>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Examples:</p>
+                <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Run the command:</p>
                 <div className="flex my-2 flex-col gap-2">
-                  <div className="p-3 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)]">
-                    <span style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}>python my_script.py</span>
+                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
+                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>python my_script.py</span>
                   </div>
-                  <div className="p-3 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)]">
-                    <span style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}>npm run dev</span>
+                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
+                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>npm run dev</span>
                   </div>
                 </div>
                 <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Do the above in multiple terminal windows for each module of your code you want to run.</p>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>Examples:</p>
+                <p style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>Run the command:</p>
                 <div className="flex my-2 flex-col gap-2">
-                  <div className="p-3 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)]">
-                    <span className="text-[var(--vscode-foreground)] opacity-70">cd frontend/</span>
+                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
+                    <span style={{ color: getThemeAwareColor(colors.text.subtle, isDark) }}>cd frontend/</span>
                     <br />
-                    <span style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}>npm run dev</span>
+                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>npm run dev</span>
                   </div>
-                  <div className="p-3 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)]">
-                    <span className="text-[var(--vscode-foreground)] opacity-70">cd backend/</span>
+                  <div className="p-3 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.default, isDark) }}>
+                    <span style={{ color: getThemeAwareColor(colors.text.subtle, isDark) }}>cd backend/</span>
                     <br />
-                    <span style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}>uv run server.py</span>
+                    <span style={{ color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>uv run server.py</span>
                   </div>
                 </div>
-                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>If building & running requires 2 or more commands, either create a script and run it with <div className="inline p-1 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-accent-500)]">ariana {'./<my_script>'}</div>, or open a new shell with <div className="inline p-1 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-accent-500)]">ariana bash</div> on linux/macOS or <div className="inline p-1 rounded-md font-mono bg-[var(--vscode-secondary-500)] text-[var(--vscode-accent-500)]">ariana powershell.exe</div> on Windows, and run your commands there.</p>
+                <p style={{ color: getThemeAwareColor(colors.text.muted, isDark) }}>If building & running requires 2 or more commands, either create a script and run it with <span className="inline p-1 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>ariana ./my_script</span>, or open a new shell with <span className="inline p-1 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>ariana bash</span> on linux/macOS or <span className="inline p-1 rounded-md font-mono" style={{ backgroundColor: 'var(--surface-code)', color: getThemeAwareColor(colors.text.onEmphasis, isDark) }}>ariana powershell.exe</span> on Windows, and run your commands there.</p>
               </div>
             </OnboardingStep>
 

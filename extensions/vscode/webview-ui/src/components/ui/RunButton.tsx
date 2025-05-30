@@ -15,12 +15,11 @@ const RunButton: React.FC<RunButtonProps> = ({
     return (
         <button 
             className={cn(
-                "px-2 py-1 rounded-md hover:opacity-90 transition-colors",
+                "px-2 py-1 rounded-md transition-colors bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)]",
                 className
             )}
             style={{
-                backgroundColor: getThemeAwareColor(colors.background.accent, isDark),
-                color: getThemeAwareColor(colors.text.primary, isDark)
+                color: 'var(--text-on-emphasis)'
             }}
             {...props}
         >

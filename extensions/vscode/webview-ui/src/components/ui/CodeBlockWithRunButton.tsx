@@ -18,14 +18,12 @@ const CodeBlockWithRunButton: React.FC<CodeBlockWithRunButtonProps> = ({
     className
 }) => {
     const { isDark } = useTheme();
-    const bgColor = getThemeAwareColor(colors.background.secondary, isDark);
-    const textColor = getThemeAwareColor(colors.text.primary, isDark);
-    const accentColor = getThemeAwareColor(colors.background.accent, isDark);
+    const textColor = getThemeAwareColor(colors.text.default, isDark);
 
     return (
         <div 
             className={cn("group rounded-xl overflow-hidden p-1", className)}
-            style={{ backgroundColor: bgColor }}
+            style={{ backgroundColor: 'var(--surface-code)' }}
         >
             <div className="relative">
                 <div 
@@ -35,12 +33,11 @@ const CodeBlockWithRunButton: React.FC<CodeBlockWithRunButtonProps> = ({
                     {code}
                 </div>
                 <button 
-                    className="group-hover:block text-sm hidden absolute top-0 right-0 px-2 h-full rounded-md hover:opacity-100 opacity-50 transition-colors cursor-pointer"
+                    className="group-hover:block text-sm hidden absolute top-0 right-0 px-2 h-full rounded-md hover:opacity-100 opacity-50 transition-colors cursor-pointer bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)]"
                     onClick={onRun}
                     disabled={disabled}
                     style={{
-                        backgroundColor: accentColor,
-                        color: textColor
+                        color: 'var(--text-on-emphasis)'
                     }}
                 >
                     Run

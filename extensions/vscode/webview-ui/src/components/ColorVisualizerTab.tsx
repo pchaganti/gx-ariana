@@ -11,22 +11,22 @@ const ColorCategory: React.FC<ColorCategoryProps> = ({ title, colors }) => {
   return (
     <div className="mb-6">
       <div 
-        className="flex items-center justify-between p-2 bg-[var(--vscode-secondary-500)] cursor-pointer hover:bg-[var(--vscode-accent-500)] transition-colors rounded-sm group"
+        className="flex items-center justify-between p-2 bg-[var(--surface-code)] cursor-pointer hover:bg-[var(--interactive-hover)] transition-colors rounded-sm group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <h3 className="text-md font-semibold text-[var(--vscode-foreground)] group-hover:text-[var(--vscode-accent-foreground)]">{title}</h3>
-        <div className="text-[var(--vscode-foreground)] group-hover:text-[var(--vscode-accent-foreground)]">
+        <h3 className="text-md font-semibold text-[var(--text-default)] group-hover:text-[var(--text-on-emphasis)]">{title}</h3>
+        <div className="text-[var(--text-default)] group-hover:text-[var(--text-on-emphasis)]">
           {isExpanded ? '◉' : '◎'}
         </div>
       </div>
       
       {isExpanded && (
-        <div className="p-4 mt-2 bg-[var(--vscode-background)] rounded-md">
+        <div className="p-4 mt-2 bg-[var(--surface-default)] rounded-md">
           <div className="flex flex-wrap gap-4 justify-start">
             {colors.map((color, index) => (
               <div key={index} className="flex flex-col items-center mb-4">
                 <div 
-                  className="w-16 h-16 rounded-md mb-2 border border-[var(--vscode-panel-border)]" 
+                  className="w-16 h-16 rounded-md mb-2 border border-[var(--surface-code)]" 
                   style={{ backgroundColor: `var(${color})` }}
                 />
                 <div className="text-xs text-center break-all max-w-[120px]">{color}</div>

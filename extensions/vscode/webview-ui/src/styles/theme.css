@@ -1,0 +1,61 @@
+:root {
+  /* Derived from VS Code's editor background */
+  --bg-base: var(--vscode-editor-background);
+  --bg-lighter: color-mix(in oklab, var(--bg-base), white 10%);
+  --bg-lightest: color-mix(in oklab, var(--bg-base), white 20%);
+  --bg-darker: color-mix(in oklab, var(--bg-base), black 10%);
+  --bg-darkest: color-mix(in oklab, var(--bg-base), black 20%);
+  
+  /* Derived from VS Code's foreground */
+  --fg-base: var(--vscode-editor-foreground);
+  --fg-muted: color-mix(in oklab, var(--fg-base), var(--bg-base) 20%);
+  --fg-subtle: color-mix(in oklab, var(--fg-base), var(--bg-base) 40%);
+  --fg-on-emphasis: color-mix(in oklab, var(--fg-base), var(--bg-base) 90%);
+  
+  /* Derived from VS Code's button colors */
+  --accent-base: var(--vscode-button-background);
+  --accent-lighter: color-mix(in oklab, var(--accent-base), white 20%);
+  --accent-darker: color-mix(in oklab, var(--accent-base), black 20%);
+  --accent-fg: var(--vscode-button-foreground);
+  
+  /* Derived from VS Code's error colors */
+  --error-base: var(--vscode-errorForeground);
+  --error-subtle: color-mix(in oklab, var(--error-base), var(--bg-base) 85%);
+  --error-emphasis: color-mix(in oklab, var(--error-base), var(--bg-base) 30%);
+  
+  /* Derived from VS Code's link colors */
+  --link-base: var(--vscode-textLink-foreground);
+  --link-hover: color-mix(in oklab, var(--link-base), white 20%);
+  --link-active: color-mix(in oklab, var(--link-base), black 20%);
+  
+  /* Derived from VS Code's border colors */
+  --border-subtle: color-mix(in oklab, var(--fg-base), var(--bg-base) 90%);
+  --border-default: color-mix(in oklab, var(--fg-base), var(--bg-base) 80%);
+  --border-emphasis: color-mix(in oklab, var(--fg-base), var(--bg-base) 60%);
+  
+  /* Focus and selection colors */
+  --focus-ring: var(--vscode-focusBorder);
+  --selection-bg: var(--vscode-selection-background);
+  --selection-fg: var(--vscode-selection-foreground, var(--fg-base));
+  
+  /* Semantic colors */
+  --surface-default: var(--bg-base);
+  --surface-raised: var(--bg-lighter);
+  --surface-overlay: var(--bg-lightest);
+  --surface-sunken: var(--bg-darker);
+  --surface-code: var(--vscode-textBlockQuote-background, var(--bg-darker));
+  
+  --interactive-default: var(--accent-base);
+  --interactive-hover: var(--accent-lighter);
+  --interactive-active: var(--accent-darker);
+  --interactive-muted: color-mix(in oklab, var(--accent-base), var(--bg-base) 70%);
+  
+  --text-default: var(--fg-base);
+  --text-muted: var(--fg-muted);
+  --text-subtle: var(--fg-subtle);
+  --text-on-emphasis: var(--fg-on-emphasis);
+  
+  --status-error: var(--error-base);
+  --status-error-subtle: var(--error-subtle);
+  --status-error-emphasis: var(--error-emphasis);
+}

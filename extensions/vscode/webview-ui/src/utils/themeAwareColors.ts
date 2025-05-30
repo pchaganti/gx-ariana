@@ -6,30 +6,116 @@ type ThemeAwareColor = {
 export const colors = {
   background: {
     primary: {
-      dark: 'var(--vscode-editor-background)',
-      light: 'var(--vscode-editor-background)'
+      dark: 'var(--surface-default)',
+      light: 'var(--surface-default)'
     },
     secondary: {
-      dark: 'var(--vscode-sideBar-background)',
-      light: 'var(--vscode-sideBar-background)'
+      dark: 'var(--surface-raised)',
+      light: 'var(--surface-raised)'
     },
-    accent: {
-      dark: 'var(--vscode-button-background)',
-      light: 'var(--vscode-button-background)'
+    overlay: {
+      dark: 'var(--surface-overlay)',
+      light: 'var(--surface-overlay)'
+    },
+    sunken: {
+      dark: 'var(--surface-sunken)',
+      light: 'var(--surface-sunken)'
+    },
+    interactive: {
+      default: {
+        dark: 'var(--interactive-default)',
+        light: 'var(--interactive-default)'
+      },
+      hover: {
+        dark: 'var(--interactive-hover)',
+        light: 'var(--interactive-hover)'
+      },
+      active: {
+        dark: 'var(--interactive-active)',
+        light: 'var(--interactive-active)'
+      },
+      muted: {
+        dark: 'var(--interactive-muted)',
+        light: 'var(--interactive-muted)'
+      }
     }
   },
   text: {
-    primary: {
-      dark: 'var(--vscode-editor-foreground)',
-      light: 'var(--vscode-editor-foreground)'
+    default: {
+      dark: 'var(--text-default)',
+      light: 'var(--text-default)'
     },
     muted: {
-      dark: 'var(--vscode-descriptionForeground)',
-      light: 'var(--vscode-descriptionForeground)'
+      dark: 'var(--text-muted)',
+      light: 'var(--text-muted)'
     },
-    accent: {
-      dark: 'var(--vscode-button-foreground)',
-      light: 'var(--vscode-button-foreground)'
+    subtle: {
+      dark: 'var(--text-subtle)',
+      light: 'var(--text-subtle)'
+    },
+    onEmphasis: {
+      dark: 'var(--text-on-emphasis)',
+      light: 'var(--text-on-emphasis)'
+    }
+  },
+  border: {
+    subtle: {
+      dark: 'var(--border-subtle)',
+      light: 'var(--border-subtle)'
+    },
+    default: {
+      dark: 'var(--border-default)',
+      light: 'var(--border-default)'
+    },
+    emphasis: {
+      dark: 'var(--border-emphasis)',
+      light: 'var(--border-emphasis)'
+    }
+  },
+  status: {
+    error: {
+      default: {
+        dark: 'var(--status-error)',
+        light: 'var(--status-error)'
+      },
+      subtle: {
+        dark: 'var(--status-error-subtle)',
+        light: 'var(--status-error-subtle)'
+      },
+      emphasis: {
+        dark: 'var(--status-error-emphasis)',
+        light: 'var(--status-error-emphasis)'
+      }
+    }
+  },
+  link: {
+    default: {
+      dark: 'var(--link-base)',
+      light: 'var(--link-base)'
+    },
+    hover: {
+      dark: 'var(--link-hover)',
+      light: 'var(--link-hover)'
+    },
+    active: {
+      dark: 'var(--link-active)',
+      light: 'var(--link-active)'
+    }
+  },
+  focus: {
+    ring: {
+      dark: 'var(--focus-ring)',
+      light: 'var(--focus-ring)'
+    }
+  },
+  selection: {
+    background: {
+      dark: 'var(--selection-bg)',
+      light: 'var(--selection-bg)'
+    },
+    foreground: {
+      dark: 'var(--selection-fg)',
+      light: 'var(--selection-fg)'
     }
   }
 } as const;

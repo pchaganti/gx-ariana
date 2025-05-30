@@ -14,7 +14,7 @@ const BashCodeBlock: React.FC<BashCodeBlockProps> = ({
 }) => {
     return (
         <CodeBlock 
-            language="bash" 
+            // language="bash" 
             disabled={disabled}
             className={className}
         >
