@@ -3,11 +3,14 @@ import { postMessageToExtension } from '../utils/vscode';
 import stateManager from '../utils/stateManager';
 import { ArianaCliStatus } from '../lib/cli';
 import OnboardingPanel from './OnboardingPanel';
+import { useTheme } from '../hooks/useTheme';
+import { colors, getThemeAwareColor } from '../utils/themeAwareColors';
 
 interface MainTabProps {
 }
 
 const MainTab: React.FC<MainTabProps> = ({  }) => {
+	const { isDark } = useTheme();
 	const [renderKey, setRenderKey] = useState(0);
 	const [cliStatus, setCliStatus] = stateManager.usePersistedState<ArianaCliStatus | null>('cliStatus', null);
 	
@@ -39,7 +42,11 @@ const MainTab: React.FC<MainTabProps> = ({  }) => {
 	}, []);
 
 	return (
-		<div key={renderKey} className="flex flex-col px-4 pb-4 mt-4 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ maxHeight: 'calc(100% - 10px)' }}>
+		<div key={renderKey} className="flex flex-col px-4 pb-4 mt-4 max-w-full mx-auto h-full overflow-y-auto scrollbar-w-2" style={{ 
+			maxHeight: 'calc(100% - 10px)',
+			backgroundColor: getThemeAwareColor(colors.background.primary, isDark),
+			color: getThemeAwareColor(colors.text.primary, isDark)
+		}}>
 			<div className="flex flex-col gap-2 h-full">
 				<OnboardingPanel cliStatus={cliStatus} />
 			</div>

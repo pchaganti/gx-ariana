@@ -74,10 +74,12 @@ export class WebviewService {
    */
   public sendThemeInfo(webview: vscode.Webview): void {
     const themeKind = vscode.window.activeColorTheme.kind;
+    const isDark = themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast;
     try {
       webview.postMessage({ 
         type: 'theme', 
-        value: themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast ? 'dark' : 'light',
+        value: isDark ? 'dark' : 'light',
+        isDark,
         theme: themeKind
       });
     } catch (error) {

@@ -1,16 +1,8 @@
 import React from 'react';
+import { ArianaCliStatus } from '../lib/cli';
 import { postMessageToExtension } from '../utils/vscode';
-
-interface ArianaCliStatus {
-    isInstalled: boolean;
-    version?: string;
-    latestVersion?: string;
-    needsUpdate: boolean;
-    npmAvailable: boolean;
-    pipAvailable: boolean;
-    pythonPipAvailable: boolean;
-    python3PipAvailable: boolean;
-}
+import { useTheme } from '../hooks/useTheme';
+import { colors, getThemeAwareColor } from '../utils/themeAwareColors';
 
 interface FooterProps {
     cliStatus: ArianaCliStatus | null;
@@ -18,6 +10,8 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
+    const { isDark } = useTheme();
+
     const handleUpdate = () => {
         if (onUpdate) {
             onUpdate();
@@ -27,14 +21,24 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
     };
 
     return (
-        <div className="h-[30px] px-4 py-1 bg-[var(--vscode-secondary-500)] flex justify-between items-center text-xs text-[var(--vscode-foreground)] opacity-70">
+        <div 
+            className="h-[30px] px-4 py-1 flex justify-between items-center text-xs" 
+            style={{ 
+                backgroundColor: getThemeAwareColor(colors.background.secondary, isDark),
+                color: getThemeAwareColor(colors.text.muted, isDark)
+            }}
+        >
             <div>
                 {cliStatus?.isInstalled && cliStatus.version && (
                     <span>
                         ariana - {cliStatus.version.split('ariana ')[1]}
                         {cliStatus.needsUpdate && (
                             <button 
-                                className="ml-2 px-2 py-0.5 text-xs bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)] rounded-md hover:bg-opacity-90 transition-colors"
+                                className="ml-2 px-2 py-0.5 text-xs rounded-md hover:opacity-90 transition-colors"
+                                style={{
+                                    backgroundColor: getThemeAwareColor(colors.background.accent, isDark),
+                                    color: getThemeAwareColor(colors.text.primary, isDark)
+                                }}
                                 onClick={handleUpdate}
                             >
                                 Update
@@ -47,7 +51,8 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
                 href="https://discord.gg/Y3TFTmE89g" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-[var(--vscode-accent-500)] hover:underline"
+                className="hover:underline"
+                style={{ color: getThemeAwareColor(colors.text.accent, isDark) }}
                 onClick={(e) => {
                     e.preventDefault();
                     postMessageToExtension({ 
