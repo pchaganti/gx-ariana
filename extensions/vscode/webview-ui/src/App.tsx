@@ -190,6 +190,10 @@ const App = () => {
                         <TabsContent value="traces" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
                             <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} isRefreshingVaults={isRefreshingVaults} />
                         </TabsContent>
+
+                        <TabsContent value="theme" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
+                            <ThemeColorsTab />
+                        </TabsContent>
                     </Tabs>
                     <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </div>

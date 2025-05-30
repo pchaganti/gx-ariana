@@ -4,7 +4,8 @@ import { postMessageToExtension } from '../utils/vscode';
 import stateManager from '../utils/stateManager';
 import { ArianaCliStatus } from '../lib/cli';
 import { useTheme } from '../hooks/useTheme';
-import { colors, getThemeAwareColor } from '../utils/themeAwareColors';
+
+
 
 // Define enum for installation methods
 enum ArianaInstallMethod {
@@ -32,6 +33,7 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 	completed,
 	children
 }) => {
+	const { isDark } = useTheme();
 	return (
 		<div className={cn(
 			"flex relative not-last:pb-8",
@@ -39,13 +41,17 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 		)}>
 			<div className={cn(
 				"flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg relative z-10",
-				completed ? "bg-[var(--vscode-warning-500)] text-[var(--vscode-foreground)]" : "bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)]"
+				completed 
+					? "bg-[var(--success-base)] text-[var(--text-on-emphasis)]" 
+					: isDark 
+						? "bg-[var(--interactive-default)] text-white" 
+						: "bg-[var(--interactive-default)] text-[var(--text-on-emphasis)]"
 			)}>
 				{completed ? "✓" : number}
 			</div>
 			<div className="flex-grow pl-4 w-full">
-				<h3 className="text-lg font-semibold mb-1 text-[var(--vscode-foreground)]">{title}</h3>
-				{description && <p className="text-[var(--vscode-foreground)] opacity-70">{description}</p>}
+				<h3 className="text-lg font-semibold mb-1 text-[var(--text-default)]">{title}</h3>
+				{description && <p className="text-[var(--text-muted)]">{description}</p>}
 				{children && (
 					<div className="mt-2 w-full">
 						{children}
@@ -53,7 +59,10 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 				)}
 			</div>
 			{number < 4 && (
-				<div className="absolute left-5 top-10 w-0.5 bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)]" style={{ height: 'calc(100% - 29px)' }} />
+				<div className={cn(
+				"absolute left-5 top-10 w-0.5",
+				completed ? "bg-[var(--success-base)]" : "bg-[var(--interactive-default)]"
+			)} style={{ height: 'calc(100% - 29px)' }} />
 			)}
 		</div>
 	);
@@ -67,23 +76,28 @@ interface InstallOptionProps {
 }
 
 const InstallOption: React.FC<InstallOptionProps> = ({ method, command, available, onInstall }) => {
+	const { isDark } = useTheme();
 	return (
 		<div className="mt-2">
 			<div className={cn(
 				"p-3 rounded-t-md font-mono text-sm",
-				available ? "bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)]" : "bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)] opacity-50"
+				available 
+					? isDark 
+						? "bg-[var(--surface-code)] text-[var(--text-default)]" 
+						: "bg-[var(--surface-code)] text-[var(--text-default)]" 
+					: "bg-[var(--surface-raised)] text-[var(--text-default)] opacity-50"
 			)}>
 				{command}
 			</div>
 			{available ? (
 				<button 
-					className="w-full p-2 bg-[var(--vscode-secondary-500)] hover:bg-[var(--vscode-accent-500)] text-[var(--vscode-foreground)] rounded-b-md hover:bg-opacity-90 transition-colors cursor-pointer"
+					className="w-full p-2 bg-[var(--interactive-default)] hover:bg-[var(--interactive-hover)] text-[var(--text-default)] rounded-b-md hover:bg-opacity-90 transition-colors cursor-pointer"
 					onClick={() => onInstall(method)}
 				>
 					Run in Terminal
 				</button>
 			) : (
-				<div className="w-full p-2 bg-[var(--vscode-secondary-500)] text-[var(--vscode-foreground)] rounded-b-md text-center">
+				<div className="w-full p-2 bg-[var(--surface-raised)] text-[var(--text-default)] rounded-b-md text-center">
 					{method} not available
 				</div>
 			)}
@@ -97,6 +111,7 @@ interface OnboardingPanelProps {
 
 const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
   const { isDark } = useTheme();
+  
 	// Use state manager for persisting collapsed state
 	const [isCollapsed, setIsCollapsed] = stateManager.usePersistedState<boolean>('isOnboardingCollapsed', false);
 
@@ -116,13 +131,13 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
 	};
 
 	return (
-    <div className="rounded-md bg-[var(--vscode-background)]">
+    <div className="rounded-md bg-[var(--surface-sunken)]">
       <div
-        className={"group sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[var(--vscode-background)] cursor-pointer hover:bg-[var(--vscode-secondary-500)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--vscode-secondary-500)] rounded-b-none')}
+        className={"group sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[var(--surface-sunken)] cursor-pointer hover:bg-[var(--surface-raised)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--surface-raised)] rounded-b-none')}
         onClick={handleToggleCollapse}
       >
-        <h2 className="text-lg font-semibold text-[var(--vscode-foreground)] opacity-70 group-hover:opacity-100">👋 Getting Started {isDark ? 'dark' : 'light'}</h2>
-        <div className={"h-3 w-3 group-hover:bg-[var(--vscode-accent-500)] " + (isCollapsed ? 'rounded-full bg-[var(--vscode-secondary-500)]' : 'rounded-xs bg-[var(--vscode-secondary-500)]')}>
+        <h2 className="text-lg font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-default)]">👋 Getting Started</h2>
+        <div className={"h-3 w-3 group-hover:bg-[var(--interactive-hover)] " + (isCollapsed ? 'rounded-full bg-[var(--surface-raised)]' : 'rounded-xs bg-[var(--surface-raised)]')}>
         </div>
       </div>
 
@@ -136,11 +151,11 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               completed={cliStatus?.isInstalled}
             >
               {cliStatus?.isInstalled ? (
-                <p style={{ color: 'var(--text-default)' }}>Ariana CLI is not installed.</p>
+                <p className="text-[var(--text-muted)]">Ariana CLI is installed. {cliStatus.version && `Version: ${cliStatus.version.split('ariana ')[1]}`}</p>
               ) : (
                 <div className="space-y-4">
-                  <p style={{ color: 'var(--text-default)' }}>Install the Ariana CLI to allow Ariana to run with your code. (Ariana will create a copy of your JS, TS or Python code, rewritten with instrumentation, will run that copy and spy on its execution.)</p>
-                  <p style={{ color: 'var(--text-default)' }}>Choose your preferred installation method:</p>
+                  <p className="text-[var(--text-muted)]">Install the Ariana CLI to allow Ariana to run with your code. (Ariana will create a copy of your JS, TS or Python code, rewritten with instrumentation, will run that copy and spy on its execution.)</p>
+                  
                   {cliStatus && (
                     <div className="space-y-4">
                       {cliStatus.npmAvailable && (
@@ -189,36 +204,51 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               title="Run your code with Ariana"
               active={cliStatus?.isInstalled || false}
             >
-              <div className="flex flex-col gap-2" style={{ color: 'var(--text-default)' }}>
-                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--interactive-default)] font-mono font-bold">ariana</span> before the command.</p>
-                <div className="p-3 my-2 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
-                  <span className="font-bold" style={{ color: 'var(--text-default)' }}>{'<your build & run command>'}</span>
+              <div className="flex flex-col gap-2 text-[var(--text-muted)]">
+                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--interactive-default)] font-mono">ariana</span> before the command.</p>
+                <div className={cn(
+						"p-3 my-2 rounded-md font-mono text-[var(--text-default)]",
+						isDark ? "bg-[var(--surface-code)]" : "bg-[var(--surface-code)]"
+					)}>
+                  <span className="text-[var(--interactive-active)]">{'<your build & run command>'}</span>
                 </div>
-                <p className="font-semibold italic" style={{ color: 'var(--text-default)' }}>Ariana supports JS, TS & Python at the moment.</p>
-                <p style={{ color: 'var(--text-default)' }}>Run the command:</p>
+                <p className="font-semibold italic text-[var(--text-muted)]">Ariana supports JS, TS & Python at the moment.</p>
+                <p className="text-[var(--text-muted)]">Examples:</p>
                 <div className="flex my-2 flex-col gap-2">
-                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
-                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>python my_script.py</span>
+                  <div className={cn(
+                    "p-3 rounded-md font-mono text-[var(--text-default)]",
+                    isDark ? "bg-[var(--surface-code)]" : "bg-[var(--surface-code)]"
+                  )}>
+                    <span className="text-[var(--interactive-active)]">python my_script.py</span>
                   </div>
-                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
-                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>npm run dev</span>
+                  <div className={cn(
+                    "p-3 rounded-md font-mono text-[var(--text-default)]",
+                    isDark ? "bg-[var(--surface-code)]" : "bg-[var(--surface-code)]"
+                  )}>
+                    <span className="text-[var(--interactive-active)]">npm run dev</span>
                   </div>
                 </div>
-                <p style={{ color: 'var(--text-default)' }}>Do the above in multiple terminal windows for each module of your code you want to run.</p>
-                <p style={{ color: 'var(--text-default)' }}>Run the command:</p>
+                <p className="text-[var(--text-muted)]">Do the above in multiple terminal windows for each module of your code you want to run.</p>
+                <p className="text-[var(--text-muted)]">Examples:</p>
                 <div className="flex my-2 flex-col gap-2">
-                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>cd frontend/</span>
+                  <div className={cn(
+                    "p-3 rounded-md font-mono text-[var(--text-default)]",
+                    isDark ? "bg-[var(--surface-code)]" : "bg-[var(--surface-code)]"
+                  )}>
+                    <span className="text-[var(--text-muted)]">cd frontend/</span>
                     <br />
-                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>npm run dev</span>
+                    <span className="text-[var(--interactive-active)]">npm run dev</span>
                   </div>
-                  <div className="p-3 rounded-md font-mono bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>cd backend/</span>
+                  <div className={cn(
+                    "p-3 rounded-md font-mono text-[var(--text-default)]",
+                    isDark ? "bg-[var(--surface-code)]" : "bg-[var(--surface-code)]"
+                  )}>
+                    <span className="text-[var(--text-muted)]">cd backend/</span>
                     <br />
-                    <span className="font-bold" style={{ color: 'var(--text-default)' }}>uv run server.py</span>
+                    <span className="text-[var(--interactive-active)]">uv run server.py</span>
                   </div>
                 </div>
-                <p style={{ color: 'var(--text-default)' }}>If building & running requires 2 or more commands, either create a script and run it with <span className="inline p-1 rounded-md font-mono font-bold bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>ariana ./my_script</span>, or open a new shell with <span className="inline p-1 rounded-md font-mono font-bold bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>ariana bash</span> on linux/macOS or <span className="inline p-1 rounded-md font-mono font-bold bg-[var(--surface-code)]" style={{ color: 'var(--text-default)' }}>ariana powershell.exe</span> on Windows, and run your commands there.</p>
+                <p className="text-[var(--text-muted)]">If building & running requires 2 or more commands, either create a script and run it with <div className="inline p-1 rounded-md font-mono bg-[var(--surface-code)] text-[var(--interactive-active)]">ariana {'./<my_script>'}</div>, or open a new shell with <div className="inline p-1 rounded-md font-mono bg-[var(--surface-code)] text-[var(--interactive-active)]">ariana bash</div> on linux/macOS or <div className="inline p-1 rounded-md font-mono bg-[var(--surface-code)] text-[var(--interactive-active)]">ariana powershell.exe</div> on Windows, and run your commands there.</p>
               </div>
             </OnboardingStep>
 
@@ -227,9 +257,9 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               title="View and analyze traces"
               active={cliStatus?.isInstalled || false}
             >
-              <div className="space-y-4" style={{ color: 'var(--text-default)' }}>
-                <p style={{ color: 'var(--text-default)' }}>After running your code with Ariana, switch to the <b>Analyze</b> tab to view execution traces.</p>
-                <p style={{ color: 'var(--text-default)' }}>Click on a trace to highlight the corresponding code in your editor.</p>
+              <div className="space-y-4 text-[var(--text-muted)]">
+                <p className="text-[var(--text-muted)]">After running your code with Ariana, switch to the <b>Analyze</b> tab to view execution traces.</p>
+                <p className="text-[var(--text-muted)]">Click on a trace to highlight the corresponding code in your editor.</p>
               </div>
             </OnboardingStep>
 
@@ -238,8 +268,8 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               title="Any issue?"
               active={cliStatus?.isInstalled || false}
             >
-              <div className="space-y-4" style={{ color: 'var(--text-default)' }}>
-                <p style={{ color: 'var(--text-default)' }}>Join <a className="text-[var(--interactive-default)] hover:underline" href="https://discord.gg/Y3TFTmE89g">our Discord community</a> to connect with other developers and get help with Ariana.</p>
+              <div className="space-y-4 text-[var(--text-muted)]">
+                <p className="text-[var(--text-muted)]">Join <a className="text-[var(--interactive-default)] hover:underline" href="https://discord.gg/Y3TFTmE89g">our Discord community</a> to connect with other developers and get help with Ariana.</p>
               </div>
             </OnboardingStep>
           </div>

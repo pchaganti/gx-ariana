@@ -55,16 +55,25 @@ const ThemeColorsTab: React.FC = () => {
     {
       title: "Status Colors",
       colors: [
-        "--status-error",
-        "--status-error-subtle",
-        "--status-error-emphasis"
+        "--error-base",
+        "--error-subtle",
+        "--error-emphasis",
+        "--warning-base",
+        "--warning-subtle",
+        "--warning-emphasis",
+        "--info-base",
+        "--info-subtle",
+        "--info-emphasis",
+        "--success-base",
+        "--success-subtle",
+        "--success-emphasis"
       ]
     }
   ];
 
   return (
     <div className="p-6 bg-[var(--surface-default)]">
-      <div className="max-w-2xl space-y-8">
+      <div className="max-w-2xl space-y-8 overflow-auto max-h-[calc(100vh-50px)]">
         {colorSections.map((section) => (
           <ColorSection key={section.title} {...section} />
         ))}

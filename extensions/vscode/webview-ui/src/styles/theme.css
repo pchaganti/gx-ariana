@@ -14,15 +14,28 @@
   
   /* Derived from VS Code's button colors */
   --accent-base: var(--vscode-button-background);
-  --accent-lighter: color-mix(in oklab, var(--accent-base), white 20%);
-  --accent-darker: color-mix(in oklab, var(--accent-base), black 20%);
   --accent-fg: var(--vscode-button-foreground);
   
   /* Derived from VS Code's error colors */
   --error-base: var(--vscode-errorForeground);
   --error-subtle: color-mix(in oklab, var(--error-base), var(--bg-base) 85%);
-  --error-emphasis: color-mix(in oklab, var(--error-base), var(--bg-base) 30%);
-  
+  --error-emphasis: color-mix(in oklab, var(--error-base), var(--fg-base) 30%);
+
+  /* Derived from VS Code's warning colors */
+  --warning-base: var(--vscode-editorWarning-foreground);
+  --warning-subtle: color-mix(in oklab, var(--warning-base), var(--bg-base) 85%);
+  --warning-emphasis: color-mix(in oklab, var(--warning-base), var(--fg-base) 30%);
+
+  /* Derived from VS Code's info colors */
+  --info-base: var(--vscode-editorInfo-foreground);
+  --info-subtle: color-mix(in oklab, var(--info-base), var(--bg-base) 85%);
+  --info-emphasis: color-mix(in oklab, var(--info-base), var(--fg-base) 30%);
+
+  /* Derived from VS Code's success colors */
+  --success-base: var(--vscode-notebookStatusSuccessIcon-foreground);
+  --success-subtle: color-mix(in oklab, var(--success-base), var(--bg-base) 85%);
+  --success-emphasis: color-mix(in oklab, var(--success-base), var(--fg-base) 30%);
+
   /* Derived from VS Code's link colors */
   --link-base: var(--vscode-textLink-foreground);
   --link-hover: color-mix(in oklab, var(--link-base), white 20%);
@@ -45,17 +58,13 @@
   --surface-sunken: var(--bg-darker);
   --surface-code: var(--vscode-textBlockQuote-background, var(--bg-darker));
   
-  --interactive-default: var(--accent-base);
-  --interactive-hover: var(--accent-lighter);
-  --interactive-active: var(--accent-darker);
-  --interactive-muted: color-mix(in oklab, var(--accent-base), var(--bg-base) 70%);
+  --interactive-default: color-mix(in oklab, var(--accent-base), var(--bg-base) 65%);
+  --interactive-hover: color-mix(in oklab, var(--accent-base), var(--bg-base) 30%);
+  --interactive-active: var(--accent-base);
+  --interactive-muted: color-mix(in oklab, var(--accent-base), var(--bg-base) 80%);
   
   --text-default: var(--fg-base);
   --text-muted: var(--fg-muted);
   --text-subtle: var(--fg-subtle);
   --text-on-emphasis: var(--fg-on-emphasis);
-  
-  --status-error: var(--error-base);
-  --status-error-subtle: var(--error-subtle);
-  --status-error-emphasis: var(--error-emphasis);
 }
