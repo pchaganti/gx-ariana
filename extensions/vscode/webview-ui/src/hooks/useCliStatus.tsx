@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
+import type { ArianaCliStatus } from '../lib/cli';
 
-export function useTheme() {
-  const [isDark, setIsDark] = useState(true); // Default to dark theme
+export function useCliStatus() {
+  const [cliStatus, setCliStatus] = useState<ArianaCliStatus | null>(null);
 
   useEffect(() => {
-    postMessageToExtension({ command: 'getTheme' });
+    postMessageToExtension({ command: 'getArianaCliStatus' });
 
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.type === 'theme') {
-        setIsDark(message.isDark);
+      if (message.type === 'arianaCliStatus') {
+        setCliStatus(message.value);
       }
     };
 
@@ -21,8 +22,5 @@ export function useTheme() {
     };
   }, []);
 
-  return {
-    isDark,
-    theme: isDark ? 'dark' : 'light'
-  };
+  return cliStatus;
 }

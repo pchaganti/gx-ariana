@@ -1,10 +1,25 @@
 :root {
   /* Derived from VS Code's editor background */
-  --bg-base: var(--vscode-editor-background);
-  --bg-lighter: color-mix(in oklab, var(--bg-base), white 10%);
-  --bg-lightest: color-mix(in oklab, var(--bg-base), white 20%);
-  --bg-darker: color-mix(in oklab, var(--bg-base), black 10%);
-  --bg-darkest: color-mix(in oklab, var(--bg-base), black 20%);
+  --bg-base: var(--vscode-sideBar-background);
+  --bg-50: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 20%);
+  --bg-100: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 13%);
+  --bg-200: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 10%);
+  --bg-300: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 6%);
+  --bg-400: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 4%);
+  --bg-450: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 2%);
+  --bg-500: var(--bg-base);
+  --bg-550: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 2%);
+  --bg-600: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 4%);
+  --bg-650: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 6%);
+  --bg-700: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 8%);
+  --bg-750: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 10%);
+  --bg-800: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 13%);
+  --bg-850: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 20%);
+
+  --bg-lighter: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 10%);
+  --bg-lightest: color-mix(in oklab, var(--bg-base), rgb(255, 249, 236) 20%);
+  --bg-darker: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 10%);
+  --bg-darkest: color-mix(in oklab, var(--bg-base), rgb(6, 1, 24) 20%);
   
   /* Derived from VS Code's foreground */
   --fg-base: var(--vscode-editor-foreground);
