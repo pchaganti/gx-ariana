@@ -204,7 +204,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
   }, [traces, tracesById]);
 
   return (
-    <div className="flex flex-col max-w-full w-full p-4 pr-0 gap-3">
+    <div className="flex flex-col h-full max-h-full max-w-full w-full p-4 pr-0 gap-3">
       <div className="flex justify-between gap-3 pr-4 items-end mb-2">
         <div className="flex-grow">
           <VaultSelector
@@ -220,7 +220,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
           onClick={() => {
             postMessageToExtension({ command: 'toggleHighlighting' });
           }}
-          className={"text-[var(--vscode-foreground)] px-3 rounded-md h-8 w-[20ch] cursor-pointer text-sm font-semibold flex-shrink-0 " + (highlightingToggled ? 'bg-[var(--vscode-accent-500)]' : 'bg-[var(--vscode-background)]')}
+          className={"text-[var(--text-default)] px-3 rounded-md h-8 w-[20ch] cursor-pointer text-sm font-semibold flex-shrink-0 " + (highlightingToggled ? 'bg-[var(--interactive-default)]' : 'bg-[var(--surface-code)]')}
         >
           Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
         </button>
@@ -229,7 +229,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
         {traces.length > 0 && (
           <button
             onClick={handleCopyAllTraces}
-            className={`text-[var(--vscode-foreground)] px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-[var(--vscode-warning-500)]' : ' bg-[var(--vscode-background)]'}`}
+            className={`text-[var(--text-default)] px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-[var(--warning-base)]' : ' bg-[var(--surface-code)]'}`}
           >
             {copied ? 'Copied' : '📋 Copy All'}
           </button>
@@ -237,7 +237,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
       </div>
       <div
         ref={containerRef}
-        className="w-full max-w-full h-[76vh]"
+        className="w-full max-w-full flex-1 overflow-y-auto scrollbar-w-2"
         onScroll={handleScroll}
       >
         <VirtualizedTracesList

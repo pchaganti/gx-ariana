@@ -166,36 +166,34 @@ const App = () => {
     }
 
     return (
-        <div className={`${theme} flex flex-col h-screen w-screen max-w-screen overflow-hidden text-base`}>
+        <div className={`${theme} flex flex-col h-screen max-h-screen w-screen max-w-screen overflow-hidden text-base`}>
             {isSidebar ? (
                 <div className="flex flex-col h-full max-h-full w-full max-w-full">
                     <Tabs
                         defaultValue="main"
                         value={activeTab}
                         onValueChange={handleTabChange}
-                        className="flex-1 flex flex-col h-full max-h-full w-full max-w-full"
+                        className="flex flex-col w-full max-w-full h-full max-h-full"
                     >
-                        <div className="">
-                            <TabsList className="w-full">
-                                <TabsTrigger value="main" className="flex-1">Home</TabsTrigger>
-                                <TabsTrigger value="traces" className="flex-1">Analyze</TabsTrigger>
-                                <TabsTrigger value="theme" className="flex-1">Theme</TabsTrigger>
-                            </TabsList>
-                        </div>
-
-                        <TabsContent value="main" className="flex-1 h-[calc(100%-30px)] max-h-[calc(100%-30px)] mt-0">
+                        <TabsList className="w-full">
+                            <TabsTrigger value="main" className="flex-1">Home</TabsTrigger>
+                            <TabsTrigger value="traces" className="flex-1">Analyze</TabsTrigger>
+                            <TabsTrigger value="theme" className="flex-1">Theme</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="main" className="max-h-full h-full overflow-y-auto scrollbar-w-2">
                             <MainTab />
                         </TabsContent>
 
-                        <TabsContent value="traces" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
+                        <TabsContent value="traces" className="max-h-full h-full overflow-y-auto scrollbar-w-2 max-w-full w-full">
                             <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} isRefreshingVaults={isRefreshingVaults} />
                         </TabsContent>
 
                         <TabsContent value="theme" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
                             <ThemeColorsTab />
                         </TabsContent>
+                        <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                     </Tabs>
-                    <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </div>
             ) : (
                 <div className="flex flex-col h-full">

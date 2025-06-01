@@ -44,8 +44,8 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 				completed 
 					? "bg-[var(--success-base)] text-[var(--text-on-emphasis)]" 
 					: isDark 
-						? "bg-[var(--interactive-default)] text-white" 
-						: "bg-[var(--interactive-default)] text-[var(--text-on-emphasis)]"
+						? "bg-[var(--interactive-active)] text-white" 
+						: "bg-[var(--interactive-active)] text-[var(--text-on-emphasis)]"
 			)}>
 				{completed ? "✓" : number}
 			</div>
@@ -61,7 +61,7 @@ const OnboardingStep: React.FC<OnboardingStepProps> = ({
 			{number < 4 && (
 				<div className={cn(
 				"absolute left-5 top-10 w-0.5",
-				completed ? "bg-[var(--success-base)]" : "bg-[var(--interactive-default)]"
+				completed ? "bg-[var(--success-base)]" : "bg-[var(--interactive-active)]"
 			)} style={{ height: 'calc(100% - 29px)' }} />
 			)}
 		</div>
@@ -133,7 +133,7 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
 	return (
     <div className="rounded-md bg-[var(--surface-sunken)]">
       <div
-        className={"group sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[var(--surface-sunken)] cursor-pointer hover:bg-[var(--surface-raised)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--surface-raised)] rounded-b-none')}
+        className={"group flex items-center justify-between px-4 py-3 bg-[var(--surface-sunken)] cursor-pointer hover:bg-[var(--surface-raised)] transition-colors rounded-sm " + (isCollapsed ? '' : 'border-solid border-b-2 border-[var(--surface-raised)] rounded-b-none')}
         onClick={handleToggleCollapse}
       >
         <h2 className="text-lg font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-default)]">👋 Getting Started</h2>
@@ -205,7 +205,7 @@ const OnboardingPanel: React.FC<OnboardingPanelProps> = ({ cliStatus }) => {
               active={cliStatus?.isInstalled || false}
             >
               <div className="flex flex-col gap-2 text-[var(--text-muted)]">
-                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--interactive-default)] font-mono">ariana</span> before the command.</p>
+                <p className="">Ariana must watch your code both build & run. So build & run your code from the terminal as you normally would, but add <span className="text-[var(--interactive-active)] bg-[var(--surface-code)] py-0.5 px-1 rounded-md font-mono">ariana</span> before the command.</p>
                 <div className={cn(
 						"p-3 my-2 rounded-md font-mono text-[var(--text-default)]",
 						isDark ? "bg-[var(--surface-code)]" : "bg-[var(--surface-code)]"

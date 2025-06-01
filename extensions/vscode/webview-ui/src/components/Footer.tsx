@@ -2,7 +2,6 @@ import React from 'react';
 import { ArianaCliStatus } from '../lib/cli';
 import { postMessageToExtension } from '../utils/vscode';
 import { useTheme } from '../hooks/useTheme';
-import { colors, getThemeAwareColor } from '../utils/themeAwareColors';
 
 interface FooterProps {
     cliStatus: ArianaCliStatus | null;
@@ -22,13 +21,13 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
 
     return (
         <div 
-            className="h-[30px] px-4 py-1 flex justify-between items-center text-xs" 
+            className="flex justify-between items-center text-xs" 
             style={{ 
                 backgroundColor: 'var(--surface-code)',
                 color: 'var(--text-muted)'
             }}
         >
-            <div>
+            <div className="px-4 py-1">
                 {cliStatus?.isInstalled && cliStatus.version && (
                     <span>
                         ariana - {cliStatus.version.split('ariana ')[1]}
@@ -51,8 +50,7 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
                 href="https://discord.gg/Y3TFTmE89g" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="hover:underline"
-                style={{ color: 'var(--interactive-default)' }}
+                className={`hover:underline px-4 py-1 bg-[var(--interactive-active)] ${isDark ? '!text-[var(--text-default)]' : '!text-[var(--surface-default)]'}`}
                 onClick={(e) => {
                     e.preventDefault();
                     postMessageToExtension({ 

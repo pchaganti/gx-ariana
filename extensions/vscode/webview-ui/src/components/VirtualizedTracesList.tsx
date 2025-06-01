@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import JsonView from '@microlink/react-json-view';
 import type { Trace } from '../bindings/Trace';
 import { requestHighlight } from '../lib/highlight';
+import { useTheme } from '../hooks/useTheme';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -52,6 +53,8 @@ function findEnterTrace(traces: Trace[], traceId: string): Trace | undefined {
 }
 
 const TraceGroup = ({ traces }: { traces: Trace[] }) => {
+    const { isDark } = useTheme();
+    
     let enterTrace = findEnterTrace(traces, traces[0].trace_id);
     let exitTrace = findExitTrace(traces, traces[0].trace_id);
     let errorTrace = findErrorTrace(traces, traces[0].trace_id);
@@ -73,19 +76,26 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
         
         return (
             <div className="flex flex-col">
-                <button
-                    onClick={() => {
-                        requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
-                    }} 
-                    className={`w-full text-left text-sm flex-col hover:bg-[var(--vscode-secondary-500)] rounded-md px-3 pb-1 pt-1.5 cursor-pointer`}
-                >
-                    <div className="font-mono opacity-30">
-                        in {fileName} {enterTrace.start_pos.line === enterTrace.end_pos.line 
-                            ? `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to :${enterTrace.end_pos.column}`
-                            : `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`
-                        }
+                <div className="relative group w-fit">
+                    <button
+                        onClick={() => {
+                            requestHighlight(enterTrace.start_pos.filepath, enterTrace.start_pos.line, enterTrace.start_pos.column, enterTrace.end_pos.line, enterTrace.end_pos.column);
+                        }} 
+                        className={`text-left text-sm flex-col hover:text-[var(--interactive-active)] rounded-md pl-3 pr-7 pb-1 pt-1.5 cursor-pointer`}
+                    >
+                        <div className="font-mono opacity-30 group-hover:opacity-100">
+                            in {fileName} {enterTrace.start_pos.line === enterTrace.end_pos.line 
+                                ? `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to :${enterTrace.end_pos.column}`
+                                : `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`
+                            }
+                        </div>
+                    </button>
+                    <div className="absolute right-0 top-1/2 transform -translate-y-1/2 pr-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out text-[var(--interactive-active)]">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
                     </div>
-                </button>
+                </div>
                 <div className={`w-full text-xs flex gap-3 pb-1 px-3 items-start`}>
                     <div className="font-mono opacity-30">
                         At: {formatTimestamp(enterTrace.timestamp)}
@@ -116,7 +126,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
         }
         
         return (
-            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-[var(--vscode-error-500)] bg-opacity-20' : ' bg-[var(--vscode-background)]')}>
+            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-[var(--error-subtle)]' : 'bg-[var(--surface-default)]')}>
                 <Header enterTrace={enterTrace} exitOrErrorTrace={exitTrace ? exitTrace : errorTrace} />
                 <div className="overflow-x-auto p-3 pt-0">
                     <div className="flex gap-2 items-start">
@@ -137,15 +147,15 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
                                 case 'boolean':
                                     return <span className="font-mono">{String(parsedValue)}</span>;
                                 case 'undefined':
-                                    return <span className="font-mono text-[var(--vscode-foreground)] opacity-50">undefined</span>;
+                                    return <span className="font-mono text-[var(--text-subtle)]">undefined</span>;
                                 case 'function':
-                                    return <span className="font-mono text-[var(--vscode-accent-500)]">[Function]</span>;
+                                    return <span className="font-mono text-[var(--interactive-default)]">[Function]</span>;
                                 case 'symbol':
-                                    return <span className="font-mono text-[var(--vscode-warning-500)]">{parsedValue.toString()}</span>;
+                                    return <span className="font-mono text-[var(--warning-base)]">{parsedValue.toString()}</span>;
                                 case 'object':
                                     if (parsedValue === null) {
                                         return (
-                                            <span className="font-mono text-[var(--vscode-error-500)]">
+                                            <span className="font-mono text-[var(--error-base)]">
                                                 null/None
                                             </span>
                                         );
@@ -154,12 +164,19 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
                                         return <span className="font-mono text-muted-foreground">{String(parsedValue)}</span>;
                                     }
                                     return (
-                                        <JsonView
-                                            src={parsedValue}
-                                            theme="twilight"
-                                            collapsed={true}
-                                            shouldCollapse={(_) => true}
-                                        />
+                                        <div className="max-h-[10em] hover:max-h-[30em] overflow-hidden hover:overflow-y-auto w-full">
+                                            <JsonView
+                                                src={parsedValue}
+                                                theme={isDark ? 'twilight' : 'bright:inverted'}
+                                                collapsed={true}
+                                                style={{
+                                                    backgroundColor: 'var(--surface-default)',
+                                                    color: 'var(--text-default)',
+                                                    width: '100%',
+                                                }}
+                                                shouldCollapse={(_) => true}
+                                            />
+                                        </div>
                                     );
                                 default:
                                     return <span className="font-mono text-destructive">[Unknown Type]</span>;
@@ -198,7 +215,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
 
   if (traces.length === 0) {
     return (
-      <div className="flex flex-col text-[var(--vscode-foreground)] items-center justify-center h-full p-4 text-center">
+      <div className="flex flex-col text-[var(--text-default)] items-center justify-center h-full p-4 text-center">
         <p className="mb-2">No traces available</p>
         <p className="text-sm">Run your code with the Ariana CLI to generate traces, or select a previous run from the dropdown above.</p>
       </div>
@@ -208,7 +225,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
   return (
     <div
       ref={parentRef}
-      className="flex flex-col gap-3 w-full h-full overflow-y-auto max-h-full pr-4 text-[var(--vscode-foreground)]"
+      className="flex flex-col gap-3 w-full h-full overflow-y-auto max-h-full pr-4 text-[var(--text-default)]"
       style={{ overflowY: 'auto' }}
     >
       <div

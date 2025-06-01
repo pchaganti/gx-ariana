@@ -28,10 +28,10 @@ const SortDropdown: React.FC<SortDropdownProps> = ({ value, onChange }) => {
   const selectedOption = options.find(o => o.value === value);
 
   return (
-    <div ref={dropdownRef} className="relative text-[var(--vscode-foreground)] min-w-[9ch] w-fit">
+    <div ref={dropdownRef} className="relative text-[var(--text-default)] min-w-[9ch] w-fit">
       <div
         onClick={() => setIsOpen(v => !v)}
-        className={`flex items-center justify-between px-2 py-2 cursor-pointer rounded-md bg-[var(--vscode-background)] min-w-[9ch] w-fit hover:bg-[var(--vscode-accent-500)] select-none`}
+        className={`flex items-center justify-between px-2 py-2 cursor-pointer rounded-md bg-[var(--surface-code)] min-w-[9ch] w-fit hover:bg-[var(--interactive-hover)] select-none`}
         style={{ minWidth: '9ch', width: 'fit-content' }}
       >
         <span className="text-xs font-semibold flex items-center gap-1">
@@ -40,13 +40,13 @@ const SortDropdown: React.FC<SortDropdownProps> = ({ value, onChange }) => {
         <ChevronDown size={16} className={`ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
       {isOpen && (
-        <div className="absolute w-fit bg-[var(--vscode-secondary-500)] rounded-b-md shadow-lg z-30 min-w-[9ch] p-0.5 pb-1 rounded-md">
+        <div className="absolute w-fit bg-[var(--surface-raised)] rounded-b-md shadow-lg z-30 min-w-[9ch] p-0.5 pb-1 rounded-md">
           <div className="flex flex-col">
             {options.map(opt => (
               <div key={opt.value}>
                 <button
                   onClick={() => { onChange(opt.value as 'asc' | 'desc'); setIsOpen(false); }}
-                  className={`text-[var(--vscode-foreground)] px-4 py-2 rounded-md h-[2.5rem] min-w-full max-w-[22ch] cursor-pointer text-xs font-semibold flex-shrink-0 flex gap-2 items-center ${opt.value === value ? 'bg-[var(--vscode-accent-500)]' : 'bg-[var(--vscode-background)]'}`}
+                  className={`text-[var(--text-default)] px-4 py-2 rounded-md h-[2.5rem] min-w-full max-w-[22ch] cursor-pointer text-xs font-semibold flex-shrink-0 flex gap-2 items-center ${opt.value === value ? 'bg-[var(--interactive-active)]' : 'bg-[var(--surface-code)]'}`}
                 >
                   <span className="flex items-center gap-1">{opt.label}</span>
                   {opt.value === value ? <Check size={14} /> : <Check size={14} className='opacity-0'/>} 
