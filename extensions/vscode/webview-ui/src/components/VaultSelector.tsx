@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
 import { ChevronDown, Check, RefreshCw } from 'lucide-react';
-
 import { StoredVaultData } from '../types/vaults';
+import { useFocusableVaults } from '../hooks/useFocusableVaults';
+import { useFocusedVault } from '../hooks/useFocusedVault';
 
+// isRefreshing and onRefresh are now handled by the useFocusableVaults hook directly
+// If direct control from parent is needed for these, they can be added back as optional props.
 interface VaultSelectorProps {
-    focusableVaults: StoredVaultData[];
-    focusedVault: StoredVaultData | null;
-    isRefreshing?: boolean;
-    onRefresh?: () => void;
+    // No props needed for vault data anymore
 }
 
-const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, onRefresh }: VaultSelectorProps) => {
+const VaultSelector = ({ }: VaultSelectorProps) => {
+    const { focusableVaults, isRefreshingVaults: isRefreshing, refreshFocusableVaults: onRefresh } = useFocusableVaults();
+    const { focusedVault } = useFocusedVault();
     const [isOpen, setIsOpen] = useState(false);
     const selectorRef = useRef<HTMLDivElement>(null);
     
@@ -22,7 +24,7 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
     // Format time to be user-friendly, using created_at from StoredVaultData
     const formatTimeAgo = (timestamp: number) => {
         const now = Date.now();
-        const diffMs = now - timestamp;
+        const diffMs = now - (timestamp * 1000);
         const diffSec = Math.floor(diffMs / 1000);
         const diffMin = Math.floor(diffSec / 60);
         const diffHour = Math.floor(diffMin / 60);
@@ -128,7 +130,7 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
             </div>
 
             {isOpen && focusableVaults.length > 0 && (
-                <div className="absolute w-full bg-[var(--surface-raised)] rounded-b-md shadow-lg z-30">
+                <div className="absolute w-full bg-[var(--surface-raised)] rounded-b-md shadow-lg z-70">
                     <ul className="py-1 max-h-[40vh] overflow-y-auto">
                         {focusableVaults.map((vault) => (
                             <li 

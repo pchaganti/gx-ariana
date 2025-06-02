@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { VaultPublicData } from '../bindings/VaultPublicData'; // Added import
+import { VaultPublicData } from '../bindings/VaultPublicData'; 
 import { getConfig } from '../config';
+import { GetVaultsBySecretKeysRequest } from "../../webview-ui/src/bindings/GetVaultsBySecretKeysRequest";
 
 // Define the structure for storing vault data (combining server data with local dir)
 export type StoredVaultData = VaultPublicData & {
@@ -40,12 +41,15 @@ export class VaultsManager {
         }
         const serverUrl = this.getServerBaseUrl();
         try {
-            const response = await fetch(`${serverUrl}/vaults/get-from-secret`, {
+            const requestPayload: GetVaultsBySecretKeysRequest = { secret_keys: keys };
+            const stringifiedBody = JSON.stringify(requestPayload);
+            console.log('[VaultsManager] Sending body to /unauthenticated/vaults/get-from-secret:', stringifiedBody);
+            const response = await fetch(`${serverUrl}/unauthenticated/vaults/get-from-secret`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(keys),
+                body: stringifiedBody,
             });
 
             if (!response.ok) {
@@ -135,6 +139,7 @@ export class VaultsManager {
                     const secretKey = keyContent.split('\n')[0]?.trim(); // Corrected split character
                     
                     if (secretKey) {
+                        console.log('Found vault with secret key:', secretKey, 'in:', dir);
                         const storedData = await this.processAndStoreVault(secretKey, dir);
                         if (storedData) {
                             processedVaults.push(storedData);

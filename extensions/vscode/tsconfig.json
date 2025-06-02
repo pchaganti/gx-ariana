@@ -5,7 +5,10 @@
 	  "outDir": "out",
 	  "lib": ["es6", "dom"],
 	  "sourceMap": true,
-	  "rootDir": "src",
+	  "rootDirs": [
+      "src",
+      "webview-ui/src/bindings"
+    ],
 	  "strict": true
 	},
 	"exclude": ["node_modules", ".vscode-test", "webview-ui"]

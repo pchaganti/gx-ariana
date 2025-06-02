@@ -48,6 +48,7 @@ const MainTab: React.FC<MainTabProps> = ({  }) => {
 			<div className="flex flex-col gap-2 h-full">
 				<FeedbackButton />
 				<OnboardingOpenable cliStatus={cliStatus} />
+				<VaultSelector />
 				<VaultsSelection />
 			</div>
 		</div>

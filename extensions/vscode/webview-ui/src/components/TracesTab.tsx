@@ -208,12 +208,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
     <div className="flex flex-col h-full max-h-full max-w-full w-full p-4 pr-0 gap-3">
       <div className="flex justify-between gap-3 pr-4 items-end mb-2">
         <div className="flex-grow">
-          <VaultSelector
-            focusableVaults={focusableVaults}
-            focusedVault={focusedVault}
-            isRefreshing={isRefreshingVaults}
-            onRefresh={() => postMessageToExtension({ command: 'refreshFocusableVaults' })}
-          />
+          <VaultSelector />
         </div>
       </div>
       <div className="flex flex-row flex-wrap gap-2 pr-4 items-center">
