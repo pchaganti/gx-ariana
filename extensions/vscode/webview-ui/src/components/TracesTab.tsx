@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Trace } from '../bindings/Trace';
 import stateManager from '../utils/stateManager';
-import VaultSelector, { VaultHistoryEntry } from './VaultSelector';
+import VaultSelector from './VaultSelector';
+import { StoredVaultData } from '../types/vaults';
 import { postMessageToExtension } from '../utils/vscode';
 import VirtualizedTracesList from './VirtualizedTracesList';
 import SortDropdown from './SortDropdown';
@@ -9,8 +10,8 @@ import OnlyErrorsToggle from './OnlyErrorsToggle';
 
 interface TracesTabProps {
   traces: Trace[];
-  focusableVaults: VaultHistoryEntry[];
-  focusedVault: string | null;
+  focusableVaults: StoredVaultData[];
+  focusedVault: StoredVaultData | null;
   highlightingToggled: boolean;
   isRefreshingVaults?: boolean;
 }

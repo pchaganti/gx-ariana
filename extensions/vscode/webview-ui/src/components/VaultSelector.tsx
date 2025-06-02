@@ -2,15 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
 import { ChevronDown, Check, RefreshCw } from 'lucide-react';
 
-export interface VaultHistoryEntry {
-    key: string;
-    createdAt: number;
-    dir: string;
-}
+import { StoredVaultData } from '../types/vaults';
 
 interface VaultSelectorProps {
-    focusableVaults: VaultHistoryEntry[];
-    focusedVault: string | null;
+    focusableVaults: StoredVaultData[];
+    focusedVault: StoredVaultData | null;
     isRefreshing?: boolean;
     onRefresh?: () => void;
 }
@@ -23,6 +19,7 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
     console.log('focusedVault', focusedVault);
 
     // Format time to be user-friendly
+    // Format time to be user-friendly, using created_at from StoredVaultData
     const formatTimeAgo = (timestamp: number) => {
         const now = Date.now();
         const diffMs = now - timestamp;
@@ -73,10 +70,10 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
     }, []);
 
     // Handle vault selection
-    const handleVaultSelect = (vaultKey: string) => {
+    const handleVaultSelect = (vault: StoredVaultData) => {
         postMessageToExtension({
             command: 'focusVault',
-            vaultSecretKey: vaultKey
+            vaultData: vault // Send the full StoredVaultData object
         });
         setIsOpen(false);
     };
@@ -88,7 +85,7 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
     };
 
     // Find the focused vault entry to get its timestamp
-    const focusedVaultEntry = focusableVaults.find(vault => vault.key === focusedVault);
+    const focusedVaultEntry = focusedVault; // focusedVault is now StoredVaultData | null
 
     return (
         <div 
@@ -103,11 +100,11 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
                     <div className="flex flex-col">
                         <div className="text-sm font-semibold">
                             {focusedVaultEntry 
-                                ? formatTimeAgo(focusedVaultEntry.createdAt)
-                                : (focusedVault ? 'No run selected' : 'No runs available')}
+                                ? `${focusedVaultEntry.command} (${formatTimeAgo(focusedVaultEntry.created_at)})`
+                                : (focusableVaults.length > 0 ? 'Select a run' : 'No runs available')}
                         </div>
                         <div className="text-xs text-[var(--text-muted)]">
-                            in {focusedVaultEntry?.dir}
+                            {focusedVaultEntry?.command} in {focusedVaultEntry?.dir}
                         </div>
                     </div>
                     {focusableVaults.length > 0 && (
@@ -135,19 +132,19 @@ const VaultSelector = ({ focusableVaults, focusedVault, isRefreshing = false, on
                     <ul className="py-1 max-h-[40vh] overflow-y-auto">
                         {focusableVaults.map((vault) => (
                             <li 
-                                key={vault.key}
-                                onClick={() => handleVaultSelect(vault.key)}
-                                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-[var(--surface-code)] ${vault.key === focusedVault ? 'bg-[var(--interactive-active)]' : ''}`}
+                                key={vault.secret_key} // Use secret_key for key
+                                onClick={() => handleVaultSelect(vault)} // Pass the full vault object
+                                className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-[var(--surface-code)] ${focusedVault?.secret_key === vault.secret_key ? 'bg-[var(--interactive-active)]' : ''}`}
                             >
                                 <div className="flex flex-col">
                                     <div className="text-sm font-semibold">
-                                        {formatTimeAgo(vault.createdAt)}
+                                        {vault.command} ({formatTimeAgo(vault.created_at)}) {/* Display command and formatted created_at */}
                                     </div>
                                     <div className="text-xs text-[var(--text-muted)]">
-                                        in {vault.dir}
+                                        in {vault.dir} {/* Display dir, command is already shown above */}
                                     </div>
                                 </div>
-                                {vault.key === focusedVault && <Check size={16} />}
+                                {focusedVault?.secret_key === vault.secret_key && <Check size={16} />}
                             </li>
                         ))}
                     </ul>

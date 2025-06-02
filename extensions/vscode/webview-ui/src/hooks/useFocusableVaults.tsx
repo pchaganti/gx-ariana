@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
-import type { VaultHistoryEntry } from '../components/VaultSelector'; // Using App.tsx's import source
+import { StoredVaultData } from '../types/vaults';
 
 export function useFocusableVaults() {
-  const [focusableVaults, setFocusableVaults] = useState<VaultHistoryEntry[]>([]);
+  const [focusableVaults, setFocusableVaults] = useState<StoredVaultData[]>([]);
   const [isRefreshingVaults, setIsRefreshingVaults] = useState(false);
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useFocusableVaults() {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'focusableVaults') {
-        setFocusableVaults(message.value);
+        setFocusableVaults(message.value as StoredVaultData[]);
         setIsRefreshingVaults(false);
       }
     };

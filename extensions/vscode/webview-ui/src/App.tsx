@@ -10,13 +10,14 @@ import { setCurrentRenderNonce } from './utils/timerManagement';
 import { useTraces } from './hooks/useTraces';
 import { useFocusableVaults } from './hooks/useFocusableVaults';
 import { useCliStatus } from './hooks/useCliStatus';
+import { StoredVaultData } from './types/vaults';
 
 const App = () => {
     const traces = useTraces();
     const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
     const cliStatus = useCliStatus();
     const { focusableVaults, isRefreshingVaults } = useFocusableVaults();
-    const [focusedVault, setFocusedVault] = stateManager.usePersistedState<string | null>('focusedVault', null);
+    const [focusedVault, setFocusedVault] = stateManager.usePersistedState<StoredVaultData | null>('focusedVault', null);
     const [highlightingToggled, setHighlightingToggled] = stateManager.usePersistedState<boolean>('highlightingToggle', false);
 
     useEffect(() => {
@@ -43,8 +44,8 @@ const App = () => {
                 setCurrentRenderNonce(message.value);
                 break;
             case 'focusedVault':
-                console.log('Received focused vault:', message.value);
-                setFocusedVault(message.value);
+                console.log('Received focused vault (StoredVaultData | null):', message.value);
+                setFocusedVault(message.value as StoredVaultData | null);
                 break;
             case 'setHighlightingToggle':
                 console.log('Setting highlighting toggle state:', message.value);
@@ -75,7 +76,7 @@ const App = () => {
                     onValueChange={handleTabChange}
                     className="flex flex-col w-full max-w-full h-full max-h-full"
                 >   
-                    <TabsContent value="main" className="max-h-full h-full overflow-y-auto scrollbar-w-2">
+                    <TabsContent value="main" className="max-h-full h-full overflow-y-scroll scrollbar-w-2">
                         <MainTab />
                     </TabsContent>
 

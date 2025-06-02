@@ -4,7 +4,7 @@ import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installAriana
 import { WebviewService } from '../services/WebviewService';
 import { HotReloadService } from '../services/HotReloadService';
 import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
-import { VaultHistoryEntry, VaultsManager } from '../vaults/VaultsManager';
+import { StoredVaultData, VaultsManager } from '../vaults/VaultsManager';
 import { HighlightingToggle } from '../highlighting/HighlightingToggle';
 
 export class ArianaPanel implements vscode.WebviewViewProvider {
@@ -31,18 +31,19 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     this._vaultsManager = vaultsManager;
     this._highlightToggle = highlightToggle;
 
-    this._focusedVaultManager.subscribeToFocusedVaultChange((vault) => {
-      console.log('Focused vault changed to: ' + vault?.key);
+    this._focusedVaultManager.subscribeToFocusedVaultChange((focusedVaultInstance) => {
+      const currentVaultData = focusedVaultInstance?.vaultData ?? null;
+      console.log('Focused vault changed to: ' + currentVaultData?.secret_key);
       this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
-      this.sendFocusedVault(vault?.key ?? null);
+      this.sendFocusedVault(currentVaultData);
     });
     this._focusedVaultManager.subscribeToBatchTrace((_) => {
       this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
     });
     this._highlightToggle.subscribe(() => this.sendHighlightingToggleState());
 
-    this._vaultsManager.onDidAddVault((_) => {
-      console.log('Vault added');
+    this._vaultsManager.onDidUpdateVaultData((updatedVaultData) => {
+      console.log('Vault data updated for key: ' + updatedVaultData.secret_key + ', refreshing focusable vaults list.');
       const entries = this._vaultsManager.getVaultHistory();
       this.sendFocusableVaults(entries);
     });
@@ -86,7 +87,6 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     // When the view becomes visible, notify the webview
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
-        this._view?.webview.postMessage({ type: 'viewVisible' });
         // Send a fresh render nonce when view becomes visible again
         this._webviewService.sendRenderNonce(webviewView.webview);
       }
@@ -95,15 +95,16 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     setTimeout(() => {
       this.checkAndSendArianaCliStatus();
 
-      this.sendFocusableVaults(this._vaultsManager.getVaultHistory());
-      console.log('Sending focusable vaults: ', this._vaultsManager.getVaultHistory());
+      this.sendFocusableVaults(this._vaultsManager.getVaultHistory()); // getVaultHistory now returns StoredVaultData[]
+      console.log('Sending focusable vaults (StoredVaultData[]): ', this._vaultsManager.getVaultHistory());
       
-      const focusedVault = this._focusedVaultManager.getFocusedVault()?.key ?? null;
-      this.sendFocusedVault(focusedVault);
-      console.log('Sending focused vault: ', focusedVault);
+      const focusedVaultInstance = this._focusedVaultManager.getFocusedVault();
+      const initialFocusedVaultData = focusedVaultInstance?.vaultData ?? null;
+      this.sendFocusedVault(initialFocusedVaultData); // Send StoredVaultData | null
+      console.log('Sending focused vault data (StoredVaultData | null): ', initialFocusedVaultData?.secret_key);
       
-      if (focusedVault) {
-        console.log('Sending traces for focused vault: ', focusedVault);
+      if (initialFocusedVaultData) {
+        console.log('Sending traces for focused vault: ', initialFocusedVaultData.secret_key);
         this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
       }
 
@@ -148,8 +149,13 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         }
         break;
       case 'focusVault':
-        console.log('Asking to focus vault: ' + message.vaultSecretKey);
-        this._focusedVaultManager.switchFocusedVault(message.vaultSecretKey);
+        // Expecting message.vaultData to be StoredVaultData from the webview
+        if (message.vaultData && typeof message.vaultData === 'object' && message.vaultData.secret_key) {
+            console.log('Asking to focus vault: ' + message.vaultData.secret_key);
+            this._focusedVaultManager.switchFocusedVault(message.vaultData as StoredVaultData);
+        } else {
+            console.error('focusVault message received without valid vaultData (StoredVaultData expected). Message:', message);
+        }
         break;
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
@@ -186,7 +192,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     }
   }
 
-  private sendFocusableVaults(focusableVaults: VaultHistoryEntry[]) {
+  private sendFocusableVaults(focusableVaults: StoredVaultData[]) {
     if (this._view) {
       try {
         this._view.webview.postMessage({ type: 'focusableVaults', value: focusableVaults });
@@ -196,10 +202,10 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     }
   }
 
-  private sendFocusedVault(vaultSecretKey: string | null) {
+  private sendFocusedVault(vaultData: StoredVaultData | null) {
     if (this._view) {
       try {
-        this._view.webview.postMessage({ type: 'focusedVault', value: vaultSecretKey });
+        this._view.webview.postMessage({ type: 'focusedVault', value: vaultData });
       } catch (error) {
         console.error('Error sending focused vault to webview:', error);
       }

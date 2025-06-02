@@ -4,10 +4,10 @@ import { postMessageToExtension } from '../utils/vscode';
 import stateManager from '../utils/stateManager';
 import { useTheme } from '../hooks/useTheme';
 
-interface FeedbackButtonProps {
+interface VaultsSelectionProps {
 }
 
-const FeedbackButton: React.FC<FeedbackButtonProps> = ({ }) => {
+const VaultsSelection: React.FC<VaultsSelectionProps> = ({ }) => {
     const { isDark } = useTheme();
 
     const [isHidden, setIsHidden] = stateManager.usePersistedState('feedbackButtonHidden', false);
@@ -24,7 +24,7 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ }) => {
             });
         }} 
         className={cn(
-        "group w-full px-[0.05rem] transition-all flex flex-col text-left h-fit hover:px-1 cursor-pointer"
+        "group w-full p-[0.05rem] transition-all flex flex-col text-left h-fit hover:p-0 cursor-pointer"
     )}>
       <div className={cn(
         "relative rounded-2xl h-full w-full overflow-hidden",
@@ -66,4 +66,4 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ }) => {
 	);
 };
 
-export default FeedbackButton;
+export default VaultsSelection;

@@ -275,8 +275,8 @@ const OnboardingOpenable: React.FC<OnboardingOpenableProps> = ({ cliStatus }) =>
 
 	return (
     <button onClick={handleToggleOpened} className={cn(
-      "group w-full p-0.5 transition-all flex flex-col text-left",
-      isOpened ? "h-fit pointer-events-none cursor-default" : "h-[15em] hover:p-0 cursor-pointer"
+      "group w-full transition-all flex flex-col text-left",
+      isOpened ? "h-fit pointer-events-none cursor-default p-0" : "h-[15em] hover:p-1.5 p-2 cursor-pointer"
     )}>
       <div className={cn(
         "relative rounded-2xl h-full w-full overflow-hidden shadow-[0_5px_5px_3px_var(--bg-600)]",

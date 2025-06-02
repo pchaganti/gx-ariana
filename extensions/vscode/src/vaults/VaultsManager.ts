@@ -1,104 +1,163 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { VaultPublicData } from '../bindings/VaultPublicData'; // Added import
+import { getConfig } from '../config';
 
-// Define the structure for vault history entries
+// Define the structure for storing vault data (combining server data with local dir)
+export type StoredVaultData = VaultPublicData & {
+    dir: string;
+};
+
+// Old interface - can be removed if no longer used internally during discovery phase
 export interface VaultHistoryEntry {
     key: string;
-    createdAt: number;
+    createdAt: number; // local discovery/file timestamp
     dir: string;
 }
 
 export class VaultsManager {
-    // private static readonly STORAGE_KEY = 'ariana.vaultSecrets'; // Original key, maybe unused now?
-    private static readonly VAULT_HISTORY_STORAGE_KEY = 'ariana.vaultHistory'; // A.1
+    private static readonly VAULT_DATA_MAP_STORAGE_KEY = 'ariana.vaultsDataMap';
     private globalState: vscode.Memento;
 
-    private readonly _onDidAddVault = new vscode.EventEmitter<VaultHistoryEntry>();
-    public readonly onDidAddVault = this._onDidAddVault.event;
+    private getServerBaseUrl(): string {
+        return getConfig().apiUrl;
+    }
+
+    private readonly _onDidUpdateVaultData = new vscode.EventEmitter<StoredVaultData>();
+    public readonly onDidUpdateVaultData = this._onDidUpdateVaultData.event;
 
     constructor(globalState: vscode.Memento) {
         this.globalState = globalState;
     }
 
     /**
-     * Finds the nearest .ariana directory and reads the .vault_secret_key.
-     * Does NOT store the key or timestamp itself.
+     * Fetches VaultPublicData from the server for given keys.
      */
-    public async getCurrentLocalVaultKey(filePath: string): Promise<VaultHistoryEntry | null> {
+    private async fetchVaultPublicDataFromServer(keys: string[]): Promise<Array<VaultPublicData | null>> {
+        if (keys.length === 0) {
+            return [];
+        }
+        const serverUrl = this.getServerBaseUrl();
+        try {
+            const response = await fetch(`${serverUrl}/vaults/get-from-secret`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(keys),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text().catch(() => "Could not read error body");
+                console.error(`Error fetching vault data from server: ${response.status} ${response.statusText}. Response: ${errorBody}`);
+                return keys.map(() => null);
+            }
+            const data = await response.json() as Array<VaultPublicData | null>;
+            return data;
+        } catch (error) {
+            console.error('Network or other error fetching vault data:', error);
+            return keys.map(() => null);
+        }
+    }
+    
+    /**
+     * Retrieves all stored vault data, sorts by server-side creation date (most recent first).
+     */
+    public getVaultHistory(): StoredVaultData[] {
+        const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+        const vaultsArray = Object.values(vaultsMap);
+        vaultsArray.sort((a, b) => b.created_at - a.created_at);
+        return vaultsArray;
+    }
+
+    /**
+     * Processes a locally discovered vault: fetches its full data from the server,
+     * stores it, and fires an event.
+     * @param secretKey The vault's secret key.
+     * @param dir The local directory where the vault's .ariana folder resides.
+     * @returns The StoredVaultData if successful, otherwise null.
+     */
+    public async processAndStoreVault(secretKey: string, dir: string): Promise<StoredVaultData | null> {
+        const serverDataArray = await this.fetchVaultPublicDataFromServer([secretKey]);
+        const serverData = serverDataArray[0];
+
+        if (serverData) {
+            // Ensure secret_key from server matches the one discovered, though API guarantees this for non-null returns
+            if (serverData.secret_key !== secretKey) {
+                console.warn(`Mismatch in secret key from server for ${secretKey}. Server returned ${serverData.secret_key}. Skipping update.`);
+                return null;
+            }
+
+            const storedVaultData: StoredVaultData = {
+                ...serverData,
+                dir: dir,
+            };
+
+            const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+            vaultsMap[secretKey] = storedVaultData;
+            await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, vaultsMap);
+            
+            this._onDidUpdateVaultData.fire(storedVaultData);
+            console.log(`Updated data for vault ${secretKey} from server.`);
+            return storedVaultData;
+        } else {
+            console.warn(`Could not fetch data from server for vault ${secretKey}. It might not exist on the server or there was an error.`);
+            // Optional: remove from map if it's considered stale or invalid
+            // const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+            // if (vaultsMap[secretKey]) {
+            //     delete vaultsMap[secretKey];
+            //     await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, vaultsMap);
+            //     console.log(`Removed potentially stale/invalid vault ${secretKey} from local cache.`);
+            // }
+        }
+        return null;
+    }
+
+    /**
+     * Finds the nearest .ariana directory, reads the .vault_secret_key,
+     * fetches full vault data from the server, and stores it.
+     * Returns the StoredVaultData for the most relevant vault (most recent by server time).
+     */
+    public async getCurrentLocalVaultKey(filePath: string): Promise<StoredVaultData | null> {
         try {
             const arianaDirs = await this.findDirsContainingAriana(filePath);
             if (arianaDirs.length === 0) {
                 return null;
             }
 
-            const vaultEntries = await Promise.all(arianaDirs.map(async (dir) => {
+            const processedVaults: StoredVaultData[] = [];
+
+            for (const dir of arianaDirs) {
                 const vaultKeyPath = path.join(dir, '.ariana', '.vault_secret_key');
                 try {
-                    console.log("getting vault key from", vaultKeyPath);
                     const keyContent = await fs.readFile(vaultKeyPath, 'utf-8');
-                    const secretKey = keyContent.split('\n')[0]?.trim(); // Get first line and trim whitespace
+                    const secretKey = keyContent.split('\n')[0]?.trim(); // Corrected split character
                     
                     if (secretKey) {
-                        // Get file stats to use file creation time as timestamp
-                        const stats = await fs.stat(vaultKeyPath);
-                        const createdAt = stats.birthtime.getTime();
-                        this.addVaultToHistory(secretKey, createdAt, dir);
-                        
-                        return { key: secretKey, createdAt, dir };
+                        const storedData = await this.processAndStoreVault(secretKey, dir);
+                        if (storedData) {
+                            processedVaults.push(storedData);
+                        }
                     }
                 } catch (error) {
                     if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
-                        console.error('Error reading vault key:', error);
-                    } // else - file not found is expected
+                        console.error('Error reading vault key file:', vaultKeyPath, error);
+                    } // else - file not found is expected, or .ariana dir might exist without key
                 }
-                return null;
-            }));
-
-            // Filter out nulls and get the most recent vault
-            const validEntries = vaultEntries.filter(entry => entry !== null) as VaultHistoryEntry[];
-            if (validEntries.length === 0) {
+            }
+            
+            if (processedVaults.length === 0) {
                 return null;
             }
             
-            // Sort by creation time (most recent first)
-            validEntries.sort((a, b) => b.createdAt - a.createdAt);
-            return validEntries[0];
+            processedVaults.sort((a, b) => b.created_at - a.created_at);
+            return processedVaults[0]; 
+
         } catch (error) {
-            console.error('Error finding .ariana directory:', error);
+            console.error('Error in getCurrentLocalVaultKey:', error);
             return null;
         }
-    }
-
-    /**
-     * Adds a vault key and timestamp to the persistent history if it doesn't exist.
-     * Fires the onDidAddVault event upon successful addition.
-     */
-    private async addVaultToHistory(key: string, createdAt: number, dir: string): Promise<void> {
-        const history = this.getVaultHistory(); // Gets current sorted history
-        const exists = history.some(entry => entry.key === key);
-
-        if (!exists) {
-            console.log(`Adding new vault to history: ${key} (Created at: ${new Date(createdAt).toISOString()})`);
-            const newHistoryEntry: VaultHistoryEntry = { key, createdAt, dir };
-            const updatedHistory = [...history, newHistoryEntry];
-
-            // Sort descending (most recent first)
-            updatedHistory.sort((a, b) => b.createdAt - a.createdAt);
-
-            await this.globalState.update(VaultsManager.VAULT_HISTORY_STORAGE_KEY, updatedHistory);
-            this._onDidAddVault.fire(newHistoryEntry); // Fire event with the added entry
-        }
-    }
-
-    /**
-     * Retrieves all stored vault keys and their creation timestamps,
-     * sorted from most recent to least recent.
-     */
-    public getVaultHistory(): VaultHistoryEntry[] {
-        // Retrieve, default to empty array, and ensure sort order
-        return this.globalState.get<VaultHistoryEntry[]>(VaultsManager.VAULT_HISTORY_STORAGE_KEY, [])
-               .sort((a, b) => b.createdAt - a.createdAt);
     }
 
     private async findDirsContainingAriana(filePath: string): Promise<string[]> {

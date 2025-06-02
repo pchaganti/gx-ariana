@@ -4,8 +4,9 @@ import stateManager from '../utils/stateManager';
 import { ArianaCliStatus } from '../lib/cli';
 import OnboardingOpenable from './OnboardingOpenable';
 import { useTheme } from '../hooks/useTheme';
-import { colors, getThemeAwareColor } from '../utils/themeAwareColors';
 import FeedbackButton from './FeedbackButton';
+import VaultsSelection from './VaultsSelection';
+import VaultSelector from './VaultSelector';
 
 interface MainTabProps {
 }
@@ -45,8 +46,9 @@ const MainTab: React.FC<MainTabProps> = ({  }) => {
 	return (
 		<div key={renderKey} className="flex flex-col px-4 pb-4 pt-2 bg-[var(--surface-default)] min-h-full mx-auto text-[var(--text-default)]">
 			<div className="flex flex-col gap-2 h-full">
-				<FeedbackButton cliStatus={cliStatus} />
+				<FeedbackButton />
 				<OnboardingOpenable cliStatus={cliStatus} />
+				<VaultsSelection />
 			</div>
 		</div>
 	);
