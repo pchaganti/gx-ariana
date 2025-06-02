@@ -25,7 +25,7 @@ export class VaultsManager {
         return getConfig().apiUrl;
     }
 
-    private readonly _onDidUpdateVaultData = new vscode.EventEmitter<StoredVaultData>();
+    private readonly _onDidUpdateVaultData = new vscode.EventEmitter<StoredVaultData | null>();
     public readonly onDidUpdateVaultData = this._onDidUpdateVaultData.event;
 
     constructor(globalState: vscode.Memento) {
@@ -82,7 +82,10 @@ export class VaultsManager {
      * @param dir The local directory where the vault's .ariana folder resides.
      * @returns The StoredVaultData if successful, otherwise null.
      */
-    public async processAndStoreVault(secretKey: string, dir: string): Promise<StoredVaultData | null> {
+    public async processAndStoreVault(secretKey: string, dir: string): Promise<{
+        vault: StoredVaultData | null;
+        status: "new" | "existing" | "stale" | "serverError";
+    }> {
         const serverDataArray = await this.fetchVaultPublicDataFromServer([secretKey]);
         const serverData = serverDataArray[0];
 
@@ -90,7 +93,7 @@ export class VaultsManager {
             // Ensure secret_key from server matches the one discovered, though API guarantees this for non-null returns
             if (serverData.secret_key !== secretKey) {
                 console.warn(`Mismatch in secret key from server for ${secretKey}. Server returned ${serverData.secret_key}. Skipping update.`);
-                return null;
+                return { vault: null, status: "stale" };
             }
 
             const storedVaultData: StoredVaultData = {
@@ -99,23 +102,29 @@ export class VaultsManager {
             };
 
             const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+            if (vaultsMap[secretKey]) {
+                return { vault: storedVaultData, status: "existing" };
+            }
+            
             vaultsMap[secretKey] = storedVaultData;
             await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, vaultsMap);
             
             this._onDidUpdateVaultData.fire(storedVaultData);
             console.log(`Updated data for vault ${secretKey} from server.`);
-            return storedVaultData;
+            return { vault: storedVaultData, status: "new" };
         } else {
             console.warn(`Could not fetch data from server for vault ${secretKey}. It might not exist on the server or there was an error.`);
-            // Optional: remove from map if it's considered stale or invalid
-            // const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
-            // if (vaultsMap[secretKey]) {
-            //     delete vaultsMap[secretKey];
-            //     await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, vaultsMap);
-            //     console.log(`Removed potentially stale/invalid vault ${secretKey} from local cache.`);
-            // }
+            // remove from map if it's considered stale or invalid
+            const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+            if (vaultsMap[secretKey]) {
+                delete vaultsMap[secretKey];
+                await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, vaultsMap);
+                console.log(`Removed potentially stale/invalid vault ${secretKey} from local cache.`);
+                this._onDidUpdateVaultData.fire(null);
+                return { vault: null, status: "stale" };
+            }
         }
-        return null;
+        return { vault: null, status: "serverError" };
     }
 
     /**
@@ -123,14 +132,14 @@ export class VaultsManager {
      * fetches full vault data from the server, and stores it.
      * Returns the StoredVaultData for the most relevant vault (most recent by server time).
      */
-    public async getCurrentLocalVaultKey(filePath: string): Promise<StoredVaultData | null> {
+    public async getCurrentLocalVaultKey(filePath: string): Promise<{ vault: StoredVaultData; status: "new" | "existing" }  | null> {
         try {
             const arianaDirs = await this.findDirsContainingAriana(filePath);
             if (arianaDirs.length === 0) {
                 return null;
             }
 
-            const processedVaults: StoredVaultData[] = [];
+            const processedVaults = [];
 
             for (const dir of arianaDirs) {
                 const vaultKeyPath = path.join(dir, '.ariana', '.vault_secret_key');
@@ -140,9 +149,9 @@ export class VaultsManager {
                     
                     if (secretKey) {
                         console.log('Found vault with secret key:', secretKey, 'in:', dir);
-                        const storedData = await this.processAndStoreVault(secretKey, dir);
-                        if (storedData) {
-                            processedVaults.push(storedData);
+                        const { vault, status } = await this.processAndStoreVault(secretKey, dir);
+                        if (vault && (status === "new" || status === "existing")) {
+                            processedVaults.push({ vault, status });
                         }
                     }
                 } catch (error) {
@@ -156,7 +165,7 @@ export class VaultsManager {
                 return null;
             }
             
-            processedVaults.sort((a, b) => b.created_at - a.created_at);
+            processedVaults.sort((a, b) => b.vault.created_at - a.vault.created_at);
             return processedVaults[0]; 
 
         } catch (error) {

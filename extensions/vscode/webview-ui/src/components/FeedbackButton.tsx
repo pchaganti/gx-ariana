@@ -24,7 +24,7 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ }) => {
             });
         }} 
         className={cn(
-        "group w-full px-[0.05rem] transition-all flex flex-col text-left h-fit hover:px-1 cursor-pointer"
+        "group w-full px-1 transition-all flex flex-col text-left h-fit hover:px-0 cursor-pointer"
     )}>
       <div className={cn(
         "relative rounded-2xl h-full w-full overflow-hidden",

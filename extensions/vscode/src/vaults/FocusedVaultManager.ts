@@ -67,32 +67,36 @@ export class FocusedVaultManager {
             return;
         }
 
-        let newestVaultDataInWorkspaces: StoredVaultData | null = null;
+        let newestVaultDataInWorkspaces: { vault: StoredVaultData; status: "new" | "existing" } | null = null;
         let latestTimestampInWorkspaces = 0;
 
         for (const folder of workspaceFolders) {
             const vaultDataInFolder = await this.vaultsManager.getCurrentLocalVaultKey(folder.uri.fsPath);
-            if (vaultDataInFolder && vaultDataInFolder.created_at > latestTimestampInWorkspaces) {
+            if (vaultDataInFolder && vaultDataInFolder.vault.created_at > latestTimestampInWorkspaces) {
                 newestVaultDataInWorkspaces = vaultDataInFolder;
-                latestTimestampInWorkspaces = vaultDataInFolder.created_at;
+                latestTimestampInWorkspaces = vaultDataInFolder.vault.created_at;
             }
         }
 
         if (newestVaultDataInWorkspaces) {
             // A vault (the newest one across all workspaces) was found
-            if (newestVaultDataInWorkspaces.created_at > this.lastVaultFoundTimestamp) {
-                // This vault is newer than any previously focused vault
-                console.log(`Newer vault found across workspaces: ${newestVaultDataInWorkspaces.secret_key}, created_at: ${newestVaultDataInWorkspaces.created_at}`);
-                this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.created_at;
-                this.switchFocusedVault(newestVaultDataInWorkspaces);
-            } else if (!this.focusedVault || (this.focusedVault && this.focusedVault.vaultData.secret_key !== newestVaultDataInWorkspaces.secret_key)) {
-                // No vault currently focused, or the current focused vault is different from the newest one found in workspaces.
-                // This handles re-focusing (e.g., after VSCode restart) or switching if a different vault is now the newest available.
-                console.log(`Re-focusing or initializing vault to newest found in workspaces: ${newestVaultDataInWorkspaces.secret_key}`);
-                this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.created_at; // Ensure timestamp is up-to-date
-                this.switchFocusedVault(newestVaultDataInWorkspaces);
+            if (!this.focusedVault) {
+                // Case 1: No vault is currently focused. Focus the newest one found.
+                console.log(`No vault currently focused. Initializing focus to newest found: ${newestVaultDataInWorkspaces.vault.secret_key}`);
+                this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.vault.created_at;
+                this.switchFocusedVault(newestVaultDataInWorkspaces.vault);
+            } else if (newestVaultDataInWorkspaces.status === "new") {
+                // Case 2: A vault is currently focused. Compare with newestVaultDataInWorkspaces.
+                if (newestVaultDataInWorkspaces.vault.secret_key === this.focusedVault.vaultData.secret_key) {
+                    if (newestVaultDataInWorkspaces.vault.created_at > this.lastVaultFoundTimestamp) {
+                        this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.vault.created_at;
+                    }
+                } else if (newestVaultDataInWorkspaces.vault.created_at > this.focusedVault.vaultData.created_at) {
+                    console.log(`A genuinely newer vault found: ${newestVaultDataInWorkspaces.vault.secret_key}. Switching from ${this.focusedVault.vaultData.secret_key}.`);
+                    this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.vault.created_at;
+                    this.switchFocusedVault(newestVaultDataInWorkspaces.vault);
+                }
             }
-            // If the newestVaultDataInWorkspaces is the same as this.focusedVault and not newer, no action is needed.
         } else {
             // No vault found in any of the workspace folders
             if (this.focusedVault) {
@@ -113,7 +117,7 @@ export class FocusedVaultManager {
             this.focusedVault?.closeConnection();
             this.focusedVault = new FocusedVault(newVaultData, (traces) => {
                 this.batchTraceSubscribers.forEach(subscriber => subscriber(traces));
-            }, () => {
+            }, () => {}, () => {
                 console.log('WebSocket connection for vault ' + newVaultData.secret_key + ' failed or closed, attempting retry...');
                 setTimeout(() => {
                     // Only retry if this vault is still supposed to be the focused one
@@ -124,9 +128,8 @@ export class FocusedVaultManager {
                     }
                 }, Math.min(30000, Math.pow(2, retries) * 1000)); // Exponential backoff, max 30s
             });
+            this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
         }
-        // Notify subscribers even if it's the same vault, in case the instance was recreated (e.g., after retry)
-        this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
     }
 }
 
@@ -136,14 +139,16 @@ class FocusedVault {
     public wsConnection: WebSocket | null = null;
     private onBatchTrace: (trace: Trace[]) => void;
     private onCloseCallback: () => void;
+    private onErrorCallback: () => void;
     private pendingTraces: Trace[] = [];
     private throttleTimeout: NodeJS.Timeout | null = null;
     private throttleInterval: number = 800;
 
-    constructor(vaultData: StoredVaultData, onBatchTrace: (trace: Trace[]) => void, onCloseCallback: () => void) {
+    constructor(vaultData: StoredVaultData, onBatchTrace: (trace: Trace[]) => void, onCloseCallback: () => void, onErrorCallback: () => void) {
         this.vaultData = vaultData;
         this.onBatchTrace = onBatchTrace;
         this.onCloseCallback = onCloseCallback;
+        this.onErrorCallback = onErrorCallback;
         this.connectToTraceWebSocket();
     }
 
@@ -199,6 +204,8 @@ class FocusedVault {
     
         this.wsConnection.onerror = (errorEvent: WsErrorEvent) => { // Use onerror and WsErrorEvent
             console.error(`WebSocket error for ${vaultSecretKey}:`, errorEvent);
+            this.wsConnection = null;
+            this.onErrorCallback();
         };
     
         this.wsConnection.onclose = (closeEvent: WsCloseEvent) => { // Use onclose and WsCloseEvent
