@@ -6,11 +6,9 @@ use utils::generate_machine_id;
 use std::env;
 use std::fs;
 use std::process::exit;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use tokio::io::AsyncBufReadExt;
 use tokio::spawn;
+use tokio::signal;
 use tokio::sync::mpsc;
 
 mod auth;
@@ -112,7 +110,9 @@ async fn main_command(cli: Cli) -> Result<()> {
 
     // Create vault
     println!("[Ariana] Creating a new vault for your traces");
-    let vault_key = create_vault(&cli.api_url).await?;
+    let current_cwd_str = env::current_dir()?.to_string_lossy().into_owned();
+    let vault_command_str = if cli.command.is_empty() { None } else { Some(cli.command.join(" ")) };
+    let vault_key = create_vault(&cli.api_url, vault_command_str.as_deref(), Some(&current_cwd_str)).await?;
     let import_style = detect_project_import_style(&current_dir)?;
 
     // Process files
@@ -159,29 +159,27 @@ async fn main_command(cli: Cli) -> Result<()> {
         watch_subprocess_output(output_rx, &subprocess_api_url, &subprocess_vault_key, subprocess_stop_rx).await
     });
     // Prepare the command to run
-    let mut command_args = cli.command.clone();
-    let command = command_args.remove(0);
+    let command_to_run = cli.command[0].clone(); // Assuming cli.command is not empty, checked earlier
+    let command_args = cli.command[1..].to_vec();
 
     println!(
         "[Ariana] Running `{} {}` in {}/",
-        command,
+        command_to_run,
         command_args.join(" "),
-        working_dir.file_name().unwrap().to_str().unwrap()
+        working_dir.file_name().unwrap_or_default().to_str().unwrap_or_default()
     );
-
     println!("\n\n\n");
 
-    // Execute the command in the working directory with streaming output
     let mut child = if cfg!(windows) {
         tokio::process::Command::new("cmd")
-            .args(&["/C", &command])
+            .args(&["/C", &command_to_run])
             .args(&command_args)
             .current_dir(&working_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?
     } else {
-        tokio::process::Command::new(&command)
+        tokio::process::Command::new(&command_to_run)
             .args(&command_args)
             .current_dir(&working_dir)
             .stdout(std::process::Stdio::piped())
@@ -189,140 +187,132 @@ async fn main_command(cli: Cli) -> Result<()> {
             .spawn()?
     };
 
-    // Set up a Ctrl+C handler
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
+    let child_stdout = child.stdout.take().expect("Failed to capture stdout");
+    let mut stdout_reader = tokio::io::BufReader::new(child_stdout).lines();
 
-    let _ = ctrlc::set_handler(move || {
-        println!("[Ariana] Received Ctrl+C, stopping your command...");
-        if cli.inplace {
-            let _ = restore_backup();
-        }
-        r.store(false, Ordering::SeqCst);
-        println!("[Ariana] ❓ Use the Ariana IDE extension to view the traces.");
-        println!("[Ariana] 🙏 Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
-        println!("[Ariana] ➡️  Join the Discord: https://discord.gg/Y3TFTmE89g");
-        exit(0);
-    });
+    let child_stderr = child.stderr.take().expect("Failed to capture stderr");
+    let mut stderr_reader = tokio::io::BufReader::new(child_stderr).lines();
 
-    // Set up performance tracking
+    let stdout_output_tx = output_tx.clone();
+    let stderr_output_tx_clone = output_tx.clone(); 
+    let trace_tx_for_stdout = trace_tx.clone();
+    
     let perf_now = std::time::Instant::now();
 
-    // Process stderr in a separate task
-    let stderr = child.stderr.take().expect("Failed to capture stderr");
-    let mut stderr_reader = tokio::io::BufReader::new(stderr).lines();
-    let stderr_output_tx = output_tx.clone();
-    let stderr_task = spawn(async move {
+    let stdout_processing_task = tokio::spawn(async move {
+        loop {
+            match stdout_reader.next_line().await {
+                Ok(Some(line)) => {
+                    let mut processed_line = String::new();
+                    let mut current_pos = 0;
+                    while let Some(start_idx) = line[current_pos..].find("<trace id=") {
+                        let absolute_start = current_pos + start_idx;
+                        processed_line.push_str(&line[current_pos..absolute_start]);
+                        if let Some(end_idx) = line[absolute_start..].find("</trace>") {
+                            let absolute_end = absolute_start + end_idx + 8; 
+                            if let Some(id_start_offset) = line[absolute_start..absolute_end].find('"') {
+                                let id_start_abs = absolute_start + id_start_offset + 1;
+                                if let Some(id_end_offset) = line[id_start_abs..absolute_end].find('"') {
+                                    let content_start = id_start_abs + id_end_offset + 2;
+                                    let content_end = absolute_start + end_idx;
+                                    if content_start <= content_end && content_end <= line.len() {
+                                        let trace_content = &line[content_start..content_end];
+                                        match serde_json::from_str::<Trace>(trace_content) {
+                                            Ok(trace) => {
+                                                if trace_tx_for_stdout.send(trace).await.is_err() {
+                                                    eprintln!("[Ariana] Trace channel closed. Cannot send more traces.");
+                                                }
+                                            }
+                                            Err(e) => {
+                                                eprintln!("[Ariana] Failed to deserialize trace content: {}, content: '{}'", e, trace_content);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            current_pos = absolute_end;
+                        } else {
+                            processed_line.push_str(&line[absolute_start..]);
+                            current_pos = line.len();
+                            break;
+                        }
+                    }
+                    if current_pos < line.len() {
+                        processed_line.push_str(&line[current_pos..]);
+                    }
+                    if !processed_line.trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08').is_empty() {
+                        println!("{}", processed_line);
+                        if stdout_output_tx.send((processed_line.clone(), OutputSource::Stdout)).await.is_err() {
+                            eprintln!("[Ariana] Stdout channel closed. Stopping stdout processing.");
+                            break;
+                        }
+                    }
+                }
+                Ok(None) => break, 
+                Err(e) => {
+                    eprintln!("[Ariana] Error reading stdout from subprocess: {}", e);
+                    break;
+                }
+            }
+        }
+    });
+
+    let stderr_processing_task = tokio::spawn(async move {
         loop {
             match stderr_reader.next_line().await {
                 Ok(Some(line)) => {
-                    eprintln!("{}", line); // Print to console
-                    if stderr_output_tx.send((line, OutputSource::Stderr)).await.is_err() {
+                    eprintln!("{}", line);
+                    if stderr_output_tx_clone.send((line, OutputSource::Stderr)).await.is_err() {
                         eprintln!("[Ariana] Stderr channel closed. Stopping stderr processing.");
                         break;
                     }
                 }
-                Ok(None) => { // EOF
-                    break;
-                }
-                Err(e) => { // IO error reading stderr
+                Ok(None) => break, 
+                Err(e) => {
                     eprintln!("[Ariana] Error reading stderr from subprocess: {}", e);
                     break;
                 }
             }
         }
     });
-
-    // Process stdout as it's produced
-    let stdout = child.stdout.take().expect("Failed to capture stdout");
-    let mut reader = tokio::io::BufReader::new(stdout).lines();
-
-    loop {
-        match reader.next_line().await {
-            Ok(Some(line)) => {
-                let mut processed_line = String::new();
-                let mut current_pos = 0;
-
-                // Find all trace tags in the line
-                while let Some(start_idx) = line[current_pos..].find("<trace id=") {
-                    let absolute_start = current_pos + start_idx;
-
-                    // Add text before the trace tag to the processed line
-                    processed_line.push_str(&line[current_pos..absolute_start]);
-
-                    // Find the end of this trace tag
-                    if let Some(end_idx) = line[absolute_start..].find("</trace>") {
-                        let absolute_end = absolute_start + end_idx + 8; // 8 is the length of "</trace>"
-
-                        // Extract trace id and content for logging
-                        if let Some(id_start) = line[absolute_start..absolute_start + 20].find('"') {
-                            if let Some(_) =
-                                line[absolute_start + id_start + 1..absolute_start + 50].find('"')
-                            {
-                                // Extract just the content between the tags
-                                let id_end = line[absolute_start + id_start + 1..absolute_start + 50]
-                                    .find('"')
-                                    .unwrap();
-                                let content_start = absolute_start + id_start + id_end + 3; // +3 for the closing " and the >
-                                let content_end = absolute_start + end_idx;
-                                let trace_content = &line[content_start..content_end];
-                                let trace: Trace = serde_json::from_str(trace_content).unwrap();
-
-                                if trace_tx.send(trace).await.is_err() {
-                                    eprintln!("[Ariana] Trace channel closed. Cannot send more traces.");
-                                    // Decide if we should break the outer loop or just stop sending traces
-                                }
-                            }
-                        }
-
-                        // Update position to after this trace tag
-                        current_pos = absolute_end;
-                    } else {
-                        // If no closing tag found, add the rest and break
-                        processed_line.push_str(&line[absolute_start..]);
-                        current_pos = line.len();
-                        break;
-                    }
-                }
-
-                // Add any remaining text after the last trace tag
-                if current_pos < line.len() {
-                    processed_line.push_str(&line[current_pos..]);
-                }
-
-                // Only print if the line contains non-whitespace characters
-                if !processed_line
-                    .trim_matches(|c| c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\x08')
-                    .is_empty()
-                {
-                    println!("{}", processed_line);
-                    
-                    // Send the processed line to the subprocess output watcher
-                    if output_tx.send((processed_line.clone(), OutputSource::Stdout)).await.is_err() {
-                        eprintln!("[Ariana] Stdout channel closed. Stopping stdout processing.");
-                        break;
-                    }
+    
+    tokio::select! {
+        biased; 
+        _ = signal::ctrl_c() => {
+            println!("[Ariana] Received Ctrl+C, stopping your command...");
+            if cli.inplace {
+                if let Err(e) = processor::restore_backup() {
+                    eprintln!("[Ariana] Error restoring backup during Ctrl+C: {}", e);
+                } else {
+                    println!("[Ariana] Backup restored due to Ctrl+C (if applicable).");
                 }
             }
-            Ok(None) => { // EOF
-                break;
+            if let Err(e) = child.kill().await {
+                eprintln!("[Ariana] Failed to kill subprocess: {}. It might have already exited.", e);
+            } else {
+                println!("[Ariana] Subprocess signalled to terminate.");
             }
-            Err(e) => { // IO error reading stdout
-                eprintln!("[Ariana] Error reading stdout from subprocess: {}", e);
-                break;
+            // Child will be waited for outside the select block if killed.
+        }
+        result = child.wait() => {
+            match result {
+                Ok(status) => {
+                    if !status.success() {
+                        eprintln!("[Ariana] Subprocess exited with status: {}", status);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[Ariana] Error waiting for subprocess: {}", e);
+                }
             }
         }
     }
 
-    // Wait for the stderr processing to complete
-    if let Err(e) = stderr_task.await {
-        eprintln!("[Ariana] Error joining stderr_task: {:?}", e);
+    if let Err(e) = stdout_processing_task.await {
+        eprintln!("[Ariana] Error joining stdout processing task: {:?}", e);
     }
-
-    // Ensure the child process has exited
-    let status = child.wait().await?;
-    if !status.success() {
-        eprintln!("[Ariana] Subprocess exited with status: {}", status);
+    if let Err(e) = stderr_processing_task.await {
+        eprintln!("[Ariana] Error joining stderr processing task: {:?}", e);
     }
 
     let perf_end = std::time::Instant::now();
@@ -331,56 +321,32 @@ async fn main_command(cli: Cli) -> Result<()> {
         perf_end.duration_since(perf_now).as_millis()
     );
 
-    // Drop output_tx to signal to watch_subprocess_output that no more lines are coming.
-    // This allows its forwarder to exit gracefully after processing all messages.
+    drop(stop_tx); 
+    drop(subprocess_stop_tx);
     drop(output_tx);
-    // stderr_output_tx (the clone) will be dropped automatically when stderr_task scope ends.
-
-    // Wait for the subprocess output watcher to finish processing all messages and shut down.
-    match subprocess_watcher.await {
-        Ok(Ok(_)) => {}
-        Ok(Err(e)) => {
-            eprintln!("[Ariana CLI Main] Subprocess_watcher completed with error: {}", e);
-        }
-        Err(e) => {
-            eprintln!("[Ariana CLI Main] Failed to join subprocess_watcher task: {:?}", e);
-        }
-    }
-
-    // Now, explicitly stop the trace watcher (if it hasn't already stopped from its own logic).
-    // And send a final stop to subprocess_watcher (might be redundant if drop(output_tx) caused clean exit).
-    if stop_tx.send(()).await.is_err() {
-        eprintln!("[Ariana CLI Main] Failed to send stop signal to trace_watcher (already closed?).");
-    }
-    let _ = subprocess_stop_tx.send(()).await;
 
     if let Err(e) = trace_watcher.await {
-        eprintln!("[Ariana CLI Main] Failed to join trace_watcher task: {:?}", e);
+         eprintln!("[Ariana CLI Main] Failed to join trace_watcher task: {:?}", e);
+    }
+    match subprocess_watcher.await {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => eprintln!("[Ariana CLI Main] Subprocess_watcher completed with error: {}", e),
+        Err(e) => eprintln!("[Ariana CLI Main] Failed to join subprocess_watcher task: {:?}", e),
     }
 
-    if !running.load(Ordering::SeqCst) {
-        exit(1);
-    }
-
-    // If running in-place, restore original files
     if cli.inplace {
-        if let Err(e) = restore_backup() {
-            eprintln!(
-                "[Ariana] Could not restore backup from {}/__ariana_backup.zip: {}",
-                ariana_dir.display(),
-                e
-            );
+        if let Err(e) = processor::restore_backup() {
+            eprintln!("[Ariana] Error restoring backup at end of command: {}", e);
         } else {
-            println!("[Ariana] Your instrumented code files just got restored from backup. In case something went wrong, please find the backup preserved in {}/__ariana_backup.zip", ariana_dir.display());
+            println!("[Ariana] Backup restored at end of command (if applicable).");
         }
     }
 
-    // Exit with the same status code as the command
-    if !status.success() {
-        exit(status.code().unwrap_or(1));
-    }
+    println!("[Ariana] ❓ Use the Ariana IDE extension to view the traces.");
+    println!("[Ariana] 🙏 Thanks for using Ariana! We are looking for your feedback, suggestions & bugs so we can make Ariana super awesome for you!");
+    println!("[Ariana] ➡️  Join the Discord: https://discord.gg/Y3TFTmE89g");
 
-    Ok(())   
+    Ok(())
 }
 
 async fn run_recap(api_url: &str) -> Result<()> {

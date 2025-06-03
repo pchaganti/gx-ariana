@@ -3,7 +3,7 @@ use ariana_server::traces::instrumentation::ecma::EcmaImportStyle;
 use ariana_server::web::traces::instrument::{
     CodeInstrumentationBatchRequest, CodeInstrumentationBatchResponse,
 };
-use ariana_server::web::vaults::VaultPublicData;
+use ariana_server::web::vaults::{VaultPublicData, CreateVaultRequestPayload};
 use reqwest::blocking::Client;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -90,15 +90,21 @@ pub async fn instrument_files_batch(
     // The final '?' propagates the Result from the closure (inner Result)
 }
 
-pub async fn create_vault(api_url: &str) -> Result<String> {
+pub async fn create_vault(api_url: &str, command_str: Option<&str>, cwd_str: Option<&str>) -> Result<String> {
     // Generate a machine hash (just a random ID in this case)
     let machine_hash = generate_machine_id().await?;
 
     // Call the server API to create a vault
     let client = reqwest::Client::new();
+    let payload = CreateVaultRequestPayload {
+        command: command_str.map(|s| s.to_string()),
+        cwd: cwd_str.map(|s| s.to_string()),
+    };
+
     let response = client
         .post(&format!("{}/unauthenticated/vaults/create", api_url))
         .header("X-Machine-Hash", machine_hash)
+        .json(&payload)
         .send()
         .await?;
 
