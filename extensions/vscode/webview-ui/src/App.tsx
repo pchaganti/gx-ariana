@@ -59,7 +59,7 @@ const App = () => {
                     onValueChange={handleTabChange}
                     className="flex flex-col w-full max-w-full h-full max-h-full"
                 >   
-                    <TabsContent value="main" className="max-h-full h-full overflow-y-scroll scrollbar-w-2">
+                    <TabsContent value="main" className="max-h-full h-full overflow-y-auto scrollbar-w-2 border-r-[1.5px] border-[var(--bg-base)]">
                         <MainTab />
                     </TabsContent>
 
