@@ -44,6 +44,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
 
     this._vaultsManager.onDidUpdateVaultData(() => {
       const entries = this._vaultsManager.getVaultHistory();
+      console.log('Vault history updated:', entries);
       this.sendFocusableVaults(entries);
     });
 
@@ -147,12 +148,8 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         break;
       case 'focusVault':
         // Expecting message.vaultData to be StoredVaultData from the webview
-        if (message.vaultData && typeof message.vaultData === 'object' && message.vaultData.secret_key) {
-            console.log('Asking to focus vault: ' + message.vaultData.secret_key);
-            this._focusedVaultManager.switchFocusedVault(message.vaultData as StoredVaultData);
-        } else {
-            console.error('focusVault message received without valid vaultData (StoredVaultData expected). Message:', message);
-        }
+        console.log('Asking to focus vault: ' + message.vaultData?.secret_key);
+        this._focusedVaultManager.switchFocusedVault(message.vaultData as StoredVaultData | null);
         break;
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
@@ -169,8 +166,20 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         console.log('Refreshing focusable vaults');
         this.sendFocusableVaults(this._vaultsManager.getVaultHistory());
         break;
-      case 'toggleHighlighting':
-        this._highlightToggle.toggleUntoggle();
+      case 'setOpenPanelAtLaunch':
+        if (typeof message.value === 'boolean') {
+          this._context.globalState.update('ariana.openPanelAtLaunch', message.value);
+          vscode.window.setStatusBarMessage(`Ariana panel will ${message.value ? 'open' : 'not open'} at launch.`, 3000);
+        } else {
+          console.warn('Invalid value received for setOpenPanelAtLaunch:', message.value);
+        }
+        break;
+      case 'setHighlightingToggle':
+        if (typeof message.value === 'boolean') {
+          this._highlightToggle.setState(message.value);
+        } else {
+          console.warn('Invalid value received for setHighlightingToggle:', message.value);
+        }
         break;
       case 'installArianaCli':
         await this.installArianaCli(message.method);

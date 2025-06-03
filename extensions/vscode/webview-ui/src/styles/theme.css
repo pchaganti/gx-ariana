@@ -30,19 +30,24 @@
   /* Derived from VS Code's button colors */
   --accent-base: var(--vscode-button-background);
   --accent-fg: var(--vscode-button-foreground);
+  --accent-subtle: color-mix(in oklab, var(--accent-base), var(--bg-base) 85%);
+  --accent-muted: color-mix(in oklab, var(--accent-base), var(--bg-base) 50%);
   
   /* Derived from VS Code's error colors */
   --error-base: var(--vscode-errorForeground);
   --error-subtle: color-mix(in oklab, var(--error-base), var(--bg-base) 85%);
   --error-emphasis: color-mix(in oklab, var(--error-base), var(--fg-base) 30%);
+  --error-muted: color-mix(in oklab, var(--error-base), var(--bg-base) 50%);
 
   /* Derived from VS Code's warning colors */
   --warning-base: var(--vscode-editorWarning-foreground);
   --warning-subtle: color-mix(in oklab, var(--warning-base), var(--bg-base) 85%);
   --warning-emphasis: color-mix(in oklab, var(--warning-base), var(--fg-base) 30%);
+  --warning-muted: color-mix(in oklab, var(--warning-base), var(--bg-base) 50%);
 
   /* Derived from VS Code's info colors */
   --info-base: var(--vscode-editorInfo-foreground);
+  --info-muted: color-mix(in oklab, var(--info-base), var(--bg-base) 50%);
   --info-subtle: color-mix(in oklab, var(--info-base), var(--bg-base) 85%);
   --info-emphasis: color-mix(in oklab, var(--info-base), var(--fg-base) 30%);
 
@@ -50,6 +55,7 @@
   --success-base: var(--vscode-notebookStatusSuccessIcon-foreground);
   --success-subtle: color-mix(in oklab, var(--success-base), var(--bg-base) 85%);
   --success-emphasis: color-mix(in oklab, var(--success-base), var(--fg-base) 30%);
+  --success-muted: color-mix(in oklab, var(--success-base), var(--bg-base) 50%);
 
   /* Derived from VS Code's link colors */
   --link-base: var(--vscode-textLink-foreground);

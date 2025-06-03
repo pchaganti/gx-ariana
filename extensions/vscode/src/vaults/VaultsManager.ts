@@ -30,6 +30,32 @@ export class VaultsManager {
 
     constructor(globalState: vscode.Memento) {
         this.globalState = globalState;
+
+        // check all stored vaults and remove any that are stale
+        this.checkVaultsStaleness();
+    }
+
+    private async checkVaultsStaleness() {
+        const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+        const vaultsArray = Object.values(vaultsMap);
+        const serverDataPromises = vaultsArray.map(vault => this.fetchVaultPublicDataFromServer([vault.secret_key]));
+        const serverDataResults = await Promise.all(serverDataPromises);
+
+        const updatedVaultsMap = { ...vaultsMap };
+        let hasChanges = false;
+
+        serverDataResults.forEach((result, index) => {
+            if (result[0] === null) {
+                const vaultToRemove = vaultsArray[index];
+                delete updatedVaultsMap[vaultToRemove.secret_key];
+                hasChanges = true;
+            }
+        });
+
+        if (hasChanges) {
+            await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, updatedVaultsMap);
+            this._onDidUpdateVaultData.fire(null);
+        }
     }
 
     /**
@@ -70,6 +96,7 @@ export class VaultsManager {
      */
     public getVaultHistory(): StoredVaultData[] {
         const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+        console.log('Getting Vaults map:', vaultsMap);
         const vaultsArray = Object.values(vaultsMap);
         vaultsArray.sort((a, b) => b.created_at - a.created_at);
         return vaultsArray;
@@ -116,13 +143,16 @@ export class VaultsManager {
             console.warn(`Could not fetch data from server for vault ${secretKey}. It might not exist on the server or there was an error.`);
             // remove from map if it's considered stale or invalid
             const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
+            console.log("Vaults map:", vaultsMap);
+            console.log("Secret key entry:", vaultsMap[secretKey]);
             if (vaultsMap[secretKey]) {
                 delete vaultsMap[secretKey];
+                
                 await this.globalState.update(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, vaultsMap);
                 console.log(`Removed potentially stale/invalid vault ${secretKey} from local cache.`);
                 this._onDidUpdateVaultData.fire(null);
-                return { vault: null, status: "stale" };
             }
+            return { vault: null, status: "stale" };
         }
         return { vault: null, status: "serverError" };
     }
@@ -162,6 +192,7 @@ export class VaultsManager {
             }
             
             if (processedVaults.length === 0) {
+                console.log('No vaults found in the directory:', filePath);
                 return null;
             }
             

@@ -126,7 +126,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
         }
         
         return (
-            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-[var(--error-subtle)]' : 'bg-[var(--surface-default)]')}>
+            <div className={"w-full flex flex-col gap-1.5 rounded-md " + (errorTrace ? 'bg-[var(--error-subtle)]' : 'bg-[var(--surface-raised)]')}>
                 <Header enterTrace={enterTrace} exitOrErrorTrace={exitTrace ? exitTrace : errorTrace} />
                 <div className="overflow-x-auto p-3 pt-0">
                     <div className="flex gap-2 items-start">
@@ -198,9 +198,10 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
 interface VirtualizedTracesListProps {
   traces: Trace[];
   tracesById: Record<string, Trace[]>;
+  noTracesText?: string;
 }
 
-const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, tracesById }) => {
+const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, tracesById, noTracesText }) => {
   const parentRef = useRef<HTMLDivElement>(null);
   
   // Only use the Enter traces for virtualization (one per trace group)
@@ -216,8 +217,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
   if (traces.length === 0) {
     return (
       <div className="flex flex-col text-[var(--text-default)] items-center justify-center h-full p-4 text-center">
-        <p className="mb-2">No traces available</p>
-        <p className="text-sm">Run your code with the Ariana CLI to generate traces, or select a previous run from the dropdown above.</p>
+        <p className="mb-2">{noTracesText}</p>
       </div>
     );
   }

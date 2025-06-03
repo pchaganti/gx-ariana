@@ -1,20 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Trace } from '../bindings/Trace';
 import stateManager from '../utils/stateManager';
-import VaultSelector from './VaultSelector';
-import { StoredVaultData } from '../types/vaults';
-import { postMessageToExtension } from '../utils/vscode';
 import VirtualizedTracesList from './VirtualizedTracesList';
 import SortDropdown from './SortDropdown';
 import OnlyErrorsToggle from './OnlyErrorsToggle';
+import { useTraces } from '../hooks/useTraces';
 
-interface TracesTabProps {
-  traces: Trace[];
-  focusableVaults: StoredVaultData[];
-  focusedVault: StoredVaultData | null;
-  highlightingToggled: boolean;
-  isRefreshingVaults?: boolean;
-}
+interface TracesTabProps {}
 
 // Helper functions
 function traceIsError(trace: Trace): boolean {
@@ -64,12 +56,13 @@ const formatDuration = (nanoseconds: number) => {
   }
 };
 
-const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedVault, highlightingToggled, isRefreshingVaults = false }) => {
+const TracesTab: React.FC<TracesTabProps> = ({ }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPosition, setScrollPosition] = stateManager.usePersistedState<number>('tracesScrollPosition', 0);
   const [copied, setCopied] = useState(false);
   const [sortOrder, setSortOrder] = stateManager.usePersistedState<'asc' | 'desc'>('tracesSortOrder', 'desc');
   const [onlyErrors, setOnlyErrors] = stateManager.usePersistedState<boolean>('tracesOnlyErrors', false);
+  const traces = useTraces();
 
   // Initialize tracesById
   let tracesById: Record<string, Trace[]> = {};
@@ -206,26 +199,13 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
 
   return (
     <div className="flex flex-col h-full max-h-full max-w-full w-full p-4 pr-0 gap-3">
-      <div className="flex justify-between gap-3 pr-4 items-end mb-2">
-        <div className="flex-grow">
-          <VaultSelector />
-        </div>
-      </div>
       <div className="flex flex-row flex-wrap gap-2 pr-4 items-center">
-        <button
-          onClick={() => {
-            postMessageToExtension({ command: 'toggleHighlighting' });
-          }}
-          className={"text-[var(--text-default)] px-3 rounded-md h-8 w-[20ch] cursor-pointer text-sm font-semibold flex-shrink-0 " + (highlightingToggled ? 'bg-[var(--interactive-default)]' : 'bg-[var(--surface-code)]')}
-        >
-          Traces Overlay: {highlightingToggled ? 'On' : 'Off'}
-        </button>
         <OnlyErrorsToggle enabled={onlyErrors} onToggle={() => setOnlyErrors(v => !v)} />
         <SortDropdown value={sortOrder} onChange={setSortOrder} />
         {traces.length > 0 && (
           <button
             onClick={handleCopyAllTraces}
-            className={`text-[var(--text-default)] px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-[var(--warning-base)]' : ' bg-[var(--surface-code)]'}`}
+            className={`px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-[var(--success-base)] text-[var(--bg-base)]' : ' bg-[var(--surface-code)] text-[var(--text-default)]'}`}
           >
             {copied ? 'Copied' : '📋 Copy All'}
           </button>
@@ -239,6 +219,10 @@ const TracesTab: React.FC<TracesTabProps> = ({ traces, focusableVaults, focusedV
         <VirtualizedTracesList
           traces={filteredTraces}
           tracesById={tracesById}
+          noTracesText={onlyErrors ? (
+            'No errors observed during this run'
+            + (traces.length > 0 ? ` (untoggle 'Only Errors' to see ${traces.length} traces)` : '')
+          ) : 'No traces or errors observed during this run'}
         />
       </div>
     </div>

@@ -35,10 +35,14 @@ class Extension {
         );
         this.registerWebviewViewProvider(ArianaPanel.viewType, this.arianaPanel);
 
+        const openPanelAtLaunch = this.context.globalState.get<boolean>('ariana.openPanelAtLaunch', true);
+
         this.registerCommand('openSidebar', () => {
             vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
         });
-        this.executeCommand('openSidebar');
+        if (openPanelAtLaunch) {
+            this.executeCommand('openSidebar');
+        }
 
         this.registerCommand('updateCLI', () => this.arianaPanel.updateArianaCli());
 

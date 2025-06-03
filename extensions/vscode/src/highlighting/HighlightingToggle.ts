@@ -22,14 +22,29 @@ export class HighlightingToggle {
         return this.toggled;
     }
 
+    public setState(newState: boolean) {
+        if (this.toggled === newState) {
+            return; // Avoid unnecessary updates
+        }
+
+        this.toggled = newState;
+        
+        // Save the toggle state to global configuration
+        vscode.workspace.getConfiguration().update(HighlightingToggle.TOGGLE_STATE_KEY, this.toggled, vscode.ConfigurationTarget.Global);
+
+        this.onToggleSubscribers.forEach(subscriber => subscriber(this.toggled));
+
+        vscode.window.setStatusBarMessage(`Ariana traces overlay: ${this.toggled ? 'Enabled' : 'Disabled'}`, 3000);
+    }
+
     public toggleUntoggle() {
         this.toggled = !this.toggled;
         
         // Save the toggle state to global configuration
-        vscode.workspace.getConfiguration().update(HighlightingToggle.TOGGLE_STATE_KEY, this.toggled, true);
+        vscode.workspace.getConfiguration().update(HighlightingToggle.TOGGLE_STATE_KEY, this.toggled, vscode.ConfigurationTarget.Global);
 
         this.onToggleSubscribers.forEach(subscriber => subscriber(this.toggled));
 
-        vscode.window.showInformationMessage(`Ariana traces overlay: ${this.toggled ? 'Enabled' : 'Disabled'}`);
+        vscode.window.setStatusBarMessage(`Ariana traces overlay: ${this.toggled ? 'Enabled' : 'Disabled'}`, 3000);
     }
 }

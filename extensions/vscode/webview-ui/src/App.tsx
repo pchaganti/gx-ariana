@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
+import { Tabs, TabsContent } from './components/ui/tabs';
 import TracesTab from './components/TracesTab';
 import ThemeColorsTab from './components/ThemeColorsTab';
 import MainTab from './components/MainTab';
@@ -7,18 +7,11 @@ import { postMessageToExtension } from './utils/vscode';
 import Footer from './components/Footer';
 import stateManager from './utils/stateManager';
 import { setCurrentRenderNonce } from './utils/timerManagement';
-import { useTraces } from './hooks/useTraces';
-import { useFocusableVaults } from './hooks/useFocusableVaults';
 import { useCliStatus } from './hooks/useCliStatus';
-import { StoredVaultData } from './types/vaults';
 
 const App = () => {
-    const traces = useTraces();
     const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
     const cliStatus = useCliStatus();
-    const { focusableVaults, isRefreshingVaults } = useFocusableVaults();
-    const [focusedVault, setFocusedVault] = stateManager.usePersistedState<StoredVaultData | null>('focusedVault', null);
-    const [highlightingToggled, setHighlightingToggled] = stateManager.usePersistedState<boolean>('highlightingToggle', false);
 
     useEffect(() => {
         window.addEventListener('message', handleMessage);
@@ -43,16 +36,6 @@ const App = () => {
                 console.log('Received new render nonce:', message.value);
                 setCurrentRenderNonce(message.value);
                 break;
-            case 'focusedVault':
-                console.log('Received focused vault (StoredVaultData | null):', message.value);
-                setFocusedVault(message.value as StoredVaultData | null);
-                break;
-            case 'setHighlightingToggle':
-                console.log('Setting highlighting toggle state:', message.value);
-                setHighlightingToggled(message.value);
-                break;
-            default:
-                console.log('Unhandled message type:', message.type);
         }
     };
 
@@ -68,7 +51,7 @@ const App = () => {
     };
 
     return (
-        <div className={`flex flex-col h-screen max-h-screen w-screen max-w-screen overflow-hidden text-base`}>
+        <div className={`flex flex-col h-screen max-h-screen w-screen max-w-screen text-base`}>
             <div className="flex flex-col h-full max-h-full w-full max-w-full">
                 <Tabs
                     defaultValue="main"
@@ -81,7 +64,7 @@ const App = () => {
                     </TabsContent>
 
                     <TabsContent value="traces" className="max-h-full h-full overflow-y-auto scrollbar-w-2 max-w-full w-full">
-                        <TracesTab traces={traces} focusableVaults={focusableVaults} focusedVault={focusedVault} highlightingToggled={highlightingToggled} isRefreshingVaults={isRefreshingVaults} />
+                        <TracesTab />
                     </TabsContent>
 
                     <TabsContent value="theme" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">

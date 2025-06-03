@@ -78,26 +78,7 @@ export class FocusedVaultManager {
             }
         }
 
-        if (newestVaultDataInWorkspaces) {
-            // A vault (the newest one across all workspaces) was found
-            if (!this.focusedVault) {
-                // Case 1: No vault is currently focused. Focus the newest one found.
-                console.log(`No vault currently focused. Initializing focus to newest found: ${newestVaultDataInWorkspaces.vault.secret_key}`);
-                this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.vault.created_at;
-                this.switchFocusedVault(newestVaultDataInWorkspaces.vault);
-            } else if (newestVaultDataInWorkspaces.status === "new") {
-                // Case 2: A vault is currently focused. Compare with newestVaultDataInWorkspaces.
-                if (newestVaultDataInWorkspaces.vault.secret_key === this.focusedVault.vaultData.secret_key) {
-                    if (newestVaultDataInWorkspaces.vault.created_at > this.lastVaultFoundTimestamp) {
-                        this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.vault.created_at;
-                    }
-                } else if (newestVaultDataInWorkspaces.vault.created_at > this.focusedVault.vaultData.created_at) {
-                    console.log(`A genuinely newer vault found: ${newestVaultDataInWorkspaces.vault.secret_key}. Switching from ${this.focusedVault.vaultData.secret_key}.`);
-                    this.lastVaultFoundTimestamp = newestVaultDataInWorkspaces.vault.created_at;
-                    this.switchFocusedVault(newestVaultDataInWorkspaces.vault);
-                }
-            }
-        } else {
+        if (!newestVaultDataInWorkspaces) {
             // No vault found in any of the workspace folders
             if (this.focusedVault) {
                 // A vault was previously focused, but now none are found in any workspace folder. Clear it.
@@ -111,23 +92,30 @@ export class FocusedVaultManager {
         }
     }
 
-    public switchFocusedVault(newVaultData: StoredVaultData, retries: number = 0) {
-        if (this.focusedVault?.vaultData.secret_key !== newVaultData.secret_key) {
-            console.log('Switching focused vault to: ' + newVaultData.secret_key);
+    public switchFocusedVault(newVaultData: StoredVaultData | null, retries: number = 0) {
+        if (this.focusedVault?.vaultData.secret_key !== newVaultData?.secret_key) {
+            console.log('Switching focused vault to: ' + newVaultData?.secret_key);
             this.focusedVault?.closeConnection();
-            this.focusedVault = new FocusedVault(newVaultData, (traces) => {
-                this.batchTraceSubscribers.forEach(subscriber => subscriber(traces));
-            }, () => {}, () => {
-                console.log('WebSocket connection for vault ' + newVaultData.secret_key + ' failed or closed, attempting retry...');
-                setTimeout(() => {
-                    // Only retry if this vault is still supposed to be the focused one
-                    if (this.focusedVault?.vaultData.secret_key === newVaultData.secret_key) {
-                        console.log('Retrying connection for ' + newVaultData.secret_key);
-                        // Create a new FocusedVault instance, which will trigger a new connection attempt
-                        this.switchFocusedVault(newVaultData, retries + 1); 
-                    }
-                }, Math.min(30000, Math.pow(2, retries) * 1000)); // Exponential backoff, max 30s
-            });
+            if (newVaultData) {
+                this.focusedVault = new FocusedVault(newVaultData, (traces) => {
+                    this.batchTraceSubscribers.forEach(subscriber => subscriber(traces));
+                }, () => {}, () => {
+                    console.log('WebSocket connection for vault ' + newVaultData.secret_key + ' failed or closed, attempting retry...');
+                    setTimeout(() => {
+                        // Only retry if this vault is still supposed to be the focused one
+                        if (this.focusedVault?.vaultData.secret_key === newVaultData.secret_key) {
+                            console.log('Retrying connection for ' + newVaultData.secret_key);
+                            // Create a new FocusedVault instance, which will trigger a new connection attempt
+                            this.switchFocusedVault(newVaultData, retries + 1); 
+                        }
+                    }, Math.min(30000, Math.pow(2, retries) * 1000)); // Exponential backoff, max 30s
+                });
+            } else {
+                this.focusedVault?.closeConnection();
+                this.focusedVault = null;
+                this.lastVaultFoundTimestamp = 0;
+                this.focusedVaultSubscribers.forEach(subscriber => subscriber(null));
+            }
             this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
         }
     }
