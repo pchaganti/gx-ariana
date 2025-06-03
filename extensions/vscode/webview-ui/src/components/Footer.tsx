@@ -33,14 +33,14 @@ const Footer: React.FC<FooterProps> = ({ cliStatus, onUpdate }) => {
                         ariana - {cliStatus.version.split('ariana ')[1]}
                         {cliStatus.needsUpdate && (
                             <button 
-                                className="ml-2 px-2 py-0.5 text-xs rounded-md hover:opacity-90 transition-colors"
+                                className="ml-2 pl-2 pr-3 py-0.5 text-xs cursor-pointer rounded-full hover:opacity-90 transition-colors"
                                 style={{
-                                    backgroundColor: 'var(--interactive-default)',
-                                    color: 'var(--text-on-emphasis)'
+                                    backgroundColor: 'var(--interactive-active)',
+                                    color: isDark ? 'var(--fg-base)' : 'var(--bg-base)'
                                 }}
                                 onClick={handleUpdate}
                             >
-                                Update
+                                ⚠️ Click here to update the CLI
                             </button>
                         )}
                     </span>

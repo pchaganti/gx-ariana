@@ -170,7 +170,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
                                                 theme={isDark ? 'twilight' : 'bright:inverted'}
                                                 collapsed={true}
                                                 style={{
-                                                    backgroundColor: 'var(--surface-default)',
+                                                    backgroundColor: 'var(--surface-raised)',
                                                     color: 'var(--text-default)',
                                                     width: '100%',
                                                 }}
