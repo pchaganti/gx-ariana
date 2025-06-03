@@ -82,7 +82,7 @@ const VaultSelection = ({ }: VaultSelectionProps) => {
 
     return (
         <div className={cn(
-            'relative z-0 w-full h-full',
+            'relative z-0 w-full h-full max-h-[83vh] overflow-y-auto',
             focusedVault ? 'min-h-[50vh]' : 'min-h-[30vh]'
         )}>
             {focusedVault && (

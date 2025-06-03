@@ -154,6 +154,12 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
         break;
+      case 'getTraces':
+        {
+          const traces = this._focusedVaultManager.getFocusedVaultTraces();
+          this.sendTracesToWebview(traces);
+        }
+        break;
       case 'getFocusedVault':
         {
           const focusedVaultInstance = this._focusedVaultManager.getFocusedVault();

@@ -11,6 +11,7 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ }) => {
     const { isDark } = useTheme();
 
     const [isHidden, setIsHidden] = stateManager.usePersistedState('feedbackButtonHidden', false);
+    // const isHidden = false;
 
     if (isHidden) {return (<></>);}
 
