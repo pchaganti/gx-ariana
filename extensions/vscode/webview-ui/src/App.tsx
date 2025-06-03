@@ -9,6 +9,8 @@ import stateManager from './utils/stateManager';
 import { setCurrentRenderNonce } from './utils/timerManagement';
 import { useCliStatus } from './hooks/useCliStatus';
 
+const LEGAL_TABS = ['main'];
+
 const App = () => {
     const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
     const cliStatus = useCliStatus();
@@ -23,6 +25,12 @@ const App = () => {
             window.removeEventListener('message', handleMessage);
         };
     }, []);
+
+    useEffect(() => {
+        if (!LEGAL_TABS.includes(activeTab)) {
+            handleTabChange('main');
+        }
+    }, [activeTab]);
 
     const handleMessage = (event: MessageEvent) => {
         const message = event.data;
@@ -61,14 +69,6 @@ const App = () => {
                 >   
                     <TabsContent value="main" className="max-h-full h-full overflow-y-auto scrollbar-w-2 border-r-[1.5px] border-[var(--bg-base)]">
                         <MainTab />
-                    </TabsContent>
-
-                    <TabsContent value="traces" className="max-h-full h-full overflow-y-auto scrollbar-w-2 max-w-full w-full">
-                        <TracesTab />
-                    </TabsContent>
-
-                    <TabsContent value="theme" className="flex-1 overflow-hidden max-w-full w-full mt-0 h-[calc(100%-30px)] max-h-[calc(100%-30px)]">
-                        <ThemeColorsTab />
                     </TabsContent>
                     <Footer cliStatus={cliStatus} onUpdate={handleUpdate} />
                 </Tabs>

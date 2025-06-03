@@ -2,7 +2,7 @@
   "name": "ariana",
   "displayName": "Ariana - Debugging with AI",
   "description": "Debug your JS/TS/Python code effortlessly just by hovering it, or by asking AI.",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "icon": "resources/logo.png",
   "engines": {
     "vscode": "^1.94.0"
