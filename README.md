@@ -1,6 +1,6 @@
 <div align="center">
   <div align="center">
-  <h1>Ariana: Effortless AI-ready observability right in your IDE</h1>
+  <h1>Ariana: Debug what happens when your code runs, using Coding Agents & with zero code change</h1>
   <div align="center">
     <img src="https://github.com/dedale-dev/.github/blob/main/ariana_readme_thumbnail.png?raw=true" alt="Ariana Screenshot" width="800">
   </div>
@@ -16,7 +16,7 @@
   </div>
 </div>
 
-Ariana is an IDE extension to understand what happens during runtime. You don't have to put `print()`, `console.log()` or breakpoints. Currently supports JS/TS & Python.
+Ariana is a CLI to automatically add observability to your code and an IDE extension to consume it & provide context-aware debugging capabilities to coding agents. You don't have to change any code in your codebase or specify breakpoints. Currently supports JS/TS & Python.
 
 ## ✨ Key Features
 
@@ -34,21 +34,27 @@ Use Ariana VSCode extension to :
 
 ## 🧵 How to use
 
-Follow the **Getting started** instructions in the Ariana extension panel. Below is a summary of the process:
+Follow the **Getting started** instructions in the Ariana extension panel for the most up-to-date guidance. Below is a summary:
 
-#### 1) - REQUIRED - Install the `ariana` CLI
+#### 1. Install the `ariana` CLI
 
-The extension will install the required `ariana` CLI for you. In case it doesn't:
+The Ariana VS Code extension will guide you through installing the `ariana` CLI if it's not already present on your system. It will detect available package managers (like npm or pip) and provide commands to run directly from the extension.
+
+If you prefer to install it manually, here are the common commands:
 
 | Package Manager | Command                        |
 |-----------------|--------------------------------|
 | **npm**         | `npm install -g ariana`        |
 | **pip**         | `pip install ariana`           |
+|                 | `python -m pip install ariana` |
+|                 | `python3 -m pip install ariana`|
 
-#### 2) ✨ - REQUIRED - Add `ariana` just in front of your command. It will collect runtime information
+#### 2. Observe your code with `ariana`
+
+To collect runtime information, run your usual build/execution command, but prefix it with `ariana`. This tells the CLI to instrument a copy of your code (in a local `.ariana` directory) and observe its execution.
 
 ```bash
-ariana <run command>
+ariana <your usual build & run command>
 ```
 
 For example:
@@ -56,31 +62,35 @@ For example:
 | Codebase Type   | Command                                      |
 |-----------------|----------------------------------------------|
 | **JS/TS**       | `ariana npm run dev`                         |
-| **Python**      | `ariana python myscript.py --some-options-maybe` |
+| **Python**      | `ariana python myscript.py --some-options`   |
 
+Run this in each terminal where you execute a part of your application you want to observe.
 
-#### 3) 👾 Debug your code
+#### 3. View Traces in VS Code
 
-Open the Ariana panel by clicking on the icon in the Activity Bar. Go to the **Analyze** tab and explore traces produced by Ariana.
+Open the Ariana panel by clicking on its icon in the Activity Bar.
 
-- 🗺️ **Identify which sections of your code ran**
+- If you've run `ariana` on multiple projects, you might be prompted to select the run you want to focus on.
+- Traces from your code's execution will appear in the **Traces** tab.
 
+#### 4. Analyze Traces & Hover Over Code
 
-    | Highlight Color | Meaning                        |
-    |----------------|--------------------------------|
-    | 🟢 **Green**   | Code segment ran successfully. |
-    | 🔴 **Red**     | Code crashed here. |
-    | ⚪ **None**     | Code segment didn’t run or couldn't be recorded. | 
+Once traces are loaded, Ariana provides insights directly in your editor:
 
+- 🗺️ **Execution Highlighting**: See which parts of your code ran.
+    | Highlight Color | Meaning                                         |
+    |-----------------|-------------------------------------------------|
+    | 🟢 **Green**    | Code segment ran successfully.                  |
+    | 🔴 **Red**      | Code crashed here.                              |
+    | ⚫ **Grey/None** | Code segment didn’t run or couldn't be recorded. |
 
-- 🕵️ **Hover over any expression to reveal its past values**
+- 🕵️ **Value Hovers**: Hover over any expression in your code to see its last recorded values and execution time.
 
   ![Demo part 2](https://github.com/dedale-dev/.github/blob/main/demo_part2_0.gif?raw=true)
 
+#### 5. (Optional) Use AI to Understand Traces (WIP)
 
-#### 4) 🤖 Use AI to recap what your code did & identify error root causes (WIP)
-
-In the Ariana panel of your IDE go to Analyze and click "copy". You can then feed the traces to your AI coding agent in a little prompt like that:
+In the Ariana panel, you can copy the collected traces. You can then paste these into an AI coding assistant with a prompt like:
 
 ```
 <paste traces>
@@ -88,9 +98,9 @@ In the Ariana panel of your IDE go to Analyze and click "copy". You can then fee
 Using the debugging traces above and your knowledge of the codebase please do <xyz>
 ```
 
-Tip: use an agent with a lot of contexts as traces are quite heavy for now.
+Tip: Use an agent with a large context window, as traces can be verbose.
 
-*Coming soon: 10x smaller traces + an integrated coding agent for runtime questions / fixes*
+*Coming soon: More compact traces and an integrated AI agent for runtime analysis and fixes.*
 
 
 ----------------------------------------
@@ -137,7 +147,7 @@ ariana npm run start
 
 ## Code processing disclaimer
 
-We process and temporarily store for 48 hours your code files on our server based in EU. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
+We process and temporarily store for 48 hours your code files on our server based in EU in order to instrument them and help you debug afterwards. It is not sent to any third-party including any LLM provider. An enterprise plan will come later with enterprise-grade security and compliance. If that is important to you, [please let us know](https://discord.gg/Y3TFTmE89g).
 
 ## Licence
 
