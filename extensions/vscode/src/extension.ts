@@ -35,13 +35,41 @@ class Extension {
         );
         this.registerWebviewViewProvider(ArianaPanel.viewType, this.arianaPanel);
 
-        const openPanelAtLaunch = this.context.globalState.get<boolean>('ariana.openPanelAtLaunch', true);
-
         this.registerCommand('openSidebar', () => {
             vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
         });
-        if (openPanelAtLaunch) {
-            this.executeCommand('openSidebar');
+
+        // Logic to open panel on first-ever install, then respect user setting for subsequent launches.
+        const hasBeenLaunchedBeforeKey = 'ariana.hasBeenLaunchedBefore';
+        const openPanelUserPreferenceKey = 'ariana.openPanelAtLaunch';
+
+        const hasBeenLaunchedBefore = this.context.globalState.get<boolean>(hasBeenLaunchedBeforeKey);
+
+        if (!hasBeenLaunchedBefore) {
+            // This is the very first launch (fresh install).
+            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar').then(() => {
+                console.log('Ariana panel opened on first-ever launch.');
+            }, (err: any) => {
+                console.error('Failed to open Ariana panel on first-ever launch:', err);
+            });
+            // Mark that the extension has been launched at least once.
+            this.context.globalState.update(hasBeenLaunchedBeforeKey, true);
+            // Default the user preference to open on launch to true.
+            // The user can change this later via the extension settings.
+            this.context.globalState.update(openPanelUserPreferenceKey, true);
+        } else {
+            // This is a subsequent launch (not the first-ever install).
+            // Respect the user's preference for opening the panel on launch.
+            const openPanelUserPreference = this.context.globalState.get<boolean>(openPanelUserPreferenceKey);
+            // Default to true if the preference is somehow not set (should have been set on first launch).
+            const shouldOpen = openPanelUserPreference === undefined ? true : openPanelUserPreference;
+            if (shouldOpen) {
+                vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar').then(() => {
+                    console.log('Ariana panel opened based on user preference.');
+                }, (err: any) => {
+                    console.error('Failed to open Ariana panel based on user preference:', err);
+                });
+            }
         }
 
         this.registerCommand('updateCLI', () => this.arianaPanel.updateArianaCli());
