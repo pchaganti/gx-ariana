@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { Trace } from '../bindings/Trace';
 import { ArianaCliStatus, ArianaInstallMethod, getArianaCliStatus, installArianaCli, updateArianaCli } from '../installation/cliManager';
 import { WebviewService } from '../services/WebviewService';
 import { HotReloadService } from '../services/HotReloadService';
 import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
 import { StoredVaultData, VaultsManager } from '../vaults/VaultsManager';
 import { HighlightingToggle } from '../highlighting/HighlightingToggle';
+import { LightTrace } from '../bindings/LightTrace';
 
 export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
@@ -34,11 +34,11 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     this._focusedVaultManager.subscribeToFocusedVaultChange((focusedVaultInstance) => {
       const currentVaultData = focusedVaultInstance?.vaultData ?? null;
       console.log('Focused vault changed to: ' + currentVaultData?.secret_key);
-      this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
+      this.sendLightTracesToWebview(this._focusedVaultManager.getFocusedVaultLightTraces());
       this.sendFocusedVault(currentVaultData);
     });
-    this._focusedVaultManager.subscribeToBatchTrace((_) => {
-      this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
+    this._focusedVaultManager.subscribeToLightTracesBatch((_) => {
+      this.sendLightTracesToWebview(this._focusedVaultManager.getFocusedVaultLightTraces());
     });
     this._highlightToggle.subscribe(() => this.sendHighlightingToggleState());
 
@@ -103,7 +103,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
 
       if (initialFocusedVaultData) {
         console.log('Sending traces for focused vault: ', initialFocusedVaultData.secret_key);
-        this.sendTracesToWebview(this._focusedVaultManager.getFocusedVaultTraces());
+        this.sendLightTracesToWebview(this._focusedVaultManager.getFocusedVaultLightTraces());
       }
 
       this.sendHighlightingToggleState();
@@ -154,10 +154,10 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
       case 'getArianaCliStatus':
         await this.checkAndSendArianaCliStatus();
         break;
-      case 'getTraces':
+      case 'getLightTraces':
         {
-          const traces = this._focusedVaultManager.getFocusedVaultTraces();
-          this.sendTracesToWebview(traces);
+          const traces = this._focusedVaultManager.getFocusedVaultLightTraces();
+          this.sendLightTracesToWebview(traces);
         }
         break;
       case 'getFocusedVault':
@@ -289,9 +289,9 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     }
   }
 
-  private sendTracesToWebview(traces: Trace[]): void {
+  private sendLightTracesToWebview(traces: LightTrace[]): void {
     try {
-      this._view?.webview.postMessage({ type: 'traces', value: traces });
+      this._view?.webview.postMessage({ type: 'lightTraces', value: traces });
     } catch (error) {
       console.error('Error sending traces to webview:', error);
     }

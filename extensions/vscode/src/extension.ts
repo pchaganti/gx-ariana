@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { formatUriForDB } from './urilHelpers';
 import { VaultsManager } from './vaults/VaultsManager';
-import { highlightRegions, tracesToRegions } from './highlighting/regions';
+import { highlightRegions, lightTracesToRegions } from './highlighting/regions';
 import { clearDecorations } from './highlighting/decorations';
 import { ArianaPanel } from './panels/ArianaPanel';
 import { HighlightingToggle } from './highlighting/HighlightingToggle';
@@ -84,7 +84,7 @@ class Extension {
         this.focusVaultManager.subscribeToFocusedVaultChange((vault) => {
             this.handleEditorChange();
         });
-        this.focusVaultManager.subscribeToBatchTrace(() => this.handleReceivedTraces());
+        this.focusVaultManager.subscribeToLightTracesBatch(() => this.handleReceivedTraces());
 
         context.subscriptions.push({
             dispose: () => {
@@ -158,9 +158,12 @@ class Extension {
             return;
         }
         let editor = vscode.window.activeTextEditor;
-        const regions = tracesToRegions(this.focusVaultManager.getFocusedVaultTraces().filter(trace =>
+        const fileTraces = this.focusVaultManager.getFocusedVaultLightTraces().filter(trace =>
             formatUriForDB(editor.document.uri) === trace.start_pos.filepath
-        ));
+        );
+        const regions = lightTracesToRegions(fileTraces, (traceIds) => {
+            return this.focusVaultManager.getFocusedVaultFullTraces(traceIds);
+        });
         this.clearHoverTraces(editor);
         this.tracesHoverDisposable = highlightRegions(editor, regions);
     }

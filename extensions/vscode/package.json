@@ -90,13 +90,11 @@
   },
   "dependencies": {
     "@types/adm-zip": "^0.5.7",
-    "@types/node-fetch": "2",
     "@types/ws": "^8.18.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.8.4",
     "dotenv": "^16.4.7",
     "glob": "^11.0.1",
-    "node-fetch": "2",
     "ws": "^8.18.0"
   }
 }

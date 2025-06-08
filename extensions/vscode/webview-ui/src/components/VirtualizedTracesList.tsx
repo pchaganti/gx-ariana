@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import JsonView from '@microlink/react-json-view';
-import type { Trace } from '../bindings/Trace';
 import { requestHighlight } from '../lib/highlight';
 import { useTheme } from '../hooks/useTheme';
+import { LightTrace } from '../bindings/LightTrace';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -32,27 +32,27 @@ const formatDuration = (nanoseconds: number) => {
     }
 };
 
-function traceIsError(trace: Trace): boolean {
+function traceIsError(trace: LightTrace): boolean {
   return typeof trace.trace_type === 'object' && trace.trace_type !== null && 'Error' in trace.trace_type;
 }
 
-function traceIsExit(trace: Trace): boolean {
+function traceIsExit(trace: LightTrace): boolean {
   return typeof trace.trace_type === 'object' && trace.trace_type !== null && 'Exit' in trace.trace_type;
 }
 
-function findErrorTrace(traces: Trace[], traceId: string): Trace | undefined {
+function findErrorTrace(traces: LightTrace[], traceId: string): LightTrace | undefined {
   return traces.find(t => t.trace_id === traceId && traceIsError(t));
 }
 
-function findExitTrace(traces: Trace[], traceId: string): Trace | undefined {
+function findExitTrace(traces: LightTrace[], traceId: string): LightTrace | undefined {
   return traces.find(t => t.trace_id === traceId && traceIsExit(t));
 }
 
-function findEnterTrace(traces: Trace[], traceId: string): Trace | undefined {
+function findEnterTrace(traces: LightTrace[], traceId: string): LightTrace | undefined {
   return traces.find(t => t.trace_id === traceId && t.trace_type === 'Enter');
 }
 
-const TraceGroup = ({ traces }: { traces: Trace[] }) => {
+const Span = ({ traces }: { traces: LightTrace[] }) => {
     const { isDark } = useTheme();
     
     let enterTrace = findEnterTrace(traces, traces[0].trace_id);
@@ -64,7 +64,7 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
     parts = fileName.split('/');
     fileName = parts.slice(-2).join('/');
 
-    function Header({ enterTrace, exitOrErrorTrace }: { enterTrace: Trace, exitOrErrorTrace: Trace | undefined }) {
+    function Header({ enterTrace, exitOrErrorTrace }: { enterTrace: LightTrace, exitOrErrorTrace: LightTrace | undefined }) {
         let duration_ns = 0;
         if (exitOrErrorTrace) {
             if (traceIsExit(exitOrErrorTrace)) {
@@ -196,8 +196,8 @@ const TraceGroup = ({ traces }: { traces: Trace[] }) => {
 };
 
 interface VirtualizedTracesListProps {
-  traces: Trace[];
-  tracesById: Record<string, Trace[]>;
+  traces: LightTrace[];
+  tracesById: Record<string, LightTrace[]>;
   noTracesText?: string;
 }
 
@@ -255,7 +255,7 @@ const VirtualizedTracesList: React.FC<VirtualizedTracesListProps> = ({ traces, t
                 maxHeight: '100%',
               }}
             >
-              <TraceGroup traces={traceGroup} />
+              <Span traces={traceGroup} />
             </div>
           );
         })}

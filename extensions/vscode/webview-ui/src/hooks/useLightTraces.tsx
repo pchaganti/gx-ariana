@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
-import type { Trace } from '../bindings/Trace';
+import type { LightTrace } from '../bindings/LightTrace';
 
-export function useTraces() {
-  const [traces, setTraces] = useState<Trace[]>([]);
+export function useLightTraces() {
+  const [traces, setTraces] = useState<LightTrace[]>([]);
 
   useEffect(() => {
     // Request the current traces from the extension when the hook mounts
-    postMessageToExtension({ command: 'getTraces' });
+    postMessageToExtension({ command: 'getLightTraces' });
 
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.type === 'traces') {
+      if (message.type === 'lightTraces') {
         setTraces(message.value);
       }
     };

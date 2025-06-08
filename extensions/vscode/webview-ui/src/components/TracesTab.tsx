@@ -1,31 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { Trace } from '../bindings/Trace';
 import stateManager from '../utils/stateManager';
 import VirtualizedTracesList from './VirtualizedTracesList';
 import SortDropdown from './SortDropdown';
 import OnlyErrorsToggle from './OnlyErrorsToggle';
-import { useTraces } from '../hooks/useTraces';
+import { useLightTraces } from '../hooks/useLightTraces';
+import { LightTrace } from '../bindings/LightTrace';
 
 interface TracesTabProps {}
 
 // Helper functions
-function traceIsError(trace: Trace): boolean {
+function traceIsError(trace: LightTrace): boolean {
   return typeof trace.trace_type === 'object' && trace.trace_type !== null && 'Error' in trace.trace_type;
 }
 
-function traceIsExit(trace: Trace): boolean {
+function traceIsExit(trace: LightTrace): boolean {
   return typeof trace.trace_type === 'object' && trace.trace_type !== null && 'Exit' in trace.trace_type;
 }
 
-function findErrorTrace(traces: Trace[], traceId: string): Trace | undefined {
+function findErrorTrace(traces: LightTrace[], traceId: string): LightTrace | undefined {
   return traces.find(t => t.trace_id === traceId && traceIsError(t));
 }
 
-function findExitTrace(traces: Trace[], traceId: string): Trace | undefined {
+function findExitTrace(traces: LightTrace[], traceId: string): LightTrace | undefined {
   return traces.find(t => t.trace_id === traceId && traceIsExit(t));
 }
 
-function findEnterTrace(traces: Trace[], traceId: string): Trace | undefined {
+function findEnterTrace(traces: LightTrace[], traceId: string): LightTrace | undefined {
   return traces.find(t => t.trace_id === traceId && t.trace_type === 'Enter');
 }
 
@@ -62,11 +62,13 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
   const [copied, setCopied] = useState(false);
   const [sortOrder, setSortOrder] = stateManager.usePersistedState<'asc' | 'desc'>('tracesSortOrder', 'desc');
   const [onlyErrors, setOnlyErrors] = stateManager.usePersistedState<boolean>('tracesOnlyErrors', false);
-  const traces = useTraces();
+  const lightTraces = useLightTraces();
+
+  console.log('lightTraces', lightTraces);
 
   // Initialize tracesById
-  let tracesById: Record<string, Trace[]> = {};
-  traces.forEach(trace => {
+  let tracesById: Record<string, LightTrace[]> = {};
+  lightTraces.forEach(trace => {
     if (!(trace.trace_id in tracesById)) {
       tracesById[trace.trace_id] = [];
     }
@@ -74,15 +76,15 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
   });
 
   // Apply filtering and sorting
-  let filteredTraces = traces;
+  let filteredTraces = lightTraces;
   if (onlyErrors) {
     // Filter to only include traces from groups that have an error
     const traceIdsWithErrors = new Set(
-      traces
+      lightTraces
         .filter(traceIsError)
         .map(trace => trace.trace_id)
     );
-    filteredTraces = traces.filter(trace => traceIdsWithErrors.has(trace.trace_id));
+    filteredTraces = lightTraces.filter(trace => traceIdsWithErrors.has(trace.trace_id));
   }
   filteredTraces = [...filteredTraces].sort((a, b) => sortOrder === 'asc' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp);
 
@@ -101,7 +103,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
   };
 
   // Function to format a trace for text output
-  const traceToText = (trace: Trace, traces: Trace[], prevTrace?: Trace): string => {
+  const traceToText = (trace: LightTrace, traces: LightTrace[], prevTrace?: LightTrace): string => {
     const enterTrace = findEnterTrace(traces, trace.trace_id);
     if (!enterTrace) {
       return '';
@@ -135,30 +137,30 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
 
     // Add duration if available
     let duration_ns = 0;
-    if (exitOrErrorTrace) {
-      if (traceIsExit(exitOrErrorTrace) && typeof exitOrErrorTrace.trace_type === 'object' && 'Exit' in exitOrErrorTrace.trace_type) {
-        duration_ns = exitOrErrorTrace.trace_type.Exit.duration_ns;
-      } else if (traceIsError(exitOrErrorTrace) && typeof exitOrErrorTrace.trace_type === 'object' && 'Error' in exitOrErrorTrace.trace_type) {
-        duration_ns = exitOrErrorTrace.trace_type.Error.duration_ns;
-      }
-      lines.push(`took ${formatDuration(duration_ns)}`);
-    }
+    // if (exitOrErrorTrace) {
+    //   if (traceIsExit(exitOrErrorTrace) && typeof exitOrErrorTrace.trace_type === 'object' && 'Exit' in exitOrErrorTrace.trace_type) {
+    //     duration_ns = exitOrErrorTrace.trace_type.Exit.duration_ns;
+    //   } else if (traceIsError(exitOrErrorTrace) && typeof exitOrErrorTrace.trace_type === 'object' && 'Error' in exitOrErrorTrace.trace_type) {
+    //     duration_ns = exitOrErrorTrace.trace_type.Error.duration_ns;
+    //   }
+    //   lines.push(`took ${formatDuration(duration_ns)}`);
+    // }
 
     // Add error/return value info
-    if (errorTrace && typeof errorTrace.trace_type === 'object' && 'Error' in errorTrace.trace_type) {
-      lines.push(`error: ${errorTrace.trace_type.Error.error_message}`);
-    } else if (exitTrace && typeof exitTrace.trace_type === 'object' && 'Exit' in exitTrace.trace_type) {
-      lines.push(`value: ${exitTrace.trace_type.Exit.return_value || 'null'}`);
-    } else {
-      lines.push('did not finish');
-    }
+    // if (errorTrace && typeof errorTrace.trace_type === 'object' && 'Error' in errorTrace.trace_type) {
+    //   lines.push(`error: ${errorTrace.trace_type.Error.error_message}`);
+    // } else if (exitTrace && typeof exitTrace.trace_type === 'object' && 'Exit' in exitTrace.trace_type) {
+    //   lines.push(`value: ${exitTrace.trace_type.Exit.return_value || 'null'}`);
+    // } else {
+    //   lines.push('did not finish');
+    // }
 
     return lines.join('\n');
   };
 
   const handleCopyAllTraces = useCallback(() => {
     // First, group traces by ID and filter to only include those with enter traces
-    let validTraceGroups: Trace[][] = [];
+    let validTraceGroups: LightTrace[][] = [];
     Object.entries(tracesById).forEach(([traceId, traceGroup]) => {
       const enterTrace = findEnterTrace(traceGroup, traceId);
       if (enterTrace) {
@@ -178,7 +180,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
 
     // Format each group and join with newlines
     let textOutput = '';
-    let prevTrace: Trace | undefined;
+    let prevTrace: LightTrace | undefined;
 
     validTraceGroups.forEach((traceGroup) => {
       const trace = traceGroup[0];
@@ -195,14 +197,14 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
       .catch((err) => {
         console.error('Failed to copy traces:', err);
       });
-  }, [traces, tracesById]);
+  }, [lightTraces, tracesById]);
 
   return (
     <div className="flex flex-col h-full max-h-full max-w-full w-full p-4 pr-0 gap-3">
       <div className="flex flex-row flex-wrap gap-2 pr-4 items-center">
         <OnlyErrorsToggle enabled={onlyErrors} onToggle={() => setOnlyErrors(v => !v)} />
         <SortDropdown value={sortOrder} onChange={setSortOrder} />
-        {traces.length > 0 && (
+        {lightTraces.length > 0 && (
           <button
             onClick={handleCopyAllTraces}
             className={`px-3 rounded-md h-8 w-[15ch] cursor-pointer text-sm font-semibold flex-shrink-0 ${copied ? 'bg-[var(--success-base)] text-[var(--bg-base)]' : ' bg-[var(--surface-code)] text-[var(--text-default)]'}`}
@@ -221,7 +223,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
           tracesById={tracesById}
           noTracesText={onlyErrors ? (
             'No errors observed during this run'
-            + (traces.length > 0 ? ` (untoggle 'Only Errors' to see ${traces.length} traces)` : '')
+            + (lightTraces.length > 0 ? ` (untoggle 'Only Errors' to see ${lightTraces.length} traces)` : '')
           ) : 'No traces or errors observed during this run'}
         />
       </div>

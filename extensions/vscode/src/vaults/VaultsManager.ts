@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { VaultPublicData } from '../bindings/VaultPublicData'; 
-import { getConfig } from '../config';
-import { GetVaultsBySecretKeysRequest } from "../../webview-ui/src/bindings/GetVaultsBySecretKeysRequest";
+import { VaultPublicData } from '../bindings/VaultPublicData';
+import { getVaultsPublicDataByKeys } from '../services/ApiClient';
 
 // Define the structure for storing vault data (combining server data with local dir)
 export type StoredVaultData = VaultPublicData & {
@@ -21,10 +20,6 @@ export class VaultsManager {
     private static readonly VAULT_DATA_MAP_STORAGE_KEY = 'ariana.vaultsDataMap';
     private globalState: vscode.Memento;
 
-    private getServerBaseUrl(): string {
-        return getConfig().apiUrl;
-    }
-
     private readonly _onDidUpdateVaultData = new vscode.EventEmitter<StoredVaultData | null>();
     public readonly onDidUpdateVaultData = this._onDidUpdateVaultData.event;
 
@@ -38,14 +33,13 @@ export class VaultsManager {
     private async checkVaultsStaleness() {
         const vaultsMap = this.globalState.get<Record<string, StoredVaultData>>(VaultsManager.VAULT_DATA_MAP_STORAGE_KEY, {});
         const vaultsArray = Object.values(vaultsMap);
-        const serverDataPromises = vaultsArray.map(vault => this.fetchVaultPublicDataFromServer([vault.secret_key]));
-        const serverDataResults = await Promise.all(serverDataPromises);
-
+        const uniqueKeys = vaultsArray.map(vault => vault.secret_key);
+        const publicVaultsData = await getVaultsPublicDataByKeys(uniqueKeys);
         const updatedVaultsMap = { ...vaultsMap };
         let hasChanges = false;
 
-        serverDataResults.forEach((result, index) => {
-            if (result[0] === null) {
+        publicVaultsData.forEach((result: VaultPublicData | null, index: number) => {
+            if (result === null) {
                 const vaultToRemove = vaultsArray[index];
                 delete updatedVaultsMap[vaultToRemove.secret_key];
                 hasChanges = true;
@@ -58,39 +52,6 @@ export class VaultsManager {
         }
     }
 
-    /**
-     * Fetches VaultPublicData from the server for given keys.
-     */
-    private async fetchVaultPublicDataFromServer(keys: string[]): Promise<Array<VaultPublicData | null>> {
-        if (keys.length === 0) {
-            return [];
-        }
-        const serverUrl = this.getServerBaseUrl();
-        try {
-            const requestPayload: GetVaultsBySecretKeysRequest = { secret_keys: keys };
-            const stringifiedBody = JSON.stringify(requestPayload);
-            console.log('[VaultsManager] Sending body to /unauthenticated/vaults/get-from-secret:', stringifiedBody);
-            const response = await fetch(`${serverUrl}/unauthenticated/vaults/get-from-secret`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: stringifiedBody,
-            });
-
-            if (!response.ok) {
-                const errorBody = await response.text().catch(() => "Could not read error body");
-                console.error(`Error fetching vault data from server: ${response.status} ${response.statusText}. Response: ${errorBody}`);
-                return keys.map(() => null);
-            }
-            const data = await response.json() as Array<VaultPublicData | null>;
-            return data;
-        } catch (error) {
-            console.error('Network or other error fetching vault data:', error);
-            return keys.map(() => null);
-        }
-    }
-    
     /**
      * Retrieves all stored vault data, sorts by server-side creation date (most recent first).
      */
@@ -113,8 +74,8 @@ export class VaultsManager {
         vault: StoredVaultData | null;
         status: "new" | "existing" | "stale" | "serverError";
     }> {
-        const serverDataArray = await this.fetchVaultPublicDataFromServer([secretKey]);
-        const serverData = serverDataArray[0];
+        const publicVaultsData = await getVaultsPublicDataByKeys([secretKey]);
+        const serverData = publicVaultsData[0];
 
         if (serverData) {
             // Ensure secret_key from server matches the one discovered, though API guarantees this for non-null returns

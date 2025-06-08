@@ -1,25 +1,31 @@
-import { Trace } from "../bindings/Trace";
+import { LightTrace } from "../bindings/LightTrace";
 import { WebSocket, MessageEvent as WsMessageEvent, ErrorEvent as WsErrorEvent, CloseEvent as WsCloseEvent } from "ws";
 import { StoredVaultData, VaultsManager } from "./VaultsManager";
 import * as vscode from 'vscode';
 import { getConfig } from "../config";
 import { randomUUID } from 'crypto';
+import { fetchFullTraces } from "../services/ApiClient";
+import { Trace } from "../bindings/Trace";
 
 export class FocusedVaultManager {
     private focusedVault: FocusedVault | null = null;
-    private lastVaultFoundTimestamp: number = 0;
     private vaultKeyPollingInterval: NodeJS.Timeout | null = null;
     private vaultsManager: VaultsManager;
     private focusedVaultSubscribers: Map<string, (vault: FocusedVault | null) => void> = new Map();
-    private batchTraceSubscribers: Map<string, (trace: Trace[]) => void> = new Map();
+    private batchLightTracesSubscribers: Map<string, (traces: LightTrace[]) => void> = new Map();
 
     constructor(vaultsManager: VaultsManager) {
         this.vaultsManager = vaultsManager;
         this.startVaultKeyMonitoring();
     }
 
-    public getFocusedVaultTraces(): Trace[] {
+    public getFocusedVaultLightTraces(): LightTrace[] {
         return this.focusedVault?.tracesData ?? [];
+    }
+
+    public async getFocusedVaultFullTraces(traceIds: string[]): Promise<Trace[] | null> {
+        console.log("Call to getFocusedVaultFullTraces with ", this.focusedVault);
+        return this.focusedVault?.getFullTraces(traceIds) ?? null;
     }
 
     public getFocusedVault(): FocusedVault | null {
@@ -34,11 +40,11 @@ export class FocusedVaultManager {
         };
     }
 
-    public subscribeToBatchTrace(onChange: (trace: Trace[]) => void): () => void {
+    public subscribeToLightTracesBatch(onChange: (traces: LightTrace[]) => void): () => void {
         const uuid = randomUUID();
-        this.batchTraceSubscribers.set(uuid, onChange);
+        this.batchLightTracesSubscribers.set(uuid, onChange);
         return () => {
-            this.batchTraceSubscribers.delete(uuid);
+            this.batchLightTracesSubscribers.delete(uuid);
         };
     }
 
@@ -85,7 +91,6 @@ export class FocusedVaultManager {
                 console.log("Previously focused vault no longer found in any workspace. Clearing focus.");
                 this.focusedVault.closeConnection();
                 this.focusedVault = null;
-                this.lastVaultFoundTimestamp = 0;
                 this.focusedVaultSubscribers.forEach(subscriber => subscriber(null));
             }
             // If no vault was focused and none are found, no action is needed.
@@ -98,7 +103,7 @@ export class FocusedVaultManager {
             this.focusedVault?.closeConnection();
             if (newVaultData) {
                 this.focusedVault = new FocusedVault(newVaultData, (traces) => {
-                    this.batchTraceSubscribers.forEach(subscriber => subscriber(traces));
+                    this.batchLightTracesSubscribers.forEach(subscriber => subscriber(traces));
                 }, () => {}, () => {
                     console.log('WebSocket connection for vault ' + newVaultData.secret_key + ' failed or closed, attempting retry...');
                     setTimeout(() => {
@@ -113,7 +118,6 @@ export class FocusedVaultManager {
             } else {
                 this.focusedVault?.closeConnection();
                 this.focusedVault = null;
-                this.lastVaultFoundTimestamp = 0;
                 this.focusedVaultSubscribers.forEach(subscriber => subscriber(null));
             }
             this.focusedVaultSubscribers.forEach(subscriber => subscriber(this.focusedVault));
@@ -123,18 +127,18 @@ export class FocusedVaultManager {
 
 class FocusedVault {
     public vaultData: StoredVaultData;
-    public tracesData: Trace[] = [];
+    public tracesData: LightTrace[] = [];
     public wsConnection: WebSocket | null = null;
-    private onBatchTrace: (trace: Trace[]) => void;
+    private onLightTracesBatch: (traces: LightTrace[]) => void;
     private onCloseCallback: () => void;
     private onErrorCallback: () => void;
-    private pendingTraces: Trace[] = [];
+    private pendingTraces: LightTrace[] = [];
     private throttleTimeout: NodeJS.Timeout | null = null;
     private throttleInterval: number = 800;
 
-    constructor(vaultData: StoredVaultData, onBatchTrace: (trace: Trace[]) => void, onCloseCallback: () => void, onErrorCallback: () => void) {
+    constructor(vaultData: StoredVaultData, onLightTracesBatch: (traces: LightTrace[]) => void, onCloseCallback: () => void, onErrorCallback: () => void) {
         this.vaultData = vaultData;
-        this.onBatchTrace = onBatchTrace;
+        this.onLightTracesBatch = onLightTracesBatch;
         this.onCloseCallback = onCloseCallback;
         this.onErrorCallback = onErrorCallback;
         this.connectToTraceWebSocket();
@@ -147,6 +151,11 @@ class FocusedVault {
             this.wsConnection = null;
             console.log(`Closed WebSocket connection for vault ${this.vaultData.secret_key}`);
         }
+    }
+
+    public getFullTraces(traceIds: string[]): Promise<Trace[] | null> {
+        console.log("Call to getFullTraces");
+        return fetchFullTraces(this.vaultData.secret_key, traceIds);
     }
 
     private connectToTraceWebSocket() {
@@ -165,25 +174,42 @@ class FocusedVault {
     
         let isFirstMessageBatch = true;
     
-        this.wsConnection.onmessage = (event: WsMessageEvent) => { // Use onmessage and WsMessageEvent
+        this.wsConnection.onmessage = async (event: WsMessageEvent) => { // Use onmessage and WsMessageEvent, make async
             const data = event.data;
             console.log(`Received WebSocket message for ${vaultSecretKey}...`);
             try {
                 // Assuming data is string. If binary, need Buffer.from(data).toString()
                 const messageString = (typeof data === 'string') ? data : Buffer.from(data as ArrayBuffer).toString('utf-8');
-                const parsedData: Trace | Trace[] = JSON.parse(messageString);
+                const parsedLightTraces: LightTrace | LightTrace[] = JSON.parse(messageString);
                 
-                const newTraces: Trace[] = Array.isArray(parsedData) ? parsedData : [parsedData];
+                const newLightTraces: LightTrace[] = Array.isArray(parsedLightTraces) ? parsedLightTraces : [parsedLightTraces];
+
+                console.log('newLightTraces', newLightTraces);
+
+                if (newLightTraces.length === 0) {
+                    console.log(`Received empty trace batch for ${vaultSecretKey}, nothing to do.`);
+                    return;
+                }
+
+                // Fetch full traces based on LightTrace IDs
+                
+                // const traceIds = newLightTraces.map(lt => lt.trace_id);
+                // const fullNewTraces = await fetchFullTraces(this.vaultData.secret_key, traceIds);
+
+                // if (!fullNewTraces || fullNewTraces.length === 0) {
+                //     console.log(`Failed to fetch full traces or no full traces returned for ${vaultSecretKey}.`);
+                //     return;
+                // }
 
                 if (isFirstMessageBatch) {
-                    console.log(`Received ${newTraces.length} initial traces from WebSocket for ${vaultSecretKey}`);
-                    this.tracesData = newTraces;
-                    this.sendTracesImmediately(newTraces); 
+                    console.log(`Received ${newLightTraces.length} initial full traces for ${vaultSecretKey} (from ${newLightTraces.length} light traces)`);
+                    this.tracesData = newLightTraces;
+                    this.sendTracesImmediately(newLightTraces); 
                     isFirstMessageBatch = false;
                 } else {
-                    console.log(`Received ${newTraces.length} new traces from WebSocket for ${vaultSecretKey}`);
-                    this.tracesData.push(...newTraces);
-                    this.queueTracesForSending(newTraces);
+                    console.log(`Received ${newLightTraces.length} new full traces for ${vaultSecretKey} (from ${newLightTraces.length} light traces)`);
+                    this.tracesData.push(...newLightTraces);
+                    this.queueLightTracesForSending(newLightTraces);
                 }
             } catch (error) {
                 console.error(`Error processing WebSocket message for ${vaultSecretKey}:`, error);
@@ -207,7 +233,7 @@ class FocusedVault {
      * Queues traces for throttled sending
      * @param traces The traces to queue
      */
-    private queueTracesForSending(traces: Trace[]): void {
+    private queueLightTracesForSending(traces: LightTrace[]): void {
         this.pendingTraces.push(...traces);
         if (!this.throttleTimeout) {
             this.throttleTimeout = setTimeout(() => {
@@ -219,14 +245,14 @@ class FocusedVault {
 
     private sendPendingTraces(): void {
         if (this.pendingTraces.length > 0) {
-            this.onBatchTrace([...this.pendingTraces]);
+            this.onLightTracesBatch([...this.pendingTraces]);
             this.pendingTraces = []; // Clear the queue
         }
     }
 
-    private sendTracesImmediately(traces: Trace[]): void {
+    private sendTracesImmediately(traces: LightTrace[]): void {
         if (traces.length > 0) {
-            this.onBatchTrace(traces);
+            this.onLightTracesBatch(traces);
         }
     }
 }
