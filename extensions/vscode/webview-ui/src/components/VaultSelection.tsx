@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { postMessageToExtension } from '../utils/vscode';
-import { ChevronDown, Check, RefreshCw } from 'lucide-react';
 import { StoredVaultData } from '../types/vaults';
 import { useFocusableVaults } from '../hooks/useFocusableVaults';
 import { useFocusedVault } from '../hooks/useFocusedVault';
@@ -32,7 +31,7 @@ const VaultItem = ({ vault }: { vault: StoredVaultData }) => {
         });
         // Also tell the extension to show this vault in the detail panel
         postMessageToExtension({
-            command: 'showVaultInDetailPanel',
+            command: 'showTimelinePanel',
             vaultId: vault.secret_key
         });
     };

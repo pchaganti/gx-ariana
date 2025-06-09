@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tailwindcss/utilities";
 
+@supports selector(::-webkit-scrollbar) {
+	html {
+		scrollbar-color: unset;
+	}
+}
+
 @layer base {
   html {
     font-size: 90%; /* scale all rem-based values */

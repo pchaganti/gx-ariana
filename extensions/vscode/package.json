@@ -38,13 +38,7 @@
     "onStartupFinished"
   ],
   "contributes": {
-    "commands": [
-      {
-        "command": "ariana.openSidebar",
-        "title": "Ariana: Open Sidebar",
-        "icon": "$(debug-alt)"
-      }
-    ],
+    "commands": [],
     "views": {
       "ariana-sidebar": [
         {
@@ -58,10 +52,10 @@
       "ariana-panel-container": [
         {
           "type": "webview",
-          "id": "ariana.vaultDetailView",
-          "name": "Vault Details",
+          "id": "ariana.timelineView",
+          "name": "Ariana Timeline",
           "icon": "resources/ariana.svg",
-          "contextualTitle": "Ariana Vault Details"
+          "contextualTitle": "Ariana Timeline"
         }
       ]
     },
@@ -76,7 +70,7 @@
       "panel": [
         {
           "id": "ariana-panel-container",
-          "title": "Ariana",
+          "title": "Ariana Timeline",
           "icon": "resources/ariana.svg"
         }
       ]

@@ -3,20 +3,20 @@ import { formatUriForDB } from './urilHelpers';
 import { VaultsManager } from './vaults/VaultsManager';
 import { highlightRegions, lightTracesToRegions } from './highlighting/regions';
 import { clearDecorations } from './highlighting/decorations';
-import { ArianaPanel, BottomPanelController } from './panels/ArianaPanel';
-import { VaultDetailPanelProvider } from './panels/VaultDetailPanelProvider';
+import { ArianaPanel } from './panels/ArianaPanel';
+import { TimelinePanel } from './panels/TimelinePanel';
 import { HighlightingToggle } from './highlighting/HighlightingToggle';
 import { FocusedVaultManager } from './vaults/FocusedVaultManager';
 
 class Extension {
     private context: vscode.ExtensionContext;
     private arianaPanel: ArianaPanel;
+    private timelinePanel: TimelinePanel;
     private refreshTracesInTextEditorRequests: vscode.TextEditor[] = [];
     private highlightingToggle: HighlightingToggle;
     private tracesHoverDisposable: vscode.Disposable | undefined;
     private vaultsManager: VaultsManager;
     private focusVaultManager: FocusedVaultManager;
-    private vaultDetailPanelProvider: VaultDetailPanelProvider;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
@@ -37,15 +37,19 @@ class Extension {
         );
         this.registerWebviewViewProvider(ArianaPanel.viewType, this.arianaPanel);
 
-        // Instantiate and register the VaultDetailPanelProvider for the bottom panel
-        this.vaultDetailPanelProvider = new VaultDetailPanelProvider(context.extensionUri);
-        this.registerWebviewViewProvider(VaultDetailPanelProvider.viewType, this.vaultDetailPanelProvider);
+        this.timelinePanel = new TimelinePanel(
+            context.extensionUri, 
+            context, 
+            this.focusVaultManager, 
+            this.vaultsManager,
+            this.highlightingToggle
+        );
+        this.registerWebviewViewProvider(TimelinePanel.viewType, this.timelinePanel);
 
-        // Pass the bottom panel controller to the ArianaPanel
-        this.arianaPanel.setBottomPanelController(this.vaultDetailPanelProvider);
-
+        this.arianaPanel.setTimelinePanel(this.timelinePanel);
+        
         this.registerCommand('openSidebar', () => {
-            vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');
+            this.arianaPanel.focus();
         });
 
         // Logic to open panel on first-ever install, then respect user setting for subsequent launches.
