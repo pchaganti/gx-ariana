@@ -30,6 +30,11 @@ const VaultItem = ({ vault }: { vault: StoredVaultData }) => {
             command: 'focusVault',
             vaultData: vault
         });
+        // Also tell the extension to show this vault in the detail panel
+        postMessageToExtension({
+            command: 'showVaultInDetailPanel',
+            vaultId: vault.secret_key
+        });
     };
     
     return (

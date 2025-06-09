@@ -45,15 +45,6 @@
         "icon": "$(debug-alt)"
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "ariana-sidebar",
-          "title": "Ariana",
-          "icon": "resources/ariana.svg"
-        }
-      ]
-    },
     "views": {
       "ariana-sidebar": [
         {
@@ -62,6 +53,31 @@
           "name": "Ariana",
           "icon": "resources/ariana.svg",
           "contextualTitle": "Ariana"
+        }
+      ],
+      "ariana-panel-container": [
+        {
+          "type": "webview",
+          "id": "ariana.vaultDetailView",
+          "name": "Vault Details",
+          "icon": "resources/ariana.svg",
+          "contextualTitle": "Ariana Vault Details"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ariana-sidebar",
+          "title": "Ariana",
+          "icon": "resources/ariana.svg"
+        }
+      ],
+      "panel": [
+        {
+          "id": "ariana-panel-container",
+          "title": "Ariana",
+          "icon": "resources/ariana.svg"
         }
       ]
     }
@@ -86,6 +102,7 @@
     "eslint": "^9.19.0",
     "fs-extra": "^11.3.0",
     "prettier": "^3.4.2",
+    "ts-prune": "^0.10.3",
     "typescript": "^5.7.3"
   },
   "dependencies": {

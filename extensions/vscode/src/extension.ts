@@ -3,7 +3,8 @@ import { formatUriForDB } from './urilHelpers';
 import { VaultsManager } from './vaults/VaultsManager';
 import { highlightRegions, lightTracesToRegions } from './highlighting/regions';
 import { clearDecorations } from './highlighting/decorations';
-import { ArianaPanel } from './panels/ArianaPanel';
+import { ArianaPanel, BottomPanelController } from './panels/ArianaPanel';
+import { VaultDetailPanelProvider } from './panels/VaultDetailPanelProvider';
 import { HighlightingToggle } from './highlighting/HighlightingToggle';
 import { FocusedVaultManager } from './vaults/FocusedVaultManager';
 
@@ -15,6 +16,7 @@ class Extension {
     private tracesHoverDisposable: vscode.Disposable | undefined;
     private vaultsManager: VaultsManager;
     private focusVaultManager: FocusedVaultManager;
+    private vaultDetailPanelProvider: VaultDetailPanelProvider;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
@@ -34,6 +36,13 @@ class Extension {
             this.highlightingToggle
         );
         this.registerWebviewViewProvider(ArianaPanel.viewType, this.arianaPanel);
+
+        // Instantiate and register the VaultDetailPanelProvider for the bottom panel
+        this.vaultDetailPanelProvider = new VaultDetailPanelProvider(context.extensionUri);
+        this.registerWebviewViewProvider(VaultDetailPanelProvider.viewType, this.vaultDetailPanelProvider);
+
+        // Pass the bottom panel controller to the ArianaPanel
+        this.arianaPanel.setBottomPanelController(this.vaultDetailPanelProvider);
 
         this.registerCommand('openSidebar', () => {
             vscode.commands.executeCommand('workbench.view.extension.ariana-sidebar');

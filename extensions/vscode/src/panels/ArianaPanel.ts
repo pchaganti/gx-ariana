@@ -7,6 +7,11 @@ import { StoredVaultData, VaultsManager } from '../vaults/VaultsManager';
 import { HighlightingToggle } from '../highlighting/HighlightingToggle';
 import { LightTrace } from '../bindings/LightTrace';
 
+export interface BottomPanelController {
+  updateVault: (vaultId: string) => void;
+  focus: () => Promise<void>;
+}
+
 export class ArianaPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "ariana.sidebarView";
   private _view?: vscode.WebviewView;
@@ -16,6 +21,7 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
   private _focusedVaultManager: FocusedVaultManager;
   private _vaultsManager: VaultsManager;
   private _highlightToggle: HighlightingToggle;
+  private _bottomPanelController?: BottomPanelController;
 
   constructor(
     private readonly _extensionUri: vscode.Uri, 
@@ -49,6 +55,10 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
     });
 
     console.log('ArianaPanel constructor called with extension URI:', _extensionUri.toString());
+  }
+
+  public setBottomPanelController(controller: BottomPanelController) {
+    this._bottomPanelController = controller;
   }
 
   public resolveWebviewView(
@@ -192,6 +202,23 @@ export class ArianaPanel implements vscode.WebviewViewProvider {
         break;
       case 'updateArianaCli':
         await this.updateArianaCli();
+        break;
+      case 'showVaultInDetailPanel':
+        if (message.vaultId && this._bottomPanelController) {
+          console.log(`ArianaPanel: Received showVaultInDetailPanel for vault ${message.vaultId}`);
+          try {
+            await this._bottomPanelController.focus(); // Ensure panel is visible
+            this._bottomPanelController.updateVault(message.vaultId); // Tell it which vault to show
+          } catch (error) {
+            console.error('Error interacting with bottom panel controller:', error);
+            vscode.window.showErrorMessage('Could not show vault in detail panel.');
+          }
+        } else if (!this._bottomPanelController) {
+          console.warn('ArianaPanel: Bottom panel controller not available for showVaultInDetailPanel.');
+          vscode.window.showErrorMessage('Vault Detail Panel feature is not initialized.');
+        } else if (!message.vaultId) {
+          console.warn('ArianaPanel: showVaultInDetailPanel message received without vaultId.');
+        }
         break;
       case 'highlightCode':
         await this.highlightCode(

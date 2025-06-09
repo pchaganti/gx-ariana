@@ -7,13 +7,20 @@ import { postMessageToExtension } from './utils/vscode';
 import Footer from './components/Footer';
 import stateManager from './utils/stateManager';
 import { setCurrentRenderNonce } from './utils/timerManagement';
+import VaultDetailView from './components/VaultDetailView';
 import { useCliStatus } from './hooks/useCliStatus';
+import { useState } from 'react';
 
 const LEGAL_TABS = ['main'];
+
+type ViewMode = 'sidebar' | 'vaultDetail';
+
 
 const App = () => {
     const [activeTab, setActiveTab] = stateManager.usePersistedState<string>('activeTab', 'main');
     const cliStatus = useCliStatus();
+    const [currentView, setCurrentView] = useState<ViewMode>('sidebar'); // Default to sidebar view
+    const [detailVaultId, setDetailVaultId] = useState<string | null>(null);
 
     useEffect(() => {
         window.addEventListener('message', handleMessage);
@@ -44,6 +51,22 @@ const App = () => {
                 console.log('Received new render nonce:', message.value);
                 setCurrentRenderNonce(message.value);
                 break;
+            case 'navigateToPage':
+                console.log('Received navigateToPage:', message.route);
+                if (message.route && typeof message.route === 'string') {
+                    const parts = message.route.split('/');
+                    if (parts[1] === 'vault-details' && parts[2]) {
+                        setDetailVaultId(parts[2]);
+                        setCurrentView('vaultDetail');
+                    } else {
+                        // Default or unknown route, go to sidebar view
+                        // setCurrentView('sidebar'); // Or handle as needed, for now only vault-details changes view
+                        console.log('NavigateToPage: route not for vault-details, currentView remains:', currentView);
+                    }
+                } else {
+                     console.warn('NavigateToPage: Invalid route received', message.route);
+                }
+                break;
         }
     };
 
@@ -58,6 +81,11 @@ const App = () => {
         console.log('Tab changed to:', value);
     };
 
+    if (currentView === 'vaultDetail') {
+        return <VaultDetailView vaultId={detailVaultId} />;
+    }
+
+    // Default to sidebar view
     return (
         <div className={`flex flex-col h-screen max-h-screen w-screen max-w-screen text-base`}>
             <div className="flex flex-col h-full max-h-full w-full max-w-full">

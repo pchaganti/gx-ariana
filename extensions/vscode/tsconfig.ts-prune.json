@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true // Often useful with ts-prune to avoid issues with node_modules types
+  },
+  "files": [
+    "src/extension.ts",
+    "webview-ui/src/index.tsx"
+  ],
+  "include": [
+    "src/**/*",
+    "webview-ui/src/**/*"
+  ]
+}
