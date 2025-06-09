@@ -3,6 +3,8 @@ import { useFocusedVault } from '../hooks/useFocusedVault';
 import { useLightTraces } from '../hooks/useLightTraces';
 import { LightTrace } from '../bindings/LightTrace';
 import { Position } from '../bindings/Position';
+import { useWorkspaceRoots } from '../hooks/useWorkspaceRoots';
+import { getRelativePath } from '../utils/pathUtils';
 
 type Timeline = {
   clusters: Cluster[];
@@ -30,7 +32,7 @@ type Span = {
   endTimestamp: number;
 }
 
-function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
+function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string[]): Timeline {
   const tracesByFile = lightTraces.reduce((acc, trace) => {
     if (!acc[trace.start_pos.filepath]) {
       acc[trace.start_pos.filepath] = [];
@@ -71,7 +73,7 @@ function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
 
   const clusters = Object.entries(tracesByFileByFamilyByTraceId).reduce((acc, [filepath, families]) => {
     const cluster: Cluster = {
-      label: filepath,
+      label: getRelativePath(filepath, workspaceRoots),
       families: Object.entries(families).map(([familyId, spans]) => ({
         label: familyId,
         spans: Object.entries(spans).map(([traceId, traces]) => {
@@ -118,11 +120,26 @@ interface VaultTimelineProps { }
 const VaultTimeline: React.FC<VaultTimelineProps> = ({ }) => {
   const lightTraces = useLightTraces();
   const [timeline, setTimeline] = useState<Timeline | null>(null);
+  const workspaceRoots = useWorkspaceRoots();
 
   useEffect(() => {
-    const timeline = lightTracesToTimeline(lightTraces);
+    const timeline = lightTracesToTimeline(lightTraces, workspaceRoots);
     setTimeline(timeline);
   }, [lightTraces]);
+
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
+  const [height, setHeight] = useState<number>(0);
+
+  useEffect(() => {
+    if (ref.current) {
+      const { width, height } = ref.current.getBoundingClientRect();
+      console.log('Width:', width);
+      console.log('Height:', height);
+      setWidth(width);
+      setHeight(height);
+    }
+  }, [ref.current]);
 
   if (lightTraces.length === 0) {
     return (
@@ -140,21 +157,11 @@ const VaultTimeline: React.FC<VaultTimelineProps> = ({ }) => {
     );
   }
 
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState<number>(0);
-  const [height, setHeight] = useState<number>(0);
-
-  useEffect(() => {
-    if (ref.current) {
-      const { width, height } = ref.current.getBoundingClientRect();
-      setWidth(width);
-      setHeight(height);
-    }
-  }, [ref]);
-
   return (
     <div className="bg-[var(--bg-base)] flex flex-col w-full h-full max-w-full max-h-full text-[var(--fg-base)] overflow-hidden" ref={ref}>
-      {`${Math.round(width)} x ${Math.round(height)}`}
+      {timeline.clusters.map((cluster, index) => (
+        <div key={index}>{cluster.label}</div>
+      ))}
     </div>
   );
 };

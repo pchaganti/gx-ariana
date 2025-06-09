@@ -4,9 +4,12 @@ import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
 import { StoredVaultData, VaultsManager } from '../vaults/VaultsManager';
 import { HighlightingToggle } from '../highlighting/HighlightingToggle';
 import { LightTrace } from '../bindings/LightTrace';
+import { formatUriForDB } from '../urilHelpers'; // Import formatUriForDB
 import path = require('path');
 
 export abstract class Panel implements vscode.WebviewViewProvider {
+    private _workspaceRoots: string[] = [];
+
     protected _view?: vscode.WebviewView;
     protected _context: vscode.ExtensionContext;
     protected _focusedVaultManager: FocusedVaultManager;
@@ -31,6 +34,11 @@ export abstract class Panel implements vscode.WebviewViewProvider {
         this._highlightToggle = highlightToggle;
         this._isWatching = false;
         this._disposables = [];
+
+        this.updateWorkspaceRoots();
+        this._disposables.push(
+            vscode.workspace.onDidChangeWorkspaceFolders(() => this.updateWorkspaceRootsAndNotifyWebview())
+        );
 
         this._focusedVaultManager.subscribeToFocusedVaultChange((focusedVaultInstance) => {
             const currentVaultData = focusedVaultInstance?.vaultData ?? null;
@@ -82,6 +90,8 @@ export abstract class Panel implements vscode.WebviewViewProvider {
             this.handleMessageFromWebview(message);
         });
 
+        // Send initial workspace roots - This is now handled by the webview requesting them via 'getWorkspaceRoots' message.
+
         // Send initial theme information
         this.sendThemeInfo(webviewView.webview);
 
@@ -122,6 +132,26 @@ export abstract class Panel implements vscode.WebviewViewProvider {
     abstract onMessageFromWebview(message: any): void;
 
     abstract onBecameVisible(): void;
+
+    private updateWorkspaceRoots() {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        this._workspaceRoots = workspaceFolders ? workspaceFolders.map(folder => formatUriForDB(folder.uri)) : [];
+        console.log('Updated workspace roots:', this._workspaceRoots);
+    }
+
+    private updateWorkspaceRootsAndNotifyWebview() {
+        this.updateWorkspaceRoots();
+        if (this._view && this._view.visible) { // Only send if view is available and visible
+            this._view.webview.postMessage({
+                type: 'updateWorkspaceRoots',
+                payload: this._workspaceRoots,
+            });
+            console.log('Sent workspace roots to webview:', this._workspaceRoots);
+        } else {
+            // console.log('Webview not visible or not ready, did not send workspace roots.');
+        }
+    }
+
 
     /**
      * Check and send Ariana CLI status to the webview
@@ -168,6 +198,12 @@ export abstract class Panel implements vscode.WebviewViewProvider {
                     console.log('Received getViewId from webview (' + this.viewId() + '), sending viewId and nonce.');
                     this.sendViewId(this._view.webview);
                     this.sendRenderNonce(this._view.webview); // Send nonce along with viewId
+                }
+                break;
+            case 'getWorkspaceRoots':
+                if (this._view) {
+                    console.log('Received getWorkspaceRoots from webview (' + this.viewId() + '), sending current workspace roots.');
+                    this.updateWorkspaceRootsAndNotifyWebview(); // Send current roots
                 }
                 break;
             case 'getTheme':
@@ -525,5 +561,6 @@ export abstract class Panel implements vscode.WebviewViewProvider {
         this._isWatching = false;
         this._disposables.forEach(d => d.dispose());
         this._disposables = [];
+        console.log('Panel disposed, including workspace folder listener and other panel-specific disposables.');
     }
 }
