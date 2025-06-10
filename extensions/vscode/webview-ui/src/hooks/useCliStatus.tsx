@@ -1,26 +1,13 @@
-import { useEffect, useState } from 'react';
-import { postMessageToExtension } from '../utils/vscode';
 import type { ArianaCliStatus } from '../lib/cli';
+import { useSharedState } from './shared/useSharedState';
 
 export function useCliStatus() {
-  const [cliStatus, setCliStatus] = useState<ArianaCliStatus | null>(null);
-
-  useEffect(() => {
-    postMessageToExtension({ command: 'getArianaCliStatus' });
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'arianaCliStatus') {
-        setCliStatus(message.value);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, []);
+  const cliStatus = useSharedState<ArianaCliStatus | null>(
+    'cliStatus',
+    null,
+    'arianaCliStatus',
+    'getArianaCliStatus'
+  );
 
   return cliStatus;
 }

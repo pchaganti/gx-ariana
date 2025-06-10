@@ -103,6 +103,7 @@ export abstract class Panel implements vscode.WebviewViewProvider {
             console.log('View ' + this.viewId() + ' visibility changed:', webviewView.visible);
             if (webviewView.visible) {
                 console.log('View ' + this.viewId() + ' became visible');
+                this._view?.webview.postMessage({ type: 'viewBecameVisible' });
                 // Webview will request viewId and nonce if needed
                 this.onBecameVisible();
             } else {
@@ -143,8 +144,8 @@ export abstract class Panel implements vscode.WebviewViewProvider {
         this.updateWorkspaceRoots();
         if (this._view && this._view.visible) { // Only send if view is available and visible
             this._view.webview.postMessage({
-                type: 'updateWorkspaceRoots',
-                payload: this._workspaceRoots,
+                type: 'workspaceRoots',
+                value: this._workspaceRoots,
             });
             console.log('Sent workspace roots to webview:', this._workspaceRoots);
         } else {
@@ -196,8 +197,13 @@ export abstract class Panel implements vscode.WebviewViewProvider {
             case 'getViewId':
                 if (this._view) {
                     console.log('Received getViewId from webview (' + this.viewId() + '), sending viewId and nonce.');
-                    this.sendViewId(this._view.webview);
-                    this.sendRenderNonce(this._view.webview); // Send nonce along with viewId
+                    this._view.webview.postMessage({ type: 'viewId', value: this.viewId() });
+                    this._view.webview.postMessage({ type: 'renderNonce', value: this.getCurrentNonce() });
+                }
+                break;
+            case 'getTheme':
+                if (this._view) {
+                    this.sendThemeInfo(this._view.webview);
                 }
                 break;
             case 'getWorkspaceRoots':
@@ -394,7 +400,6 @@ export abstract class Panel implements vscode.WebviewViewProvider {
 
         // Get paths to logo resources
         const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'logo.png'));
-        const textLogoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'logo_text_highres.png'));
 
         // Create a nonce for script security
         const nonce = this._getNonce();
@@ -410,7 +415,7 @@ export abstract class Panel implements vscode.WebviewViewProvider {
               <title>Ariana</title>
             </head>
             <body>
-              <div id="root" data-vscode-context='${JSON.stringify({ webviewType: "sidebar" })}' data-ariana-logo="${logoUri}" data-ariana-text-logo="${textLogoUri}"></div>
+              <div id="root" data-vscode-context='${JSON.stringify({ webviewType: "sidebar" })}' data-ariana-logo="${logoUri}"></div>
               <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
             </body>
           </html>`;

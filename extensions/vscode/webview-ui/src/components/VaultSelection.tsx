@@ -10,9 +10,12 @@ import React from 'react';
 import { useCliStatus } from '../hooks/useCliStatus';
 import Toggle from './ui/Toggle'; // Added import for Toggle component
 import TracesTab from './TracesTab';
+import { useWorkspaceRoots } from '../hooks/useWorkspaceRoots';
+import { getRelativePath } from '../utils/pathUtils';
 
 const VaultItem = ({ vault }: { vault: StoredVaultData }) => {
     const { isDark } = useTheme();
+    const workspaceRoots = useWorkspaceRoots();
 
     const { focusedVault } = useFocusedVault();
 
@@ -52,7 +55,7 @@ const VaultItem = ({ vault }: { vault: StoredVaultData }) => {
                 <div className='flex gap-2 flex-wrap gap-y-0'>
                     {vault.cwd && (
                         <div className='font-mono text-[var(--text-subtle)] leading-4'>
-                            {vault.cwd}{">"}
+                            {getRelativePath(vault.cwd, workspaceRoots)}{">"}
                         </div>
                     )}
                     <div className='font-mono text-[var(--info-base)] leading-4'>
@@ -71,7 +74,6 @@ interface VaultSelectionProps {
 }
 
 const VaultSelection = ({ }: VaultSelectionProps) => {
-    const { isDark } = useTheme();
     const cliStatus = useCliStatus();
 
     const { focusedVault } = useFocusedVault();

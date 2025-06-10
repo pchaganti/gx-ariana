@@ -4,6 +4,8 @@ import JsonView from '@microlink/react-json-view';
 import { requestHighlight } from '../lib/highlight';
 import { useTheme } from '../hooks/useTheme';
 import { LightTrace } from '../bindings/LightTrace';
+import { useWorkspaceRoots } from '../hooks/useWorkspaceRoots';
+import { getRelativePath } from '../utils/pathUtils';
 
 const formatTimestamp = (timestamp: number) => {
     const date = new Date(Math.trunc(timestamp * 10e-4 * 10e-3));
@@ -54,15 +56,11 @@ function findEnterTrace(traces: LightTrace[], traceId: string): LightTrace | und
 
 const Span = ({ traces }: { traces: LightTrace[] }) => {
     const { isDark } = useTheme();
+    const workspaceRoots = useWorkspaceRoots();
     
     let enterTrace = findEnterTrace(traces, traces[0].trace_id);
     let exitTrace = findExitTrace(traces, traces[0].trace_id);
     let errorTrace = findErrorTrace(traces, traces[0].trace_id);
-
-    let parts = (enterTrace ?? exitTrace ?? errorTrace)?.start_pos.filepath.split('\\') ?? [];
-    let fileName = parts.slice(-2).join('\\');
-    parts = fileName.split('/');
-    fileName = parts.slice(-2).join('/');
 
     function Header({ enterTrace, exitOrErrorTrace }: { enterTrace: LightTrace, exitOrErrorTrace: LightTrace | undefined }) {
         let duration_ns = 0;
@@ -84,7 +82,7 @@ const Span = ({ traces }: { traces: LightTrace[] }) => {
                         className={`text-left text-sm flex-col hover:text-[var(--interactive-active)] rounded-md pl-3 pr-7 pb-1 pt-1.5 cursor-pointer`}
                     >
                         <div className="font-mono opacity-30 group-hover:opacity-100">
-                            in {fileName} {enterTrace.start_pos.line === enterTrace.end_pos.line 
+                            in {getRelativePath(enterTrace.start_pos.filepath, workspaceRoots)} {enterTrace.start_pos.line === enterTrace.end_pos.line 
                                 ? `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to :${enterTrace.end_pos.column}`
                                 : `L${enterTrace.start_pos.line}:${enterTrace.start_pos.column} to L${enterTrace.end_pos.line}:${enterTrace.end_pos.column}`
                             }

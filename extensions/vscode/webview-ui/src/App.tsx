@@ -5,10 +5,12 @@ import Footer from './components/Footer';
 import { useCliStatus } from './hooks/useCliStatus';
 import { useViewId } from './hooks/useViewId';
 import VaultTimelineView from './components/VaultTimelineView';
+import { useWorkspaceRoots } from './hooks/useWorkspaceRoots';
 
 const App = () => {
     const cliStatus = useCliStatus();
     const viewId = useViewId();
+    const workspaceRoots = useWorkspaceRoots();
 
     useEffect(() => {
         window.addEventListener('message', handleMessage);
@@ -35,6 +37,14 @@ const App = () => {
         return <div className="bg-[var(--bg-base)] flex items-center justify-center w-full h-full text-[var(--fg-base)] text-md font-mono">
             <div className="animate-pulse">
                 Loading... (Waiting for viewId)
+            </div>
+        </div>;
+    }
+
+    if (workspaceRoots.length === 0) {
+        return <div className="bg-[var(--bg-base)] flex items-center justify-center w-full h-full text-[var(--fg-base)] text-md font-mono">
+            <div className="animate-pulse">
+                Workspace is empty
             </div>
         </div>;
     }

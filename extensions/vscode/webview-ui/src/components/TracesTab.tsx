@@ -5,6 +5,8 @@ import SortDropdown from './SortDropdown';
 import OnlyErrorsToggle from './OnlyErrorsToggle';
 import { useLightTraces } from '../hooks/useLightTraces';
 import { LightTrace } from '../bindings/LightTrace';
+import { useWorkspaceRoots } from '../hooks/useWorkspaceRoots';
+import { getRelativePath } from '../utils/pathUtils';
 
 interface TracesTabProps {}
 
@@ -63,6 +65,7 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
   const [sortOrder, setSortOrder] = stateManager.usePersistedState<'asc' | 'desc'>('tracesSortOrder', 'desc');
   const [onlyErrors, setOnlyErrors] = stateManager.usePersistedState<boolean>('tracesOnlyErrors', false);
   const lightTraces = useLightTraces();
+  const workspaceRoots = useWorkspaceRoots();
 
   console.log('lightTraces', lightTraces);
 
@@ -118,10 +121,10 @@ const TracesTab: React.FC<TracesTabProps> = ({ }) => {
     // Add filepath if different from previous trace
     if (prevTrace) {
       if (enterTrace.start_pos.filepath !== findEnterTrace(traces, prevTrace.trace_id)?.start_pos.filepath) {
-        lines.push(`in ${enterTrace.start_pos.filepath}`);
+        lines.push(`in ${getRelativePath(enterTrace.start_pos.filepath, workspaceRoots)}`);
       }
     } else {
-      lines.push(`in ${enterTrace.start_pos.filepath}`);
+      lines.push(`in ${getRelativePath(enterTrace.start_pos.filepath, workspaceRoots)}`);
     }
 
     // Add line and column info

@@ -1,28 +1,16 @@
-import { useEffect, useState } from 'react';
-import { postMessageToExtension } from '../utils/vscode';
+import { useSharedState } from './shared/useSharedState';
 
 export function useTheme() {
-  const [isDark, setIsDark] = useState(true); // Default to dark theme
-
-  useEffect(() => {
-    postMessageToExtension({ command: 'getTheme' });
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'theme') {
-        setIsDark(message.isDark);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, []);
+  const isDark = useSharedState<boolean>(
+    'theme',
+    true, // Default to dark theme
+    'theme',
+    'getTheme',
+    (message) => message.isDark
+  );
 
   return {
     isDark,
-    theme: isDark ? 'dark' : 'light'
+    theme: isDark ? 'dark' : 'light',
   };
 }
