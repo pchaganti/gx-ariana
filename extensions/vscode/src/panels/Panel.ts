@@ -212,12 +212,7 @@ export abstract class Panel implements vscode.WebviewViewProvider {
                     this.updateWorkspaceRootsAndNotifyWebview(); // Send current roots
                 }
                 break;
-            case 'getTheme':
-                // Send the current theme to the webview
-                if (this._view) {
-                    this.sendThemeInfo(this._view.webview);
-                }
-                break;
+
             case 'focusVault':
                 // Expecting message.vaultData to be StoredVaultData from the webview
                 console.log('Asking to focus vault: ' + message.vaultData?.secret_key);
@@ -279,6 +274,11 @@ export abstract class Panel implements vscode.WebviewViewProvider {
                     vscode.env.openExternal(vscode.Uri.parse(message.url));
                 }
                 break;
+            case 'getEditorState':
+                if (this._view) {
+                    this.sendEditorState();
+                }
+                break;
         }
     }
 
@@ -298,6 +298,30 @@ export abstract class Panel implements vscode.WebviewViewProvider {
                 this._view.webview.postMessage({ type: 'focusedVault', value: vaultData });
             } catch (error) {
                 console.error('Error sending focused vault to webview:', error);
+            }
+        }
+    }
+
+    public sendEditorState() {
+        if (this._view) {
+            try {
+                const editor = vscode.window.activeTextEditor;
+                const editorState = {
+                    activeFile: editor?.document.uri.fsPath || null,
+                    selection: editor?.selection ? {
+                        startLine: editor.selection.start.line,
+                        startCharacter: editor.selection.start.character,
+                        endLine: editor.selection.end.line,
+                        endCharacter: editor.selection.end.character
+                    } : null,
+                    visibleRange: editor?.visibleRanges[0] ? {
+                        startLine: editor.visibleRanges[0].start.line,
+                        endLine: editor.visibleRanges[0].end.line
+                    } : null
+                };
+                this._view.webview.postMessage({ type: 'editorState', value: editorState });
+            } catch (error) {
+                console.error('Error sending editor state to webview:', error);
             }
         }
     }
@@ -516,29 +540,30 @@ export abstract class Panel implements vscode.WebviewViewProvider {
             return;
         }
 
-        console.log('Starting hot reload watcher for webview UI');
+        console.log('[HOT-RELOAD] Starting hot reload watcher for webview UI');
         this._isWatching = true;
 
         // Watch the dist directory for changes
         const distPath = path.join(this._extensionUri.fsPath, 'webview-ui', 'dist');
-        console.log(`Watching for changes in: ${distPath}`);
+        console.log(`[HOT-RELOAD] Watching for changes in: ${distPath}`);
 
         // Create watcher for the dist directory
         const watcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(vscode.Uri.file(distPath), '**/*')
         );
 
-        // When files are created or changed, refresh the webview
-        watcher.onDidCreate(this.refreshWebview.bind(this));
-        watcher.onDidChange(this.refreshWebview.bind(this));
+        watcher.onDidCreate(uri => this.refreshWebview(uri));
+        watcher.onDidChange(uri => this.refreshWebview(uri));
 
+
+        console.log('[HOT-RELOAD] File system watcher created.');
         // Store disposable for cleanup
         this._disposables.push(watcher);
     }
 
     /**
-     * Refresh the webview when changes are detected
-     */
+         * Refresh the webview when changes are detected
+         */
     private refreshWebview(uri: vscode.Uri): void {
         console.log(`File changed: ${uri.fsPath}, refreshing webview...`);
 

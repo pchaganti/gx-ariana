@@ -88,6 +88,8 @@ class Extension {
         this.registerCommand('updateCLI', () => this.arianaPanel.updateArianaCli());
 
         vscode.window.onDidChangeActiveTextEditor(() => this.handleEditorChange());
+        vscode.window.onDidChangeTextEditorSelection(() => this.handleEditorStateChange());
+        vscode.window.onDidChangeTextEditorVisibleRanges(() => this.handleEditorStateChange());
 
         if (vscode.window.activeTextEditor) {
             this.requestRefreshTracesInTextEditor(vscode.window.activeTextEditor);
@@ -144,6 +146,11 @@ class Extension {
         if (this.highlightingToggle.isToggled() && vscode.window.activeTextEditor) {
             this.requestRefreshTracesInTextEditor(vscode.window.activeTextEditor);
         }
+        this.handleEditorStateChange();
+    }
+
+    private handleEditorStateChange() {
+        this.arianaPanel.sendEditorState();
     }
 
     private requestRefreshTracesInTextEditor(editor: vscode.TextEditor) {

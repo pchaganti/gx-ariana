@@ -5,6 +5,8 @@ import { LightTrace } from '../bindings/LightTrace';
 import { Position } from '../bindings/Position';
 import { useWorkspaceRoots } from '../hooks/useWorkspaceRoots';
 import { getRelativePath } from '../utils/pathUtils';
+import { requestHighlight } from '../lib/highlight';
+import { cn } from '../lib/utils';
 
 type Timeline = {
   clusters: Cluster[];
@@ -27,6 +29,8 @@ type Family = {
 type Span = {
   isError: boolean;
   position: Position;
+  endLine: number;
+  endColumn: number;
   traceId: string;
   startTimestamp: number;
   endTimestamp: number;
@@ -43,10 +47,11 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
 
   const tracesByFileByFamily = Object.entries(tracesByFile).reduce((acc, [filepath, traces]) => {
     const families = traces.reduce((acc, trace) => {
-      if (!acc[trace.parent_id]) {
-        acc[trace.parent_id] = [];
+      let parent_id = trace.parent_id;
+      if (!acc[parent_id]) {
+        acc[parent_id] = [];
       }
-      acc[trace.parent_id].push(trace);
+      acc[parent_id].push(trace);
       return acc;
     }, {} as Record<string, LightTrace[]>);
     acc[filepath] = families;
@@ -82,6 +87,8 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
           return {
             isError: traces.some(trace => trace.trace_type === 'Error'),
             position: traces[0].start_pos,
+            endLine: traces[0].end_pos.line,
+            endColumn: traces[0].end_pos.column,
             traceId: traceId,
             startTimestamp: traces[0].timestamp,
             endTimestamp: traces[traces.length - 1].timestamp
@@ -96,16 +103,20 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
 
   const uniqueTimestamps: number[] = [];
   const timestampToPosition: Record<number, number> = {};
-  clusters.flatMap(cluster => cluster.families.flatMap(family => family.spans.flatMap(span => span.startTimestamp))).forEach(timestamp => {
-    if (!timestampToPosition[timestamp]) {
+  clusters.flatMap(cluster => cluster.families.flatMap(family => family.spans.flatMap(span => [span.startTimestamp, span.endTimestamp]))).forEach(timestamp => {
+    if (!uniqueTimestamps.includes(timestamp)) {
       uniqueTimestamps.push(timestamp);
-      timestampToPosition[timestamp] = uniqueTimestamps.length - 1;
     }
   });
   uniqueTimestamps.sort((a, b) => a - b);
+  uniqueTimestamps.forEach((timestamp, index) => {
+    timestampToPosition[timestamp] = index;
+  });
 
   // interTimestamps are all the time in between uniqueTimestamps
   const interTimestamps = uniqueTimestamps.slice(1).map((timestamp, index) => (timestamp + uniqueTimestamps[index]) / 2);
+
+  console.log("clusters: ", clusters);
 
   return {
     clusters: clusters,
@@ -114,6 +125,69 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
     timestampToPosition: timestampToPosition
   };
 }
+
+const TimelineCluster: React.FC<{ timeline: Timeline, cluster: Cluster }> = ({ timeline, cluster }) => {
+  const [clusterExpanded, setClusterExpanded] = useState(true);
+
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
+
+  useEffect(() => {
+    if (ref.current) {
+      const { width } = ref.current.getBoundingClientRect();
+      console.log('Width:', width);
+      setWidth(width);
+    }
+  }, [ref.current]);
+
+  return (
+    <div className="flex flex-col w-full max-w-full">
+      <button onClick={() => setClusterExpanded(!clusterExpanded)} className="flex px-1.5 py-0.5 bg-[var(--bg-550)]">
+        {cluster.label}
+      </button>
+      {clusterExpanded && (
+        <div className="flex flex-col w-full px-3">
+          <div className="w-full" ref={ref}></div>
+          {cluster.families.map((family, index) => (
+            <div key={index} className='relative h-14 w-full'>
+              <div 
+                className='absolute top-1/2 -translate-y-1/2 h-6 rounded-2xl bg-[var(--info-subtle)] w-fit'
+                style={{
+                  left: `${timeline.timestampToPosition[family.spans[0].startTimestamp] / timeline.uniqueTimestamps.length * width}px`,
+                  width: `${(timeline.timestampToPosition[family.spans[family.spans.length - 1].endTimestamp] - timeline.timestampToPosition[family.spans[0].startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
+                }}
+              >
+                {family.spans.sort((a, b) => a.startTimestamp - b.startTimestamp).map((span, index, array) => (
+                  <div 
+                    className={cn(
+                      'absolute bg-[var(--info-muted)] h-full cursor-pointer hover:bg-[var(--info-base)] hover:border-2 hover:border-[var(--bg-base)] hover:outline-2 hover:outline-[var(--info-muted)] hover:rounded-2xl',
+                      index === 0 && 'rounded-l-2xl',
+                      index === array.length - 1 && 'rounded-r-2xl'
+                    )}
+                    style={{
+                      left: `${(timeline.timestampToPosition[span.startTimestamp] / timeline.uniqueTimestamps.length * width) - (timeline.timestampToPosition[family.spans[0].startTimestamp] / timeline.uniqueTimestamps.length * width)}px`,
+                      width: `${(timeline.timestampToPosition[span.endTimestamp] - timeline.timestampToPosition[span.startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
+                    }}
+                    key={index}
+                    onMouseEnter={() => {
+                      requestHighlight(span.position.filepath, span.position.line, span.position.column, span.endLine, span.endColumn);
+                    }}
+                    // style={{
+                    //   left: `${timeline.timestampToPosition[span.startTimestamp] / timeline.uniqueTimestamps.length * width}px`,
+                    //   width: `${(timeline.timestampToPosition[span.endTimestamp] - timeline.timestampToPosition[span.startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
+                    // }}
+                  >
+                    {}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface VaultTimelineProps { }
 
@@ -126,20 +200,6 @@ const VaultTimeline: React.FC<VaultTimelineProps> = ({ }) => {
     const timeline = lightTracesToTimeline(lightTraces, workspaceRoots);
     setTimeline(timeline);
   }, [lightTraces]);
-
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState<number>(0);
-  const [height, setHeight] = useState<number>(0);
-
-  useEffect(() => {
-    if (ref.current) {
-      const { width, height } = ref.current.getBoundingClientRect();
-      console.log('Width:', width);
-      console.log('Height:', height);
-      setWidth(width);
-      setHeight(height);
-    }
-  }, [ref.current]);
 
   if (lightTraces.length === 0) {
     return (
@@ -158,9 +218,9 @@ const VaultTimeline: React.FC<VaultTimelineProps> = ({ }) => {
   }
 
   return (
-    <div className="bg-[var(--bg-base)] flex flex-col w-full h-full max-w-full max-h-full text-[var(--fg-base)] overflow-hidden" ref={ref}>
+    <div className="bg-[var(--bg-base)] flex flex-col w-full h-full max-w-full max-h-full text-[var(--fg-base)] overflow-auto">
       {timeline.clusters.map((cluster, index) => (
-        <div key={index}>{cluster.label}</div>
+        <TimelineCluster key={index} timeline={timeline} cluster={cluster} />
       ))}
     </div>
   );

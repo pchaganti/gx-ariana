@@ -6,11 +6,13 @@ import { useCliStatus } from './hooks/useCliStatus';
 import { useViewId } from './hooks/useViewId';
 import VaultTimelineView from './components/VaultTimelineView';
 import { useWorkspaceRoots } from './hooks/useWorkspaceRoots';
+import { useRenderNonce } from './hooks/useRenderNonce';
 
 const App = () => {
     const cliStatus = useCliStatus();
     const viewId = useViewId();
     const workspaceRoots = useWorkspaceRoots();
+    const renderNonce = useRenderNonce();
 
     useEffect(() => {
         window.addEventListener('message', handleMessage);
@@ -24,7 +26,8 @@ const App = () => {
 
         switch (message.type) {
             case 'hotReload':
-                console.log('This render was triggered by a hot reload.');
+                console.log('Hot reload message received. Reloading webview...');
+                // window.location.reload();
                 break;
         }
     };
@@ -37,6 +40,14 @@ const App = () => {
         return <div className="bg-[var(--bg-base)] flex items-center justify-center w-full h-full text-[var(--fg-base)] text-md font-mono">
             <div className="animate-pulse">
                 Loading... (Waiting for viewId)
+            </div>
+        </div>;
+    }
+
+    if (!renderNonce) {
+        return <div className="bg-[var(--bg-base)] flex items-center justify-center w-full h-full text-[var(--fg-base)] text-md font-mono">
+            <div className="animate-pulse">
+                Loading... (Waiting for render nonce)
             </div>
         </div>;
     }
