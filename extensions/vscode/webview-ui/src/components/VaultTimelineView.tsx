@@ -136,6 +136,23 @@ function calculateFamilyEncompassingScore(
 }
 
 function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string[]): Timeline {
+  // TEMPORARY BENCHMARKING CODE - START
+  const benchmarkTimings = {
+    totalFunctionTime: 0,
+    step1_groupTracesByFileParentTrace: 0,
+    step2_createAllSpans: 0,
+    step3_createAllFamiliesMain: 0,
+    step3_totalPatternFindingTime: 0,
+    step4_linkDirectChildrenToSpans: 0,
+    step5_linkIndirectChildrenToSpans: 0,
+    step6_createClustersInitial: 0,
+    step6_totalRootFamilySortingTime: 0,
+    step7_finalTimestampAssembly: 0,
+  };
+  const overallStartTime = performance.now();
+  // TEMPORARY BENCHMARKING CODE - END
+
+  let startTime = performance.now();
   const allSpans: Span[] = [];
   const allFamilies: Family[] = [];
   const spanMapByTraceId: Record<string, number> = {}; // traceId to index in allSpans
@@ -150,6 +167,8 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
     acc[filepath][parent_id][trace_id].push(trace);
     return acc;
   }, {} as Record<string, Record<string, Record<string, LightTrace[]>>>);
+  benchmarkTimings.step1_groupTracesByFileParentTrace = performance.now() - startTime;
+  startTime = performance.now();
 
   // 2. Create all Spans first
   Object.values(tracesByFileAndParentAndTrace).forEach(tracesByParent => {
@@ -180,9 +199,13 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
       });
     });
   });
+  benchmarkTimings.step2_createAllSpans = performance.now() - startTime;
+  startTime = performance.now();
 
   // 3. Create all Families
-  const familyMapByParentId: Record<string, number> = {}; // parent_id to index in allFamilies
+  const familyMapByParentId: Record<string, number> = {}; // parentId to index in allFamilies (for unique family creation)
+  const familiesGroupedByParentId: Record<string, number[]> = {}; // parentId to list of familyIndices (for linking children)
+  let totalPatternFindingTimeForStep3 = 0;
   Object.entries(tracesByFileAndParentAndTrace).forEach(([filepath, tracesByParent]) => {
     Object.entries(tracesByParent).forEach(([parentId, tracesByTraceId]) => {
       if (familyMapByParentId[parentId] === undefined) { // Ensure each family is created once
@@ -210,6 +233,12 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
             endTimestamp: maxEnd,
           };
           familyMapByParentId[parentId] = allFamilies.push(family) - 1;
+
+          // Group family by its parentId for quick child lookup later
+          if (!familiesGroupedByParentId[parentId]) {
+            familiesGroupedByParentId[parentId] = [];
+          }
+          familiesGroupedByParentId[parentId].push(allFamilies.length - 1);
         }
       }
     });
@@ -218,32 +247,59 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
   // Find span patterns for each family
   allFamilies.forEach(family => {
     const familySpanLocations = family.spansIndices.map(idx => allSpans[idx].location);
+    const patternStartTime = performance.now();
     family.patterns = findSpanPatterns(familySpanLocations);
+    totalPatternFindingTimeForStep3 += (performance.now() - patternStartTime);
   });
+  benchmarkTimings.step3_createAllFamiliesMain = (performance.now() - startTime) - totalPatternFindingTimeForStep3;
+  benchmarkTimings.step3_totalPatternFindingTime = totalPatternFindingTimeForStep3;
+  startTime = performance.now();
 
-  // 4. Link Spans to Children Families
-  allSpans.forEach((span) => { // Removed spanIndex as it's not used here
-    allFamilies.forEach((family, familyIndex) => {
-      if (family.parentId === span.traceId) {
-        span.childrenFamilyIndices.push(familyIndex);
-      }
-    });
+  // 4. Link Spans to Children Families (Optimized)
+  allSpans.forEach((span) => {
+    const directChildrenIndices = familiesGroupedByParentId[span.traceId];
+    if (directChildrenIndices) {
+      // Assign directly. Assuming childrenFamilyIndices should only contain direct children from this logic.
+      // If spans could have children from other sources or if duplicates are an issue from upstream, 
+      // then a Set or .includes check might be needed, but that would reduce optimization benefits.
+      // For now, direct assignment is cleanest and fastest based on the current data model understanding.
+      span.childrenFamilyIndices = [...directChildrenIndices];
+    }
   });
+  benchmarkTimings.step4_linkDirectChildrenToSpans = performance.now() - startTime;
+  startTime = performance.now();
 
-  // 5. Link Spans to Indirect Children Families
-  allSpans.forEach((span) => { // Removed spanIndex as it's not used here
-    const potentialIndirects: { familyIndex: number, gap: number }[] = [];
-    allFamilies.forEach((family, familyIndex) => {
-      if (family.startTimestamp > span.startTimestamp && family.endTimestamp < span.endTimestamp) {
-        const gap = ((family.startTimestamp - span.startTimestamp) + (span.endTimestamp - family.endTimestamp)) / 2;
-        potentialIndirects.push({ familyIndex, gap });
+
+  // 5. Link Spans to Indirect Children Families (Simplified based on 'orphan-' parentId rule)
+  allSpans.forEach((currentSpan) => {
+    const potentialIndirects: { familyIndex: number; gap: number }[] = [];
+    allFamilies.forEach((candidateFamily, candidateFamilyIndex) => {
+      if (candidateFamily.parentId.startsWith("orphan-") &&
+          candidateFamily.startTimestamp >= currentSpan.startTimestamp &&
+          candidateFamily.endTimestamp <= currentSpan.endTimestamp &&
+          candidateFamily.spansIndices.length > 0
+      ) {
+        // This family is an orphan and is temporally contained within the currentSpan.
+        // It cannot be a direct child of currentSpan by definition (orphan parentId vs span.traceId).
+        const firstSpanOfFamily = allSpans[candidateFamily.spansIndices[0]]; // Assuming spansIndices[0] is valid
+        if (firstSpanOfFamily) { // Ensure the span exists
+          const gap = Math.min(
+            Math.abs(candidateFamily.startTimestamp - currentSpan.startTimestamp),
+            Math.abs(candidateFamily.endTimestamp - currentSpan.endTimestamp),
+            Math.abs(firstSpanOfFamily.startTimestamp - currentSpan.startTimestamp) // Gap to the first span of the orphan family
+          );
+          potentialIndirects.push({ familyIndex: candidateFamilyIndex, gap });
+        }
       }
     });
     potentialIndirects.sort((a, b) => a.gap - b.gap);
-    span.indirectChildrenFamilyIndices = potentialIndirects.map(p => p.familyIndex);
+    currentSpan.indirectChildrenFamilyIndices = potentialIndirects.map(p => p.familyIndex);
   });
+  benchmarkTimings.step5_linkIndirectChildrenToSpans = performance.now() - startTime;
+  startTime = performance.now();
 
   // 6. Create Clusters
+  let totalRootFamilySortingTimeForStep6 = 0;
   const timelineClusters: Cluster[] = Object.entries(tracesByFileAndParentAndTrace).map(([filepath, tracesByParent]) => {
     const currentClusterRootIndices: number[] = [];
     Object.keys(tracesByParent).forEach(parentId => {
@@ -268,18 +324,26 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
       rootFamilyIndices: currentClusterRootIndices, // Will be sorted later
     };
   });
+  benchmarkTimings.step6_createClustersInitial = performance.now() - startTime;
+  startTime = performance.now(); // Reset for sorting part
 
   // Sort root families in each cluster by encompassing score
   timelineClusters.forEach(cluster => {
+    const scoreCalcStartTime = performance.now();
     const scoredRootFamilies = cluster.rootFamilyIndices.map(rootFamilyIndex => {
       const visitedForThisRoot = new Set<number>(); // Fresh set for each root's score calculation
       const score = calculateFamilyEncompassingScore(rootFamilyIndex, allFamilies, allSpans, visitedForThisRoot);
       return { index: rootFamilyIndex, score };
     });
+    totalRootFamilySortingTimeForStep6 += (performance.now() - scoreCalcStartTime); // Accumulate time for scoring this cluster's roots
 
     scoredRootFamilies.sort((a, b) => b.score - a.score); // Sort descending by score
     cluster.rootFamilyIndices = scoredRootFamilies.map(item => item.index);
   });
+  benchmarkTimings.step6_totalRootFamilySortingTime = totalRootFamilySortingTimeForStep6;
+  // Note: The actual sort time for `scoredRootFamilies.sort` is part of the loop but not separately timed here.
+  // The dominant factor is expected to be calculateFamilyEncompassingScore.
+  startTime = performance.now();
 
   // 7. Final Timeline Assembly (Timestamps)
   const uniqueTimestamps: number[] = [];
@@ -296,6 +360,15 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
     timestampToPosition[timestamp] = index;
   });
   const interTimestamps = uniqueTimestamps.slice(1).map((timestamp, index) => (timestamp + uniqueTimestamps[index]) / 2);
+  benchmarkTimings.step7_finalTimestampAssembly = performance.now() - startTime;
+  benchmarkTimings.totalFunctionTime = performance.now() - overallStartTime;
+
+  // TEMPORARY BENCHMARKING CODE - START
+  console.log('VaultTimelineView.tsx lightTracesToTimeline BENCHMARKS (ms):');
+  Object.entries(benchmarkTimings).forEach(([key, value]) => {
+    console.log(`  ${key}: ${value.toFixed(2)}`);
+  });
+  // TEMPORARY BENCHMARKING CODE - END
 
   return {
     clusters: timelineClusters,
