@@ -384,7 +384,7 @@ export abstract class Panel implements vscode.WebviewViewProvider {
         }
     }
 
-    private sendLightTracesToWebview(traces: LightTrace[]): void {
+    protected sendLightTracesToWebview(traces: LightTrace[] | null) {
         try {
             this._view?.webview.postMessage({ type: 'lightTraces', value: traces });
         } catch (error) {

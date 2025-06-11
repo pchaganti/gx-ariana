@@ -46,14 +46,14 @@ async function main() {
     await buildWebviewUI();
 
     const ctx = await esbuild.context({
-        entryPoints: ['src/extension.ts'],
+        entryPoints: ['src/extension.ts', 'src/timeline/timeline.worker.ts'],
         bundle: true,
         format: 'cjs',
         minify: production,
         sourcemap: !production,
         sourcesContent: false,
         platform: 'node',
-        outfile: 'dist/extension.js',
+        outdir: 'dist',
         external: ['vscode'],
         logLevel: 'warning',
         plugins: [
@@ -82,7 +82,7 @@ const esbuildProblemMatcherPlugin = {
         build.onEnd(result => {
             result.errors.forEach(({ text, location }) => {
                 console.error(`✘ [ERROR] ${text}`);
-                if (location == null) return;
+                if (location === null) { return; }
                 console.error(`    ${location.file}:${location.line}:${location.column}:`);
             });
             console.log('[watch] build finished');
