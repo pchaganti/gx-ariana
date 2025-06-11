@@ -1,7 +1,7 @@
 import { LightTrace } from "../bindings/LightTrace";
 import { Family, Span, SpanPattern, Timeline } from "./timelineTypes";
 
-function sequencesEqual(seq1: string[], seq2: string[]): boolean {
+function sequencesEqual(seq1: number[], seq2: number[]): boolean {
     if (seq1.length !== seq2.length) { return false; }
     for (let i = 0; i < seq1.length; i++) {
         if (seq1[i] !== seq2[i]) { return false; }
@@ -9,13 +9,13 @@ function sequencesEqual(seq1: string[], seq2: string[]): boolean {
     return true;
 }
 
-function findSpanPatterns(spanLocations: string[]): SpanPattern[] {
-    const foundPatterns: SpanPattern[] = [];
+function findSpanPatterns(spanLocations: number[]): (Omit<SpanPattern, 'sequence'> & { sequence: number[] })[] {
+        const foundPatterns: (Omit<SpanPattern, 'sequence'> & { sequence: number[] })[] = [];
     const n = spanLocations.length;
     let currentIndex = 0;
 
     while (currentIndex < n) {
-        let bestPatternForCurrentIndex: SpanPattern | null = null;
+                let bestPatternForCurrentIndex: (Omit<SpanPattern, 'sequence'> & { sequence: number[] }) | null = null;
 
         for (let len = Math.min(100, Math.floor((n - currentIndex) / 2)); len >= 1; len--) {
             if (currentIndex + 2 * len > n) { continue; } // Not enough elements for at least two occurrences
@@ -56,10 +56,14 @@ function calculateFamilyEncompassingScore(
     familyIndex: number,
     allFamilies: readonly Family[],
     allSpans: readonly Span[],
-    visitedFamilies: Set<number> // To avoid cycles and redundant counting WITHIN A SINGLE ROOT'S SCORE CALCULATION
+    visitedFamilies: Set<number>, // To avoid cycles and redundant counting WITHIN A SINGLE ROOT'S SCORE CALCULATION
+    memo: Map<number, number>
 ): number {
-    if (visitedFamilies.has(familyIndex)) {
+        if (visitedFamilies.has(familyIndex)) {
         return 0; // Already counted in this path or cycle detected
+    }
+    if (memo.has(familyIndex)) {
+        return memo.get(familyIndex)!;
     }
     visitedFamilies.add(familyIndex);
 
@@ -74,22 +78,26 @@ function calculateFamilyEncompassingScore(
 
         // Direct children
         for (const childFamilyIndex of span.childrenFamilyIndices) {
-            score += calculateFamilyEncompassingScore(childFamilyIndex, allFamilies, allSpans, visitedFamilies);
+                        score += calculateFamilyEncompassingScore(childFamilyIndex, allFamilies, allSpans, visitedFamilies, memo);
         }
         // Indirect children
         for (const indirectChildFamilyIndex of span.indirectChildrenFamilyIndices) {
-            score += calculateFamilyEncompassingScore(indirectChildFamilyIndex, allFamilies, allSpans, visitedFamilies);
+                        score += calculateFamilyEncompassingScore(indirectChildFamilyIndex, allFamilies, allSpans, visitedFamilies, memo);
         }
     }
+        memo.set(familyIndex, score);
     return score;
 }
 
-export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
+export function lightTracesToTimeline(lightTraces: LightTrace[]): { timeline: Timeline; benchmarks: Record<string, number> } {
+    const benchmarks: Record<string, number> = {};
+    let stageStart = performance.now();
     const allSpans: Span[] = [];
     const allFamilies: Family[] = [];
     const spanMapByTraceId: Record<string, number> = {}; // traceId to index in allSpans
 
     // 1. Group traces by filepath -> parent_id -> trace_id
+    stageStart = performance.now();
     const tracesByFileAndParentAndTrace = lightTraces.reduce((acc, trace) => {
         const { filepath } = trace.start_pos;
         const { parent_id, trace_id } = trace;
@@ -99,8 +107,10 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
         acc[filepath][parent_id][trace_id].push(trace);
         return acc;
     }, {} as Record<string, Record<string, Record<string, LightTrace[]>>>);
+    benchmarks.groupTraces = performance.now() - stageStart;
 
     // 2. Create all Spans first
+    stageStart = performance.now();
     Object.values(tracesByFileAndParentAndTrace).forEach(tracesByParent => {
         Object.values(tracesByParent).forEach(tracesByTraceId => {
             Object.entries(tracesByTraceId).forEach(([traceId, traceSegments]) => {
@@ -152,9 +162,22 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
             });
         });
     });
+    benchmarks.createSpans = performance.now() - stageStart;
 
     // 3. Create all Families
+    stageStart = performance.now();
     const familyMapByParentId: Record<string, number> = {}; // parentId to index in allFamilies
+    const locationToId = new Map<string, number>();
+    const idToLocation: string[] = [];
+    const getLocationId = (location: string): number => {
+        if (!locationToId.has(location)) {
+            const id = idToLocation.length;
+            locationToId.set(location, id);
+            idToLocation.push(location);
+        }
+        return locationToId.get(location)!;
+    };
+
     Object.values(tracesByFileAndParentAndTrace).forEach(tracesByParent => {
         Object.entries(tracesByParent).forEach(([parentId, tracesByTraceId]) => {
             if (familyMapByParentId[parentId] === undefined) {
@@ -181,8 +204,13 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
                     isEndDefinite: lastSpan ? lastSpan.isEndDefinite : false,
                 };
 
-                const spanLocations = family.spansIndices.map(i => allSpans[i].location);
-                family.patterns = findSpanPatterns(spanLocations);
+                                const spanLocations = family.spansIndices.map(i => allSpans[i].location);
+                const spanLocationIds = spanLocations.map(getLocationId);
+                const patternsWithIds = findSpanPatterns(spanLocationIds);
+                family.patterns = patternsWithIds.map(p => ({
+                    ...p,
+                    sequence: p.sequence.map(id => idToLocation[id])
+                }));
 
                 allFamilies.push(family);
 
@@ -192,37 +220,80 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
             }
         });
     });
+    benchmarks.createFamilies = performance.now() - stageStart;
 
     // 4. Link direct children to spans
+    stageStart = performance.now();
     allSpans.forEach(span => {
         const childFamilyIndex = familyMapByParentId[span.traceId];
         if (childFamilyIndex !== undefined) {
             span.childrenFamilyIndices.push(childFamilyIndex);
         }
     });
+    benchmarks.linkDirectChildren = performance.now() - stageStart;
 
-    // 5. Link indirect children to spans
-    allSpans.forEach(span => {
-        Object.entries(familyMapByParentId).forEach(([familyParentId, familyIndex]) => {
-            if (familyParentId.startsWith('orphan-')) { return; } // Skip orphan families
-            if (span.childrenFamilyIndices.includes(familyIndex)) { return; } // Already a direct child
-            if (familyParentId === span.traceId) { return; } // The family is a direct child of this span
+    // 5. Link indirect children to spans (Optimized)
+    stageStart = performance.now();
 
-            const family = allFamilies[familyIndex];
-            if (family.startTimestamp > span.startTimestamp && family.endTimestamp < span.endTimestamp) {
-                span.indirectChildrenFamilyIndices.push(familyIndex);
+    const sortableFamilies = allFamilies.map((family, index) => ({
+        family,
+        originalIndex: index
+    })).sort((a, b) => a.family.startTimestamp - b.family.startTimestamp);
+
+    // Helper to find the first family that starts AFTER the span starts.
+    function findFirstGreaterThan(arr: typeof sortableFamilies, target: number): number {
+        let low = 0;
+        let high = arr.length;
+        let ans = high;
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            if (arr[mid].family.startTimestamp > target) {
+                ans = mid;
+                high = mid;
+            } else {
+                low = mid + 1;
             }
-        });
-    });
+        }
+        return ans;
+    }
 
-    // 6. Create clusters
+    allSpans.forEach(span => {
+        // Find potential children by starting our search just after the span's start time.
+        const startIndex = findFirstGreaterThan(sortableFamilies, span.startTimestamp);
+
+        for (let i = startIndex; i < sortableFamilies.length; i++) {
+            const { family, originalIndex: familyIndex } = sortableFamilies[i];
+
+            // If the family starts after the span has already ended, no further families will match.
+            if (family.startTimestamp >= span.endTimestamp) {
+                break;
+            }
+
+            // Check if the family is fully contained within the span's duration.
+            if (family.endTimestamp < span.endTimestamp) {
+                // Ensure it's not an orphan or a direct child.
+                if (!family.parentId.startsWith('orphan-') && family.parentId !== span.traceId) {
+                    // Avoid adding duplicates.
+                    if (!span.childrenFamilyIndices.includes(familyIndex) && !span.indirectChildrenFamilyIndices.includes(familyIndex)) {
+                        span.indirectChildrenFamilyIndices.push(familyIndex);
+                    }
+                }
+            }
+        }
+    });
+    benchmarks.linkIndirectChildren = performance.now() - stageStart;
+
+    // 6. Generate Clusters
+    stageStart = performance.now();
     const rootFamilies = allFamilies.filter(f => f.parentId.startsWith('orphan-'));
     const rootFamilyIndices = rootFamilies.map(f => allFamilies.indexOf(f));
+    const scoreMemo = new Map<number, number>();
     rootFamilyIndices.sort((aIndex, bIndex) => {
-        const scoreA = calculateFamilyEncompassingScore(aIndex, allFamilies, allSpans, new Set());
-        const scoreB = calculateFamilyEncompassingScore(bIndex, allFamilies, allSpans, new Set());
+        const scoreA = calculateFamilyEncompassingScore(aIndex, allFamilies, allSpans, new Set(), scoreMemo);
+        const scoreB = calculateFamilyEncompassingScore(bIndex, allFamilies, allSpans, new Set(), scoreMemo);
         return scoreB - scoreA; // Sort descending by score
     });
+    benchmarks.generateClusters = performance.now() - stageStart;
 
     const clusters = [{
         label: 'All Traces',
@@ -230,6 +301,7 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
     }];
 
     // 7. Final timestamp assembly
+    stageStart = performance.now();
     const allTimestamps = allSpans.flatMap(s => [s.startTimestamp, s.endTimestamp]);
     const uniqueTimestamps = [...new Set(allTimestamps)].sort((a, b) => a - b);
     const interTimestamps = [];
@@ -239,13 +311,8 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): Timeline {
 
     const timestampToPosition: Record<number, number> = {};
     uniqueTimestamps.forEach((ts, i) => timestampToPosition[ts] = i);
+    benchmarks.timestampProcessing = performance.now() - stageStart;
 
-    return {
-        clusters,
-        spans: allSpans,
-        families: allFamilies,
-        uniqueTimestamps,
-        interTimestamps,
-        timestampToPosition,
-    };
+    const timeline = { clusters, spans: allSpans, families: allFamilies, uniqueTimestamps, interTimestamps, timestampToPosition };
+    return { timeline, benchmarks };
 }

@@ -9,12 +9,8 @@ if (!parentPort) {
 
 parentPort.on('message', (traces: LightTrace[]) => {
   try {
-    const startTime = performance.now();
-    const timeline: Timeline = lightTracesToTimeline(traces);
-    const endTime = performance.now();
-    const duration = endTime - startTime;
-
-    parentPort!.postMessage({ type: 'benchmark', duration });
+    const { timeline, benchmarks } = lightTracesToTimeline(traces);
+    parentPort!.postMessage({ type: 'benchmark', benchmarks });
     parentPort!.postMessage({ type: 'success', timeline });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred in the timeline worker.';

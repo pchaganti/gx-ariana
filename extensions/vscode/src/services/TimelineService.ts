@@ -15,13 +15,13 @@ export class TimelineService {
     const workerPath = path.join(__dirname, 'timeline', 'timeline.worker.js');
     this.worker = new Worker(workerPath);
 
-    this.worker.on('message', (message: { type: 'success', timeline: Timeline } | { type: 'error', error: string } | { type: 'benchmark', duration: number }) => {
+    this.worker.on('message', (message: { type: 'success', timeline: Timeline } | { type: 'error', error: string } | { type: 'benchmark', benchmarks: Record<string, number> }) => {
       if (message.type === 'success') {
         this.latestTimeline = message.timeline;
         this.sendTimelineToWebview();
         this.isComputing = false; // Only set to false after successful computation
       } else if (message.type === 'benchmark') {
-        console.log(`Timeline computation took ${message.duration.toFixed(2)} ms`);
+        console.log('Timeline computation benchmarks (ms):', message.benchmarks);
       } else if (message.type === 'error') {
         console.error('Timeline worker error:', message.error);
         this.isComputing = false; // Also set to false on error
