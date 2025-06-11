@@ -28,6 +28,8 @@ type Family = {
   spansIndices: number[]; // indices into Timeline.spans
   startTimestamp: number;
   endTimestamp: number;
+  isStartDefinite: boolean;
+  isEndDefinite: boolean;
   patterns?: SpanPattern[];
 }
 
@@ -39,6 +41,8 @@ type Span = {
   traceId: string;
   location: string; // e.g., filepath:line
   familyIndex: number;
+  isStartDefinite: boolean;
+  isEndDefinite: boolean;
   startTimestamp: number;
   endTimestamp: number;
   childrenFamilyIndices: number[]; // Families directly parented by this span
@@ -161,9 +165,9 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
   const tracesByFileAndParentAndTrace = lightTraces.reduce((acc, trace) => {
     const { filepath } = trace.start_pos;
     const { parent_id, trace_id } = trace;
-    if (!acc[filepath]) acc[filepath] = {};
-    if (!acc[filepath][parent_id]) acc[filepath][parent_id] = {};
-    if (!acc[filepath][parent_id][trace_id]) acc[filepath][parent_id][trace_id] = [];
+    if (!acc[filepath]) { acc[filepath] = {}; }
+    if (!acc[filepath][parent_id]) { acc[filepath][parent_id] = {}; }
+    if (!acc[filepath][parent_id][trace_id]) { acc[filepath][parent_id][trace_id] = []; }
     acc[filepath][parent_id][trace_id].push(trace);
     return acc;
   }, {} as Record<string, Record<string, Record<string, LightTrace[]>>>);
@@ -176,25 +180,78 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
       Object.entries(tracesByTraceId).forEach(([traceId, traceSegments]) => {
         if (spanMapByTraceId[traceId] === undefined) { // Ensure each span is created once
           traceSegments.sort((a, b) => a.timestamp - b.timestamp);
-          const firstSegment = traceSegments[0];
-          const lastSegment = traceSegments[traceSegments.length - 1];
-          const representativeTraceForLocation = traceSegments.sort((a,b) => a.timestamp - b.timestamp)[0];
+          let enterTrace: LightTrace | null = null;
+          let exitTrace: LightTrace | null = null;
+          let errorTrace: LightTrace | null = null;
+
+          for (const segment of traceSegments) {
+            if (segment.trace_type === 'Enter') {
+              if (!enterTrace || segment.timestamp < enterTrace.timestamp) {
+                enterTrace = segment;
+              }
+            }
+            if (segment.trace_type === 'Exit') {
+              if (!exitTrace || segment.timestamp > exitTrace.timestamp) {
+                exitTrace = segment;
+              }
+            }
+            if (segment.trace_type === 'Error') {
+              if (!errorTrace || segment.timestamp > errorTrace.timestamp) {
+                errorTrace = segment;
+              }
+            }
+          }
+
+          const completionTrace = errorTrace ? (exitTrace && errorTrace.timestamp < exitTrace.timestamp ? exitTrace : errorTrace) : exitTrace;
+          const isError = !!errorTrace;
+
+          const isStartDefinite = !!enterTrace;
+          const isEndDefinite = !!completionTrace;
+
+          let startTimestamp = 0;
+          let endTimestamp = 0;
+          let position = enterTrace?.start_pos ?? completionTrace?.start_pos ?? traceSegments[0].start_pos; // Fallback if somehow no enter/completion
+          let endLine = position.line; // Placeholder
+          let endColumn = position.column; // Placeholder
+
+          if (enterTrace) {
+            startTimestamp = enterTrace.timestamp;
+            position = enterTrace.start_pos;
+          } else if (completionTrace) {
+            startTimestamp = completionTrace.timestamp; // Undefined start, use completion time as placeholder
+            position = completionTrace.start_pos;
+          }
+
+          if (completionTrace) {
+            endTimestamp = completionTrace.timestamp;
+            endLine = completionTrace.end_pos.line;
+            endColumn = completionTrace.end_pos.column;
+          } else if (enterTrace) {
+            endTimestamp = enterTrace.timestamp; // Undefined end, use enter time as placeholder
+            endLine = enterTrace.start_pos.line; // Use start pos for end if no completion
+            endColumn = enterTrace.start_pos.column;
+          }
+          
+          // Fallback for location if somehow traceSegments[0] was used for position
+          const representativeTraceForLocation = enterTrace ?? completionTrace ?? traceSegments[0];
           const spanLocation = `${representativeTraceForLocation.start_pos.filepath}:${representativeTraceForLocation.start_pos.line}`;
 
-          const span: Span = {
+          const newSpan: Span = {
             location: spanLocation,
             traceId: traceId,
-            position: firstSegment.start_pos,
-            endLine: firstSegment.end_pos.line, // Or lastSegment.end_pos.line if preferred
-            endColumn: firstSegment.end_pos.column, // Or lastSegment.end_pos.column
-            isError: traceSegments.some(t => t.trace_type === 'Error'),
-            startTimestamp: firstSegment.timestamp,
-            endTimestamp: lastSegment.timestamp,
+            position: position,
+            endLine: endLine,
+            endColumn: endColumn,
+            isError: isError,
+            startTimestamp: startTimestamp,
+            endTimestamp: endTimestamp,
+            isStartDefinite: isStartDefinite,
+            isEndDefinite: isEndDefinite,
             childrenFamilyIndices: [],
             indirectChildrenFamilyIndices: [],
             familyIndex: -1, // Will be set later
           };
-          spanMapByTraceId[traceId] = allSpans.push(span) - 1;
+          spanMapByTraceId[traceId] = allSpans.push(newSpan) - 1;
         }
       });
     });
@@ -209,35 +266,42 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
   Object.entries(tracesByFileAndParentAndTrace).forEach(([filepath, tracesByParent]) => {
     Object.entries(tracesByParent).forEach(([parentId, tracesByTraceId]) => {
       if (familyMapByParentId[parentId] === undefined) { // Ensure each family is created once
-        const familySpanIndices: number[] = [];
-        let minStart = Infinity;
-        let maxEnd = -Infinity;
+        const familySpansIndices: number[] = [];
+        let familyStart = Infinity;
+        let familyEnd = -Infinity;
+        let isFamilyStartDefinite = true;
+        let isFamilyEndDefinite = true;
 
         Object.keys(tracesByTraceId).forEach(traceId => {
           const spanIndex = spanMapByTraceId[traceId];
           if (spanIndex !== undefined) {
-            familySpanIndices.push(spanIndex);
+            familySpansIndices.push(spanIndex);
             const span = allSpans[spanIndex];
-            minStart = Math.min(minStart, span.startTimestamp);
-            maxEnd = Math.max(maxEnd, span.endTimestamp);
+            if (span.startTimestamp < familyStart) { familyStart = span.startTimestamp; }
+            if (span.endTimestamp > familyEnd) { familyEnd = span.endTimestamp; }
+            if (!span.isStartDefinite) { isFamilyStartDefinite = false; }
+            if (!span.isEndDefinite) { isFamilyEndDefinite = false; }
             span.familyIndex = allFamilies.length; // Set family index for the span
           }
         });
 
-        if (familySpanIndices.length > 0) {
+        if (familySpansIndices.length > 0) {
           const family: Family = {
-            label: parentId, // Or a more descriptive label if needed
+            label: `${getRelativePath(filepath, workspaceRoots)} - ${parentId}`,
             parentId: parentId,
-            spansIndices: familySpanIndices,
-            startTimestamp: minStart,
-            endTimestamp: maxEnd,
+            spansIndices: familySpansIndices,
+            startTimestamp: familyStart,
+            endTimestamp: familyEnd,
+            isStartDefinite: isFamilyStartDefinite,
+            isEndDefinite: isFamilyEndDefinite,
           };
-          familyMapByParentId[parentId] = allFamilies.push(family) - 1;
+          const familyIndex = allFamilies.push(family) - 1;
 
           // Group family by its parentId for quick child lookup later
           if (!familiesGroupedByParentId[parentId]) {
             familiesGroupedByParentId[parentId] = [];
           }
+          familiesGroupedByParentId[parentId].push(familyIndex);
           familiesGroupedByParentId[parentId].push(allFamilies.length - 1);
         }
       }
@@ -255,28 +319,62 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
   benchmarkTimings.step3_totalPatternFindingTime = totalPatternFindingTimeForStep3;
   startTime = performance.now();
 
-  // 4. Link Spans to Children Families (Optimized)
+  // NEW STEP: Determine overall definite time range for resolving indefinite timestamps
+  let overallDefiniteMinTimestamp = Infinity;
+  let overallDefiniteMaxTimestamp = -Infinity;
+
+  for (const span of allSpans) {
+    if (span.isStartDefinite && span.startTimestamp < overallDefiniteMinTimestamp) {
+      overallDefiniteMinTimestamp = span.startTimestamp;
+    }
+    if (span.isEndDefinite && span.endTimestamp > overallDefiniteMaxTimestamp) {
+      overallDefiniteMaxTimestamp = span.endTimestamp;
+    }
+  }
+
+  // Handle case where there are no definite timestamps at all
+  if (overallDefiniteMinTimestamp === Infinity) {
+    // Fallback: use any timestamp available
+    for (const span of allSpans) {
+        if (span.startTimestamp < overallDefiniteMinTimestamp) { overallDefiniteMinTimestamp = span.startTimestamp; }
+        if (span.endTimestamp > overallDefiniteMaxTimestamp) { overallDefiniteMaxTimestamp = span.endTimestamp; }
+    }
+    // If still nothing, set a default range
+    if (overallDefiniteMinTimestamp === Infinity) {
+        overallDefiniteMinTimestamp = 0;
+        overallDefiniteMaxTimestamp = 1;
+    }
+  }
+
+  // Helper to resolve timestamps to their visual position on the timeline
+  function resolveTimestamp(timestamp: number, isDefinite: boolean, isStart: boolean): number {
+      if (isDefinite) {
+          return timestamp;
+      }
+      // For indefinite timestamps, push them to the very start or end of the timeline's definite range
+      return isStart ? overallDefiniteMinTimestamp - 1 : overallDefiniteMaxTimestamp + 1;
+  }
+
+  // 4. Link direct children families to their parent spans
   allSpans.forEach((span) => {
     const directChildrenIndices = familiesGroupedByParentId[span.traceId];
     if (directChildrenIndices) {
       // Assign directly. Assuming childrenFamilyIndices should only contain direct children from this logic.
-      // If spans could have children from other sources or if duplicates are an issue from upstream, 
+      // If spans could have children from other sources or if duplicates are an issue from upstream,
       // then a Set or .includes check might be needed, but that would reduce optimization benefits.
-      // For now, direct assignment is cleanest and fastest based on the current data model understanding.
       span.childrenFamilyIndices = [...directChildrenIndices];
     }
   });
   benchmarkTimings.step4_linkDirectChildrenToSpans = performance.now() - startTime;
   startTime = performance.now();
 
-
   // 5. Link Spans to Indirect Children Families (Simplified based on 'orphan-' parentId rule)
   allSpans.forEach((currentSpan) => {
     const potentialIndirects: { familyIndex: number; gap: number }[] = [];
     allFamilies.forEach((candidateFamily, candidateFamilyIndex) => {
       if (candidateFamily.parentId.startsWith("orphan-") &&
-          candidateFamily.startTimestamp >= currentSpan.startTimestamp &&
-          candidateFamily.endTimestamp <= currentSpan.endTimestamp &&
+          resolveTimestamp(candidateFamily.startTimestamp, candidateFamily.isStartDefinite, true) >= resolveTimestamp(currentSpan.startTimestamp, currentSpan.isStartDefinite, true) &&
+          resolveTimestamp(candidateFamily.endTimestamp, candidateFamily.isEndDefinite, false) <= resolveTimestamp(currentSpan.endTimestamp, currentSpan.isEndDefinite, false) &&
           candidateFamily.spansIndices.length > 0
       ) {
         // This family is an orphan and is temporally contained within the currentSpan.
@@ -284,9 +382,9 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
         const firstSpanOfFamily = allSpans[candidateFamily.spansIndices[0]]; // Assuming spansIndices[0] is valid
         if (firstSpanOfFamily) { // Ensure the span exists
           const gap = Math.min(
-            Math.abs(candidateFamily.startTimestamp - currentSpan.startTimestamp),
-            Math.abs(candidateFamily.endTimestamp - currentSpan.endTimestamp),
-            Math.abs(firstSpanOfFamily.startTimestamp - currentSpan.startTimestamp) // Gap to the first span of the orphan family
+            Math.abs(resolveTimestamp(candidateFamily.startTimestamp, candidateFamily.isStartDefinite, true) - resolveTimestamp(currentSpan.startTimestamp, currentSpan.isStartDefinite, true)),
+            Math.abs(resolveTimestamp(candidateFamily.endTimestamp, candidateFamily.isEndDefinite, false) - resolveTimestamp(currentSpan.endTimestamp, currentSpan.isEndDefinite, false)),
+            Math.abs(resolveTimestamp(firstSpanOfFamily.startTimestamp, firstSpanOfFamily.isStartDefinite, true) - resolveTimestamp(currentSpan.startTimestamp, currentSpan.isStartDefinite, true)) // Gap to the first span of the orphan family
           );
           potentialIndirects.push({ familyIndex: candidateFamilyIndex, gap });
         }
@@ -298,36 +396,38 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
   benchmarkTimings.step5_linkIndirectChildrenToSpans = performance.now() - startTime;
   startTime = performance.now();
 
-  // 6. Create Clusters
-  let totalRootFamilySortingTimeForStep6 = 0;
-  const timelineClusters: Cluster[] = Object.entries(tracesByFileAndParentAndTrace).map(([filepath, tracesByParent]) => {
-    const currentClusterRootIndices: number[] = [];
-    Object.keys(tracesByParent).forEach(parentId => {
-      if (parentId.startsWith("orphan-")) {
-        const familyIndex = familyMapByParentId[parentId];
-        if (familyIndex !== undefined) {
-          // Check if this family truly belongs to this filepath (first span's filepath)
-          const family = allFamilies[familyIndex];
-          if (family.spansIndices.length > 0) {
-            const firstSpanOfFamily = allSpans[family.spansIndices[0]];
-            if (firstSpanOfFamily.position.filepath === filepath) {
-              if (!currentClusterRootIndices.includes(familyIndex)) { // Avoid duplicates if a parentId could somehow be processed twice for roots
-                currentClusterRootIndices.push(familyIndex);
-              }
-            }
-          }
-        }
-      }
-    });
-    return {
-      label: getRelativePath(filepath, workspaceRoots),
-      rootFamilyIndices: currentClusterRootIndices, // Will be sorted later
-    };
+  // 6. Create Clusters by finding root families (those whose parent span doesn't exist)
+  const rootFamilyIndices: number[] = [];
+  allFamilies.forEach((family, index) => {
+    // A family is a root if its parent span does not exist in the set of all spans.
+    if (spanMapByTraceId[family.parentId] === undefined) {
+      rootFamilyIndices.push(index);
+    }
   });
+
+  const clustersByFilepath: Record<string, Cluster> = {};
+  rootFamilyIndices.forEach(rootFamilyIndex => {
+    const rootFamily = allFamilies[rootFamilyIndex];
+    if (rootFamily.spansIndices.length > 0) {
+      const firstSpan = allSpans[rootFamily.spansIndices[0]];
+      const filepath = firstSpan.position.filepath;
+
+      if (!clustersByFilepath[filepath]) {
+        clustersByFilepath[filepath] = {
+          label: getRelativePath(filepath, workspaceRoots),
+          rootFamilyIndices: [],
+        };
+      }
+      clustersByFilepath[filepath].rootFamilyIndices.push(rootFamilyIndex);
+    }
+  });
+
+  const timelineClusters = Object.values(clustersByFilepath);
   benchmarkTimings.step6_createClustersInitial = performance.now() - startTime;
   startTime = performance.now(); // Reset for sorting part
 
   // Sort root families in each cluster by encompassing score
+  let totalRootFamilySortingTimeForStep6 = 0;
   timelineClusters.forEach(cluster => {
     const scoreCalcStartTime = performance.now();
     const scoredRootFamilies = cluster.rootFamilyIndices.map(rootFamilyIndex => {
@@ -335,27 +435,28 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
       const score = calculateFamilyEncompassingScore(rootFamilyIndex, allFamilies, allSpans, visitedForThisRoot);
       return { index: rootFamilyIndex, score };
     });
-    totalRootFamilySortingTimeForStep6 += (performance.now() - scoreCalcStartTime); // Accumulate time for scoring this cluster's roots
+    totalRootFamilySortingTimeForStep6 += (performance.now() - scoreCalcStartTime);
 
     scoredRootFamilies.sort((a, b) => b.score - a.score); // Sort descending by score
     cluster.rootFamilyIndices = scoredRootFamilies.map(item => item.index);
   });
   benchmarkTimings.step6_totalRootFamilySortingTime = totalRootFamilySortingTimeForStep6;
-  // Note: The actual sort time for `scoredRootFamilies.sort` is part of the loop but not separately timed here.
-  // The dominant factor is expected to be calculateFamilyEncompassingScore.
   startTime = performance.now();
 
   // 7. Final Timeline Assembly (Timestamps)
   const uniqueTimestamps: number[] = [];
-  const timestampToPosition: Record<number, number> = {};
+  const allTimestamps = new Set<number>();
   allSpans.forEach(span => {
-    [span.startTimestamp, span.endTimestamp].forEach(ts => {
+    allTimestamps.add(resolveTimestamp(span.startTimestamp, span.isStartDefinite, true));
+    allTimestamps.add(resolveTimestamp(span.endTimestamp, span.isEndDefinite, false));
+  });
+  allTimestamps.forEach(ts => {
       if (!uniqueTimestamps.includes(ts)) {
         uniqueTimestamps.push(ts);
       }
     });
-  });
   uniqueTimestamps.sort((a, b) => a - b);
+  const timestampToPosition: Record<number, number> = {};
   uniqueTimestamps.forEach((timestamp, index) => {
     timestampToPosition[timestamp] = index;
   });
@@ -410,10 +511,10 @@ const TimelineCluster: React.FC<{ timeline: Timeline, cluster: Cluster }> = ({ t
           <div className="w-full h-1" ref={ref}></div> {/* Element to measure width, ensure it's part of layout flow */}
           {cluster.rootFamilyIndices.map((familyIndex) => {
             const family = timeline.families[familyIndex];
-            if (!family) return null; // Should not happen
+            if (!family) { return null; } // Should not happen
             
             const spansInFamily = family.spansIndices.map(idx => timeline.spans[idx]).sort((a, b) => a.startTimestamp - b.startTimestamp);
-            if (spansInFamily.length === 0) return null;
+            if (spansInFamily.length === 0) { return null; }
 
             return (
               <div key={`family-${family.label}-${familyIndex}`} className='relative h-14 w-full my-1'>
@@ -461,7 +562,7 @@ const VaultTimeline: React.FC<VaultTimelineProps> = ({ }) => {
       const newTimeline = lightTracesToTimeline(lightTraces, workspaceRoots);
       setTimeline(newTimeline);
     } else if (lightTraces.length === 0) {
-        setTimeline(null); // Clear timeline if no traces
+      setTimeline(null); // Clear timeline if no traces
     }
   }, [lightTraces, workspaceRoots]);
 
