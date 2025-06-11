@@ -10,6 +10,7 @@ import { cn } from '../lib/utils';
 
 type Timeline = {
   clusters: Cluster[];
+  spans: Span[]; // all spans across the entire timeline
   uniqueTimestamps: number[];
   interTimestamps: number[];
   timestampToPosition: Record<number, number>;
@@ -17,13 +18,12 @@ type Timeline = {
 
 type Cluster = {
   label: string;
-  families: Family[]
-  subclusters: Cluster[];
+  families: Family[];
 }
 
 type Family = {
   label: string;
-  spans: Span[]
+  spansIndices: number[]; // indices into Timeline.spans
 }
 
 type Span = {
@@ -37,6 +37,8 @@ type Span = {
 }
 
 function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string[]): Timeline {
+  const allSpans: Span[] = [];
+
   const tracesByFile = lightTraces.reduce((acc, trace) => {
     if (!acc[trace.start_pos.filepath]) {
       acc[trace.start_pos.filepath] = [];
@@ -47,7 +49,7 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
 
   const tracesByFileByFamily = Object.entries(tracesByFile).reduce((acc, [filepath, traces]) => {
     const families = traces.reduce((acc, trace) => {
-      let parent_id = trace.parent_id;
+      const parent_id = trace.parent_id;
       if (!acc[parent_id]) {
         acc[parent_id] = [];
       }
@@ -72,41 +74,45 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
     }, {} as Record<string, Record<string, LightTrace[]>>);
     acc[filepath] = familyEntries;
     return acc;
-
-
   }, {} as Record<string, Record<string, Record<string, LightTrace[]>>>);
 
   const clusters = Object.entries(tracesByFileByFamilyByTraceId).reduce((acc, [filepath, families]) => {
+    const clusterFamilies: Family[] = Object.entries(families).map(([familyId, spans]) => {
+      const spanIndices: number[] = [];
+      Object.entries(spans).forEach(([traceId, traces]) => {
+        traces.sort((a, b) => a.timestamp - b.timestamp);
+        const spanObj: Span = {
+          isError: traces.some(trace => trace.trace_type === 'Error'),
+          position: traces[0].start_pos,
+          endLine: traces[0].end_pos.line,
+          endColumn: traces[0].end_pos.column,
+          traceId: traceId,
+          startTimestamp: traces[0].timestamp,
+          endTimestamp: traces[traces.length - 1].timestamp
+        };
+        const idx = allSpans.push(spanObj) - 1; // push returns new length
+        spanIndices.push(idx);
+      });
+      return { label: familyId, spansIndices: spanIndices } as Family;
+    });
+
     const cluster: Cluster = {
       label: getRelativePath(filepath, workspaceRoots),
-      families: Object.entries(families).map(([familyId, spans]) => ({
-        label: familyId,
-        spans: Object.entries(spans).map(([traceId, traces]) => {
-          traces.sort((a, b) => a.timestamp - b.timestamp);
-
-          return {
-            isError: traces.some(trace => trace.trace_type === 'Error'),
-            position: traces[0].start_pos,
-            endLine: traces[0].end_pos.line,
-            endColumn: traces[0].end_pos.column,
-            traceId: traceId,
-            startTimestamp: traces[0].timestamp,
-            endTimestamp: traces[traces.length - 1].timestamp
-          };
-        })
-      })),
-      subclusters: []
+      families: clusterFamilies
     };
+
     acc.push(cluster);
     return acc;
   }, [] as Cluster[]);
 
   const uniqueTimestamps: number[] = [];
   const timestampToPosition: Record<number, number> = {};
-  clusters.flatMap(cluster => cluster.families.flatMap(family => family.spans.flatMap(span => [span.startTimestamp, span.endTimestamp]))).forEach(timestamp => {
-    if (!uniqueTimestamps.includes(timestamp)) {
-      uniqueTimestamps.push(timestamp);
-    }
+  allSpans.forEach(span => {
+    [span.startTimestamp, span.endTimestamp].forEach(ts => {
+      if (!uniqueTimestamps.includes(ts)) {
+        uniqueTimestamps.push(ts);
+      }
+    });
   });
   uniqueTimestamps.sort((a, b) => a - b);
   uniqueTimestamps.forEach((timestamp, index) => {
@@ -120,6 +126,7 @@ function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string
 
   return {
     clusters: clusters,
+    spans: allSpans,
     uniqueTimestamps: uniqueTimestamps,
     interTimestamps: interTimestamps,
     timestampToPosition: timestampToPosition
@@ -135,7 +142,6 @@ const TimelineCluster: React.FC<{ timeline: Timeline, cluster: Cluster }> = ({ t
   useEffect(() => {
     if (ref.current) {
       const { width } = ref.current.getBoundingClientRect();
-      console.log('Width:', width);
       setWidth(width);
     }
   }, [ref.current]);
@@ -148,41 +154,41 @@ const TimelineCluster: React.FC<{ timeline: Timeline, cluster: Cluster }> = ({ t
       {clusterExpanded && (
         <div className="flex flex-col w-full px-3">
           <div className="w-full" ref={ref}></div>
-          {cluster.families.map((family, index) => (
-            <div key={index} className='relative h-14 w-full'>
-              <div 
-                className='absolute top-1/2 -translate-y-1/2 h-6 rounded-2xl bg-[var(--info-subtle)] w-fit'
-                style={{
-                  left: `${timeline.timestampToPosition[family.spans[0].startTimestamp] / timeline.uniqueTimestamps.length * width}px`,
-                  width: `${(timeline.timestampToPosition[family.spans[family.spans.length - 1].endTimestamp] - timeline.timestampToPosition[family.spans[0].startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
-                }}
-              >
-                {family.spans.sort((a, b) => a.startTimestamp - b.startTimestamp).map((span, index, array) => (
-                  <div 
-                    className={cn(
-                      'absolute bg-[var(--info-muted)] h-full cursor-pointer hover:bg-[var(--info-base)] hover:border-2 hover:border-[var(--bg-base)] hover:outline-2 hover:outline-[var(--info-muted)] hover:rounded-2xl',
-                      index === 0 && 'rounded-l-2xl',
-                      index === array.length - 1 && 'rounded-r-2xl'
-                    )}
-                    style={{
-                      left: `${(timeline.timestampToPosition[span.startTimestamp] / timeline.uniqueTimestamps.length * width) - (timeline.timestampToPosition[family.spans[0].startTimestamp] / timeline.uniqueTimestamps.length * width)}px`,
-                      width: `${(timeline.timestampToPosition[span.endTimestamp] - timeline.timestampToPosition[span.startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
-                    }}
-                    key={index}
-                    onMouseEnter={() => {
-                      requestHighlight(span.position.filepath, span.position.line, span.position.column, span.endLine, span.endColumn);
-                    }}
-                    // style={{
-                    //   left: `${timeline.timestampToPosition[span.startTimestamp] / timeline.uniqueTimestamps.length * width}px`,
-                    //   width: `${(timeline.timestampToPosition[span.endTimestamp] - timeline.timestampToPosition[span.startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
-                    // }}
-                  >
-                    {}
-                  </div>
-                ))}
+          {cluster.families.map((family, index) => {
+            const spans = family.spansIndices.map(idx => timeline.spans[idx]).sort((a, b) => a.startTimestamp - b.startTimestamp);
+            if (spans.length === 0) {return null;}
+            const firstSpan = spans[0];
+            const lastSpan = spans[spans.length - 1];
+            return (
+              <div key={index} className='relative h-14 w-full'>
+                <div
+                  className='absolute top-1/2 -translate-y-1/2 h-6 rounded-2xl bg-[var(--info-subtle)] w-fit'
+                  style={{
+                    left: `${timeline.timestampToPosition[firstSpan.startTimestamp] / timeline.uniqueTimestamps.length * width}px`,
+                    width: `${(timeline.timestampToPosition[lastSpan.endTimestamp] - timeline.timestampToPosition[firstSpan.startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
+                  }}
+                >
+                  {spans.map((span, spanIdx, array) => (
+                    <div
+                      className={cn(
+                        'absolute bg-[var(--info-muted)] h-full cursor-pointer hover:bg-[var(--info-base)] hover:border-2 hover:border-[var(--bg-base)] hover:outline-2 hover:outline-[var(--info-muted)] hover:rounded-2xl',
+                        spanIdx === 0 && 'rounded-l-2xl',
+                        spanIdx === array.length - 1 && 'rounded-r-2xl'
+                      )}
+                      style={{
+                        left: `${(timeline.timestampToPosition[span.startTimestamp] / timeline.uniqueTimestamps.length * width) - (timeline.timestampToPosition[firstSpan.startTimestamp] / timeline.uniqueTimestamps.length * width)}px`,
+                        width: `${(timeline.timestampToPosition[span.endTimestamp] - timeline.timestampToPosition[span.startTimestamp] + 1) / timeline.uniqueTimestamps.length * width}px`
+                      }}
+                      key={spanIdx}
+                      onMouseEnter={() => {
+                        requestHighlight(span.position.filepath, span.position.line, span.position.column, span.endLine, span.endColumn);
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

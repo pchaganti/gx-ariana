@@ -33,8 +33,8 @@ export class ArianaPanel extends Panel {
   onMessageFromWebview(message: any): void {
     switch (message.command) {
       case 'showTimelinePanel':
-        if (message.vaultId && this._timelinePanel) {
-          console.log(`ArianaPanel: Received showTimelinePanel for vault ${message.vaultId}`);
+        if (this._timelinePanel) {
+          console.log(`ArianaPanel: Received showTimelinePanel`);
           try {
             this._timelinePanel.focus();
           } catch (error) {
@@ -44,8 +44,6 @@ export class ArianaPanel extends Panel {
         } else if (!this._timelinePanel) {
           console.warn('ArianaPanel: Bottom panel controller not available for showTimelinePanel.');
           vscode.window.showErrorMessage('Vault Detail Panel feature is not initialized.');
-        } else if (!message.vaultId) {
-          console.warn('ArianaPanel: showTimelinePanel message received without vaultId.');
         }
         break;
     }
