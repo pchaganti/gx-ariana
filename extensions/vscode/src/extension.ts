@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { formatUriForDB } from './urilHelpers';
 import { VaultsManager } from './vaults/VaultsManager';
 import { highlightRegions, lightTracesToRegions } from './highlighting/regions';
 import { clearDecorations } from './highlighting/decorations';
@@ -7,6 +6,7 @@ import { ArianaPanel } from './panels/ArianaPanel';
 import { TimelinePanel } from './panels/TimelinePanel';
 import { HighlightingToggle } from './highlighting/HighlightingToggle';
 import { FocusedVaultManager } from './vaults/FocusedVaultManager';
+import { formatUriForDB } from './utilities/pathUtils';
 
 class Extension {
     private context: vscode.ExtensionContext;

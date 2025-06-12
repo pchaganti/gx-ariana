@@ -4,8 +4,8 @@ import { FocusedVaultManager } from '../vaults/FocusedVaultManager';
 import { StoredVaultData, VaultsManager } from '../vaults/VaultsManager';
 import { HighlightingToggle } from '../highlighting/HighlightingToggle';
 import { LightTrace } from '../bindings/LightTrace';
-import { formatUriForDB } from '../urilHelpers'; // Import formatUriForDB
 import path = require('path');
+import { formatUriForDB } from '../utilities/pathUtils';
 
 export abstract class Panel implements vscode.WebviewViewProvider {
     private _workspaceRoots: string[] = [];
