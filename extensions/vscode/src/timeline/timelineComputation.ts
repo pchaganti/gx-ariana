@@ -1,5 +1,40 @@
 import { LightTrace } from "../bindings/LightTrace";
-import { Family, Span, SpanPattern, Timeline } from "./timelineTypes";
+import { Cluster, Family, Span, SpanPattern, Timeline } from "./timelineTypes";
+import * as path from 'path';
+
+function getRelativePath(absolutePath: string, workspaceRoots: string[]): string {
+  if (!absolutePath) { return 'unknown_file'; }
+  // Normalize path to use forward slashes, important for cross-platform consistency and comparisons
+  const normalizedPath = absolutePath.replace(/\\/g, '/');
+  let bestMatchRoot = '';
+  let relativePath = '';
+
+  for (const root of workspaceRoots) {
+    // Normalize root to use forward slashes
+    const normalizedRoot = root.replace(/\\/g, '/');
+    // Ensure root ends with a slash for correct prefix checking, unless it's just a drive letter like 'C:'
+    const preparedRoot = normalizedRoot.endsWith('/') || normalizedRoot.endsWith(':') ? normalizedRoot : normalizedRoot + '/';
+    const preparedPath = normalizedPath.startsWith(preparedRoot) ? normalizedPath : (normalizedPath.startsWith('/') ? normalizedPath : '/' + normalizedPath) ;
+
+    if (preparedPath.startsWith(preparedRoot)) {
+      if (preparedRoot.length > bestMatchRoot.length) {
+        bestMatchRoot = preparedRoot;
+        const tempRelativePath = preparedPath.substring(preparedRoot.length);
+        // Remove leading slash if present after substring
+        relativePath = tempRelativePath.startsWith('/') ? tempRelativePath.substring(1) : tempRelativePath;
+      }
+    }
+  }
+
+  // If no root matched, or if the path is already effectively relative (e.g. just a filename), 
+  // return the basename or the shortest possible unique representation.
+  // For now, if no root matched, return the original path's basename to keep it short.
+  if (!bestMatchRoot) {
+    return path.basename(normalizedPath);
+  }
+
+  return relativePath;
+}
 
 function sequencesEqual(seq1: number[], seq2: number[]): boolean {
     if (seq1.length !== seq2.length) { return false; }
@@ -89,7 +124,7 @@ function calculateFamilyEncompassingScore(
     return score;
 }
 
-export function lightTracesToTimeline(lightTraces: LightTrace[]): { timeline: Timeline; benchmarks: Record<string, number> } {
+export function lightTracesToTimeline(lightTraces: LightTrace[], workspaceRoots: string[]): { timeline: Timeline; benchmarks: Record<string, number> } {
     const benchmarks: Record<string, number> = {};
     let stageStart = performance.now();
     const allSpans: Span[] = [];
@@ -283,22 +318,47 @@ export function lightTracesToTimeline(lightTraces: LightTrace[]): { timeline: Ti
     });
     benchmarks.linkIndirectChildren = performance.now() - stageStart;
 
-    // 6. Generate Clusters
+    // 6. Build clusters from root families, grouped by file path
     stageStart = performance.now();
-    const rootFamilies = allFamilies.filter(f => f.parentId.startsWith('orphan-'));
-    const rootFamilyIndices = rootFamilies.map(f => allFamilies.indexOf(f));
-    const scoreMemo = new Map<number, number>();
-    rootFamilyIndices.sort((aIndex, bIndex) => {
-        const scoreA = calculateFamilyEncompassingScore(aIndex, allFamilies, allSpans, new Set(), scoreMemo);
-        const scoreB = calculateFamilyEncompassingScore(bIndex, allFamilies, allSpans, new Set(), scoreMemo);
-        return scoreB - scoreA; // Sort descending by score
-    });
-    benchmarks.generateClusters = performance.now() - stageStart;
+    const clustersMap: Map<string, { rootFamilyIndices: number[], score: number }> = new Map();
 
-    const clusters = [{
-        label: 'All Traces',
-        rootFamilyIndices: rootFamilyIndices,
-    }];
+    allFamilies.forEach((family, familyIndex) => {
+        const isRootFamily = !allSpans.some(span => 
+            span.childrenFamilyIndices.includes(familyIndex) || 
+            span.indirectChildrenFamilyIndices.includes(familyIndex)
+        );
+
+        if (isRootFamily) {
+            const firstSpanIndex = family.spansIndices[0];
+            if (firstSpanIndex === undefined) {
+                console.warn(`TimelineComputation: Root family ${family.label} (index ${familyIndex}) has no spans, skipping for clustering.`);
+                return; 
+            }
+            const firstSpan = allSpans[firstSpanIndex];
+            if (!firstSpan || !firstSpan.position || !firstSpan.position.filepath) {
+                console.warn(`TimelineComputation: First span of root family ${family.label} (index ${familyIndex}) has no position/filepath, skipping for clustering.`);
+                return; 
+            }
+
+            const relativeFilePath = getRelativePath(firstSpan.position.filepath, workspaceRoots);
+
+            if (!clustersMap.has(relativeFilePath)) {
+                clustersMap.set(relativeFilePath, { rootFamilyIndices: [], score: 0 });
+            }
+            const clusterEntry = clustersMap.get(relativeFilePath)!;
+            clusterEntry.rootFamilyIndices.push(familyIndex);
+            clusterEntry.score += calculateFamilyEncompassingScore(familyIndex, allFamilies, allSpans, new Set(), new Map());
+        }
+    });
+
+    const clusters: Cluster[] = Array.from(clustersMap.entries()).map(([label, data]) => ({
+        label,
+        rootFamilyIndices: data.rootFamilyIndices,
+        score: data.score,
+    }));
+
+    clusters.sort((a, b) => a.label.localeCompare(b.label));
+    benchmarks.buildClusters = performance.now() - stageStart;
 
     // 7. Final timestamp assembly
     stageStart = performance.now();

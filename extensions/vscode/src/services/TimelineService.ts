@@ -1,8 +1,9 @@
 import { Worker } from 'worker_threads';
 import * as path from 'path';
-import { Webview } from 'vscode';
+import { Webview, workspace } from 'vscode';
 import { LightTrace } from '../bindings/LightTrace';
 import { Timeline } from '../timeline/timelineTypes';
+import { formatUriForDB } from '../urilHelpers';
 
 export class TimelineService {
   private worker: Worker;
@@ -55,7 +56,11 @@ export class TimelineService {
       return;
     }
     this.isComputing = true;
-    this.worker.postMessage(this.accumulatedTraces);
+    const workspaceFolders = workspace.workspaceFolders;
+    const workspaceRoots = workspaceFolders
+      ? workspaceFolders.map(folder => formatUriForDB(folder.uri))
+      : [];
+    this.worker.postMessage({ traces: this.accumulatedTraces, workspaceRoots });
   }
 
   public sendTimelineToWebview() {

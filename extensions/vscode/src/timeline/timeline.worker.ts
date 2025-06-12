@@ -6,9 +6,10 @@ if (!parentPort) {
   throw new Error('This script must be run as a worker thread.');
 }
 
-parentPort.on('message', (traces: LightTrace[]) => {
+parentPort.on('message', (message: { traces: LightTrace[], workspaceRoots: string[] }) => {
   try {
-    const { timeline, benchmarks } = lightTracesToTimeline(traces);
+    const { traces, workspaceRoots } = message;
+    const { timeline, benchmarks } = lightTracesToTimeline(traces, workspaceRoots);
     parentPort!.postMessage({ type: 'benchmark', benchmarks });
     parentPort!.postMessage({ type: 'success', timeline });
   } catch (error) {
