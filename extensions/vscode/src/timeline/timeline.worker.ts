@@ -1,7 +1,6 @@
 import { parentPort } from 'worker_threads';
 import { LightTrace } from '../bindings/LightTrace';
 import { lightTracesToTimeline } from './timelineComputation';
-import { Timeline } from './timelineTypes';
 
 if (!parentPort) {
   throw new Error('This script must be run as a worker thread.');

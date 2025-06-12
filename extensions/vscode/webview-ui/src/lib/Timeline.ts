@@ -1,4 +1,4 @@
-import { Position } from './Position';
+import { Position } from '../bindings/Position';
 
 export type Timeline = {
   clusters: Cluster[];

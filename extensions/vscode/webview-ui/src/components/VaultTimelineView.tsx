@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '../lib/utils';
-import { getRelativePath } from '../utils/pathUtils';
 import { useFocusedVault } from '../hooks/useFocusedVault';
 import { requestHighlight } from '../lib/highlight';
-import { Timeline, Cluster, Family, Span } from '../bindings/Timeline';
+import { Timeline, Cluster, Family, Span } from '../lib/Timeline';
 import { useSharedState } from '../hooks/shared/useSharedState';
 
 const SpanComponent: React.FC<{ 

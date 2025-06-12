@@ -1,4 +1,3 @@
-import { LightTrace } from '../bindings/LightTrace';
 import { Position } from '../bindings/Position';
 
 export type Timeline = {
