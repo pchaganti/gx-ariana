@@ -1,40 +1,6 @@
 import { LightTrace } from "../bindings/LightTrace";
 import { Cluster, Family, Span, SpanPattern, Timeline } from "./timelineTypes";
-import * as path from 'path';
-
-function getRelativePath(absolutePath: string, workspaceRoots: string[]): string {
-  if (!absolutePath) { return 'unknown_file'; }
-  // Normalize path to use forward slashes, important for cross-platform consistency and comparisons
-  const normalizedPath = absolutePath.replace(/\\/g, '/');
-  let bestMatchRoot = '';
-  let relativePath = '';
-
-  for (const root of workspaceRoots) {
-    // Normalize root to use forward slashes
-    const normalizedRoot = root.replace(/\\/g, '/');
-    // Ensure root ends with a slash for correct prefix checking, unless it's just a drive letter like 'C:'
-    const preparedRoot = normalizedRoot.endsWith('/') || normalizedRoot.endsWith(':') ? normalizedRoot : normalizedRoot + '/';
-    const preparedPath = normalizedPath.startsWith(preparedRoot) ? normalizedPath : (normalizedPath.startsWith('/') ? normalizedPath : '/' + normalizedPath) ;
-
-    if (preparedPath.startsWith(preparedRoot)) {
-      if (preparedRoot.length > bestMatchRoot.length) {
-        bestMatchRoot = preparedRoot;
-        const tempRelativePath = preparedPath.substring(preparedRoot.length);
-        // Remove leading slash if present after substring
-        relativePath = tempRelativePath.startsWith('/') ? tempRelativePath.substring(1) : tempRelativePath;
-      }
-    }
-  }
-
-  // If no root matched, or if the path is already effectively relative (e.g. just a filename), 
-  // return the basename or the shortest possible unique representation.
-  // For now, if no root matched, return the original path's basename to keep it short.
-  if (!bestMatchRoot) {
-    return path.basename(normalizedPath);
-  }
-
-  return relativePath;
-}
+import { getRelativePath } from "../utilities/pathUtils";
 
 function sequencesEqual(seq1: number[], seq2: number[]): boolean {
     if (seq1.length !== seq2.length) { return false; }

@@ -1,3 +1,5 @@
+import { type Uri } from 'vscode';
+
 /**
  * Normalizes a file path by replacing backslashes with forward slashes.
  * This is a simple string replacement suitable for the webview environment.
@@ -58,4 +60,19 @@ export function getRelativePath(
     }
 
     return absolutePath; // No matching root found
+}
+
+/**
+ * Formats a VS Code Uri for database storage or consistent path comparisons
+ * by ensuring the drive letter (if present) is uppercase.
+ * @param uri The VS Code Uri object.
+ * @returns The formatted file system path string.
+ */
+export function formatUriForDB(uri: Uri): string {
+    let uriPath = uri.fsPath;
+    // Ensure drive letter is capitalized for Windows paths for consistency
+    if (uriPath.length > 1 && uriPath[1] === ':' && uriPath[0] >= 'a' && uriPath[0] <= 'z') {
+        uriPath = uriPath[0].toUpperCase() + uriPath.slice(1);
+    }
+    return uriPath;
 }

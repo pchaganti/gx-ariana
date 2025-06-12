@@ -3,7 +3,7 @@ import * as path from 'path';
 import { Webview, workspace } from 'vscode';
 import { LightTrace } from '../bindings/LightTrace';
 import { Timeline } from '../timeline/timelineTypes';
-import { formatUriForDB } from '../urilHelpers';
+import { formatUriForDB } from '../utilities/pathUtils';
 
 export class TimelineService {
   private worker: Worker;
