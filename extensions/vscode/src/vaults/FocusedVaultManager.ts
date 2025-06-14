@@ -1,4 +1,5 @@
 import { LightTrace } from "../bindings/LightTrace";
+import { ConstructionTraceTree } from "../bindings/ConstructionTraceTree";
 import { WebSocket, MessageEvent as WsMessageEvent, ErrorEvent as WsErrorEvent, CloseEvent as WsCloseEvent } from "ws";
 import { StoredVaultData, VaultsManager } from "./VaultsManager";
 import * as vscode from 'vscode';
@@ -20,7 +21,11 @@ export class FocusedVaultManager {
     }
 
     public getFocusedVaultLightTraces(): LightTrace[] {
-        return this.focusedVault?.tracesData ?? [];
+        return this.focusedVault?.constructionTraceTree?.traces.items ?? [];
+    }
+
+    public getFocusedVaultConstructionTraceTree(): ConstructionTraceTree | null {
+        return this.focusedVault?.constructionTraceTree ?? null;
     }
 
     public async getFocusedVaultFullTraces(traceIds: string[]): Promise<Trace[] | null> {
@@ -127,7 +132,7 @@ export class FocusedVaultManager {
 
 class FocusedVault {
     public vaultData: StoredVaultData;
-    public tracesData: LightTrace[] = [];
+    public constructionTraceTree: ConstructionTraceTree | null = null;
     public wsConnection: WebSocket | null = null;
     private onLightTracesBatch: (traces: LightTrace[]) => void;
     private onCloseCallback: () => void;
@@ -180,9 +185,10 @@ class FocusedVault {
             try {
                 // Assuming data is string. If binary, need Buffer.from(data).toString()
                 const messageString = (typeof data === 'string') ? data : Buffer.from(data as ArrayBuffer).toString('utf-8');
-                const parsedLightTraces: LightTrace | LightTrace[] = JSON.parse(messageString);
+                const tree: ConstructionTraceTree = JSON.parse(messageString);
+                console.log('tree', tree);
                 
-                const newLightTraces: LightTrace[] = Array.isArray(parsedLightTraces) ? parsedLightTraces : [parsedLightTraces];
+                const newLightTraces: LightTrace[] = tree.traces.items;
 
                 console.log('newLightTraces', newLightTraces);
 
@@ -191,24 +197,15 @@ class FocusedVault {
                     return;
                 }
 
-                // Fetch full traces based on LightTrace IDs
-                
-                // const traceIds = newLightTraces.map(lt => lt.trace_id);
-                // const fullNewTraces = await fetchFullTraces(this.vaultData.secret_key, traceIds);
-
-                // if (!fullNewTraces || fullNewTraces.length === 0) {
-                //     console.log(`Failed to fetch full traces or no full traces returned for ${vaultSecretKey}.`);
-                //     return;
-                // }
+                tree.traces.items = [...this.constructionTraceTree?.traces.items ?? [], ...newLightTraces];
+                this.constructionTraceTree = tree;
 
                 if (isFirstMessageBatch) {
                     console.log(`Received ${newLightTraces.length} initial full traces for ${vaultSecretKey} (from ${newLightTraces.length} light traces)`);
-                    this.tracesData = newLightTraces;
                     this.sendTracesImmediately(newLightTraces); 
                     isFirstMessageBatch = false;
                 } else {
                     console.log(`Received ${newLightTraces.length} new full traces for ${vaultSecretKey} (from ${newLightTraces.length} light traces)`);
-                    this.tracesData.push(...newLightTraces);
                     this.queueLightTracesForSending(newLightTraces);
                 }
             } catch (error) {
@@ -238,7 +235,7 @@ class FocusedVault {
         if (!this.throttleTimeout) {
             this.throttleTimeout = setTimeout(() => {
                 this.sendPendingTraces();
-                this.throttleTimeout = null; // Clear timeout after execution
+                this.throttleTimeout = null;
             }, this.throttleInterval);
         }
     }
@@ -246,7 +243,7 @@ class FocusedVault {
     private sendPendingTraces(): void {
         if (this.pendingTraces.length > 0) {
             this.onLightTracesBatch([...this.pendingTraces]);
-            this.pendingTraces = []; // Clear the queue
+            this.pendingTraces = [];
         }
     }
 

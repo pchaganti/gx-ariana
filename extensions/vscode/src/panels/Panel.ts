@@ -6,6 +6,7 @@ import { HighlightingToggle } from '../highlighting/HighlightingToggle';
 import { LightTrace } from '../bindings/LightTrace';
 import path = require('path');
 import { formatUriForDB } from '../utilities/pathUtils';
+import { ConstructionTraceTree } from '../bindings/ConstructionTraceTree';
 
 export abstract class Panel implements vscode.WebviewViewProvider {
     private _workspaceRoots: string[] = [];
@@ -48,6 +49,7 @@ export abstract class Panel implements vscode.WebviewViewProvider {
         });
         this._focusedVaultManager.subscribeToLightTracesBatch((_) => {
             this.sendLightTracesToWebview(this._focusedVaultManager.getFocusedVaultLightTraces());
+            this.sendConstructionTraceTreeToWebview(this._focusedVaultManager.getFocusedVaultConstructionTraceTree());
         });
         this._highlightToggle.subscribe(() => this.sendHighlightingToggleState());
 
@@ -227,6 +229,12 @@ export abstract class Panel implements vscode.WebviewViewProvider {
                     this.sendLightTracesToWebview(traces);
                 }
                 break;
+            case 'getConstructionTree':
+                {
+                    const constructionTree = this._focusedVaultManager.getFocusedVaultConstructionTraceTree();
+                    this.sendConstructionTraceTreeToWebview(constructionTree);
+                }
+                break;
             case 'getFocusedVault':
                 {
                     const focusedVaultInstance = this._focusedVaultManager.getFocusedVault();
@@ -389,6 +397,14 @@ export abstract class Panel implements vscode.WebviewViewProvider {
             this._view?.webview.postMessage({ type: 'lightTraces', value: traces });
         } catch (error) {
             console.error('Error sending traces to webview:', error);
+        }
+    }
+
+    protected sendConstructionTraceTreeToWebview(constructionTree: ConstructionTraceTree | null) {
+        try {
+            this._view?.webview.postMessage({ type: 'constructionTree', value: constructionTree });
+        } catch (error) {
+            console.error('Error sending construction tree to webview:', error);
         }
     }
 

@@ -46,7 +46,7 @@ async function main() {
     await buildWebviewUI();
 
     const ctx = await esbuild.context({
-        entryPoints: ['src/extension.ts', 'src/timeline/timeline.worker.ts'],
+        entryPoints: ['src/extension.ts'],
         bundle: true,
         format: 'cjs',
         minify: production,
